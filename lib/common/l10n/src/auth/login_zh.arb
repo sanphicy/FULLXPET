@@ -1,0 +1,19 @@
+{
+  "login": "登录",
+  "register": "注册",
+  "emailLabel": "邮箱",
+  "emailHint": "请输入您的邮箱",
+  "passwordHint": "请输入您的密码",
+  "forgotPassword": "忘记密码",
+  "agreePrefix": "我已阅读并同意 ",
+  "userAgreement": "用户协议",
+  "privacyPolicy": "隐私政策",
+  "agreeTermsPrompt": "请先勾选同意用户协议与隐私政策",
+  "confirmPassword": "确认密码",
+  "enterNewPassword": "请输入新密码",
+  "sendCode": "发送验证码",
+  "enterCode": "请输入验证码",
+  "submitAndRegister": "提交并注册",
+  "emptyAccountOrPassword": "账号或密码不能为空",
+  "invalidAccountFormat": "请输入合法的邮箱或手机号"
+}

@@ -1,0 +1,16 @@
+{
+  "wifiConfigTitle": "配置设备网络",
+  "selectWifiTitle": "选择设备的 Wi-Fi",
+  "wifiConfigDesc": "请选择 2.4GHz 的 Wi-Fi 网络并输入密码，暂不支持 5G 网络。",
+  "wifiPasswordHint": "请输入 Wi-Fi 密码",
+  "searchingLabel": "搜索设备",
+  "startConfig": "开始配网",
+  "configProgress": "正在配网中...",
+  "configStep1": "正在向设备下发网络信息",
+  "configStep2": "设备正在连接路由器",
+  "configStep3": "正在向云端注册设备",
+  "configSuccess": "设备添加成功！",
+  "autoSearching": "正在自动搜索可用设备...",
+  "noDeviceFoundDesc": "当前未连接设备，请点击下方进行连接。",
+  "searchingAvailable": "正在搜索可用设备"
+}

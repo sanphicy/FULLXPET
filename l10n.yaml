@@ -1,0 +1,8 @@
+# ARB 文件存放目录
+arb-dir: lib/common/l10n
+# 基准语言模板文件（源语言）
+template-arb-file: app_zh.arb
+# 生成的 Dart 本地化文件名
+output-localization-file: app_localizations.dart
+# 生成的本地化类名
+output-class: S
