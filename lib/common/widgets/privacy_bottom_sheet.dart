@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter/gestures.dart';
+import 'package:go_router/go_router.dart';
+import 'package:fullxpet/routes/app_router.dart';
 
 class PrivacyBottomSheet {
   /// 弹出全局统一的隐私合规确认底窗
@@ -22,16 +25,41 @@ class PrivacyBottomSheet {
                   style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold, color: const Color(0xFF333333)),
                 ),
                 SizedBox(height: 16.h),
-                // 补全授权提示语句，明确告知用户点击的后果
                 RichText(
                   text: TextSpan(
                     style: TextStyle(fontSize: 13.sp, color: const Color(0xFF666666), height: 1.6),
-                    children: const [
-                      TextSpan(text: '感谢您使用 FULLX PET！在您使用本应用前，请认真阅读并了解《用户协议》与《隐私政策》。我们非常重视您的个人信息和隐私保护。\n\n'),
+                    children: [
+                      const TextSpan(text: '欢迎来到 FULLX PET！\n\n在使用我们的服务前，请仔细阅读并同意'),
                       TextSpan(
-                        text: '点击“同意并继续”即表示您已阅读并同意上述全部协议。',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF333333)), // 稍微加深强调
+                        text: '《用户协议》',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            context.push(
+                              AppRoutes.webView,
+                              extra: {
+                                'title': '用户协议',
+                                'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
+                              },
+                            );
+                          },
                       ),
+                      const TextSpan(text: '和'),
+                      TextSpan(
+                        text: '《隐私政策》',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            context.push(
+                              AppRoutes.webView,
+                              extra: {
+                                'title': '隐私政策',
+                                'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
+                              },
+                            );
+                          },
+                      ),
+                      const TextSpan(text: '。我们将严格保护您的个人信息安全。'),
                     ],
                   ),
                 ),

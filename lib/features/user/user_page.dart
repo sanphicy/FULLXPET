@@ -92,9 +92,35 @@ class UserPage extends StatelessWidget {
                   children: [
                     // _buildListTile(Icons.language_outlined, const Color(0xFF7C8CEE), '语言设置'),
                     // _buildDivider(),
-                    _buildListTile(Icons.privacy_tip_outlined, const Color(0xFF917CEE), '隐私政策'),
+                    _buildListTile(
+                      Icons.privacy_tip_outlined,
+                      const Color(0xFF917CEE),
+                      '隐私政策',
+                      onTap: () {
+                        context.push(
+                          AppRoutes.webView,
+                          extra: {
+                            'title': '隐私政策',
+                            'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
+                          },
+                        );
+                      },
+                    ),
                     _buildDivider(),
-                    _buildListTile(Icons.description_outlined, const Color(0xFFEE7C8C), '用户协议'),
+                    _buildListTile(
+                      Icons.description_outlined,
+                      const Color(0xFFEE7C8C),
+                      '用户协议',
+                      onTap: () {
+                        context.push(
+                          AppRoutes.webView,
+                          extra: {
+                            'title': '用户协议',
+                            'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
+                          },
+                        );
+                      },
+                    ),
                     _buildDivider(),
                     _buildListTile(
                       Icons.info_outline,

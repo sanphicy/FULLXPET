@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/features/auth/auth_provider.dart';
 import 'package:fullxpet/common/widgets/privacy_bottom_sheet.dart';
+import 'package:flutter/gestures.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -591,11 +592,31 @@ class _RegisterPageState extends State<RegisterPage> {
                         TextSpan(
                           text: s.userAgreement,
                           style: TextStyle(color: _primaryPurple),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              context.push(
+                                AppRoutes.webView,
+                                extra: {
+                                  'title': s.userAgreement,
+                                  'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
+                                },
+                              );
+                            },
                         ),
                         TextSpan(text: s.andText),
                         TextSpan(
                           text: s.privacyPolicy,
                           style: TextStyle(color: _primaryPurple),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              context.push(
+                                AppRoutes.webView,
+                                extra: {
+                                  'title': s.privacyPolicy,
+                                  'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
+                                },
+                              );
+                            },
                         ),
                       ],
                     ),

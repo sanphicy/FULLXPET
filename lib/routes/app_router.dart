@@ -35,6 +35,9 @@ import 'package:fullxpet/features/user/personal_info_page.dart';
 import 'package:fullxpet/features/user/about_us_page.dart';
 import 'package:fullxpet/features/user/feedback_page.dart';
 
+//other
+import 'package:fullxpet/common/widgets/web_view_page.dart';
+
 class AppRoutes {
   static const splash = '/splash';
   static const welcome = '/welcome';
@@ -54,6 +57,7 @@ class AppRoutes {
   static const personalInfo = '/personal_info';
   static const String aboutUs = '/about_us';
   static const String feedback = '/feedback';
+  static const webView = '/web_view';
 }
 
 class AppRouter {
@@ -181,11 +185,25 @@ class AppRouter {
     GoRoute(path: AppRoutes.feedback, builder: (context, state) => const FeedbackPage()),
   ];
 
+  static final List<GoRoute> _commonRoutes = [
+    GoRoute(
+      path: AppRoutes.webView,
+      builder: (context, state) {
+        // 从 extra 中提取传递过来的 title 和 url 参数
+        final args = state.extra as Map<String, dynamic>? ?? {};
+        final title = args['title'] ?? '网页链接';
+        final url = args['url'] ?? 'https://www.google.com';
+
+        return WebViewPage(title: title, url: url);
+      },
+    ),
+  ];
+
   static void setup(String initialRoute) {
     router = GoRouter(
       navigatorKey: NavService.rootNavigatorKey,
       initialLocation: initialRoute,
-      routes: [..._splashRoutes, ..._authRoutes, ..._homeRoutes, ..._deviceRoutes, ..._userRoutes],
+      routes: [..._splashRoutes, ..._authRoutes, ..._homeRoutes, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
     );
   }
 }
