@@ -8,28 +8,27 @@ import 'package:fullxpet/features/user/user_provider.dart';
 class PersonalInfoPage extends StatelessWidget {
   const PersonalInfoPage({super.key});
 
-  /// 弹出修改昵称弹窗
+  /// 显示修改昵称的弹窗
   void _showEditNicknameDialog(BuildContext context, UserProvider provider) {
     final TextEditingController controller = TextEditingController(text: provider.userName);
-
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: const Text('Edit Nickname', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          title: const Text('修改昵称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             autofocus: true,
             decoration: const InputDecoration(
-              hintText: 'Enter new nickname',
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF3D14B))),
+              hintText: '请输入新昵称',
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF917CEE))),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
             ),
             TextButton(
               onPressed: () async {
@@ -41,8 +40,8 @@ class PersonalInfoPage extends StatelessWidget {
                 }
               },
               child: const Text(
-                'Confirm',
-                style: TextStyle(color: Color(0xFFF3D14B), fontWeight: FontWeight.bold),
+                '确认',
+                style: TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -51,7 +50,7 @@ class PersonalInfoPage extends StatelessWidget {
     );
   }
 
-  /// 弹出图片选择器底栏
+  /// 显示选择头像的来源
   void _showImagePicker(BuildContext context, UserProvider provider) {
     showModalBottomSheet(
       context: context,
@@ -64,7 +63,7 @@ class PersonalInfoPage extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
+                title: const Text('从相册选择'),
                 onTap: () async {
                   Navigator.pop(ctx);
                   await provider.uploadAvatar(ImageSource.gallery);
@@ -72,7 +71,7 @@ class PersonalInfoPage extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera),
-                title: const Text('Take a Photo'),
+                title: const Text('拍照'),
                 onTap: () async {
                   Navigator.pop(ctx);
                   await provider.uploadAvatar(ImageSource.camera);
@@ -88,9 +87,21 @@ class PersonalInfoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<UserProvider>();
-    const Color textColor = Color(0xFF666666);
-    const Color valueColor = Color(0xFF999999);
+
+    const Color textColor = Color(0xFF333333);
+    const Color valueColor = Color(0xFF888888);
     const Color dividerColor = Color(0xFFEEEEEE);
+
+    // 获取实际可见账号，去除 ID 兜底
+    final String displayAccount = provider.account.isNotEmpty ? provider.account : '未绑定';
+
+    // 智能判断显示标签
+    String accountLabel = '账号';
+    if (displayAccount.contains('@')) {
+      accountLabel = '邮箱';
+    } else if (RegExp(r'^\+?[0-9]+$').hasMatch(displayAccount)) {
+      accountLabel = '手机号';
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -98,9 +109,12 @@ class PersonalInfoPage extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        title: const Text('personal information', style: TextStyle(color: Colors.black, fontSize: 20)),
+        title: const Text(
+          '个人信息',
+          style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
@@ -110,18 +124,19 @@ class PersonalInfoPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
               children: [
-                // 1. 头像行
+                // 1. 头像项
                 _buildListItem(
-                  title: 'profile image',
+                  title: '头像',
                   textColor: textColor,
                   showArrow: true,
                   onTap: () => _showImagePicker(context, provider),
-                  trailing: AppAvatar(avatarUrl: provider.avatarUrl, radius: 20),
+                  trailing: AppAvatar(avatarUrl: provider.avatarUrl, radius: 22),
                 ),
                 const Divider(height: 1, color: dividerColor),
-                // 2. 昵称行（关联点击弹窗修改事件）
+
+                // 2. 昵称项
                 _buildListItem(
-                  title: 'nickname',
+                  title: '昵称',
                   textColor: textColor,
                   trailingText: provider.userName,
                   valueColor: valueColor,
@@ -129,17 +144,20 @@ class PersonalInfoPage extends StatelessWidget {
                   onTap: () => _showEditNicknameDialog(context, provider),
                 ),
                 const Divider(height: 1, color: dividerColor),
-                // 3. 邮箱行
+
+                // 3. 真实账号展示（智能判断标题，不使用 ID）
                 _buildListItem(
-                  title: 'email',
+                  title: accountLabel,
                   textColor: textColor,
-                  trailingText: '***@***.com',
+                  trailingText: displayAccount,
                   valueColor: valueColor,
-                  showArrow: true,
+                  showArrow: false,
                 ),
                 const Divider(height: 1, color: dividerColor),
+
                 const Spacer(),
-                // 4. Log off 按钮
+
+                // 4. 注销账号
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -150,29 +168,30 @@ class PersonalInfoPage extends StatelessWidget {
                       elevation: 0,
                     ),
                     onPressed: () {
-                      // TODO:
+                      // TODO: 接入注销账号 API
                     },
                     child: const Text(
-                      'Log off',
-                      style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold),
+                      '注销账号',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
                 const SizedBox(height: 15),
-                // 5. Log out 按钮
+
+                // 5. 退出登录
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF3D14B),
+                      backgroundColor: const Color(0xFF917CEE),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     onPressed: () => provider.logout(),
                     child: const Text(
-                      'Log out',
-                      style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold),
+                      '退出登录',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -180,11 +199,12 @@ class PersonalInfoPage extends StatelessWidget {
               ],
             ),
           ),
+
           // 全局 Loading
           if (provider.isLoading)
             Container(
               color: Colors.black.withOpacity(0.2),
-              child: const Center(child: CircularProgressIndicator(color: Color(0xFFF3D14B))),
+              child: const Center(child: CircularProgressIndicator(color: Color(0xFF917CEE))),
             ),
         ],
       ),
@@ -206,13 +226,16 @@ class PersonalInfoPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Row(
           children: [
-            Text(title, style: TextStyle(fontSize: 16, color: textColor)),
+            Text(
+              title,
+              style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w500),
+            ),
             const Spacer(),
             if (trailing != null) trailing,
-            if (trailingText != null) Text(trailingText, style: TextStyle(fontSize: 16, color: valueColor)),
+            if (trailingText != null) Text(trailingText, style: TextStyle(fontSize: 15, color: valueColor)),
             if (showArrow) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
             ],
           ],
         ),

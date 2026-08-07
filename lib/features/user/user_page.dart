@@ -25,9 +25,8 @@ class UserPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-
               // ==============================
-              // 1. 顶部个人信息区域
+              // 1. 用户信息头部
               // ==============================
               Row(
                 children: [
@@ -42,7 +41,7 @@ class UserPage extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: primaryPurple, borderRadius: BorderRadius.circular(10)),
                           child: const Text(
-                            '用户',
+                            'User',
                             style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -61,7 +60,6 @@ class UserPage extends StatelessWidget {
                               style: const TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(width: 8),
-                            Icon(Icons.edit_outlined, color: Colors.grey.shade400, size: 16),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -77,34 +75,10 @@ class UserPage extends StatelessWidget {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 20),
-
-              // ==============================
-              // 2. 核心数据统计卡片
-              // ==============================
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                decoration: BoxDecoration(
-                  color: primaryPurple,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: primaryPurple.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    _buildStatItem(provider.catCount.toString(), '爱宠'),
-                    _buildStatItem(provider.dayCount.toString(), '陪伴天数'),
-                    _buildStatItem(provider.deviceCount.toString(), '设备数量'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
 
               // ==============================
-              // 3. 页面设置卡片组一（固定列）
+              // 2. 设置列表项 第一组
               // ==============================
               Container(
                 decoration: BoxDecoration(
@@ -116,22 +90,26 @@ class UserPage extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // 语言切换功能暂且注释
                     // _buildListTile(Icons.language_outlined, const Color(0xFF7C8CEE), '语言设置'),
                     // _buildDivider(),
                     _buildListTile(Icons.privacy_tip_outlined, const Color(0xFF917CEE), '隐私政策'),
                     _buildDivider(),
                     _buildListTile(Icons.description_outlined, const Color(0xFFEE7C8C), '用户协议'),
                     _buildDivider(),
-                    _buildListTile(Icons.widgets_outlined, const Color(0xFFEEA27C), '软件版本'),
+                    _buildListTile(
+                      Icons.info_outline,
+                      const Color(0xFF5C7CEE),
+                      '软件版本',
+                      trailingText: provider.appVersion,
+                      onTap: () {},
+                    ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
 
               // ==============================
-              // 4. 页面设置卡片组二（固定列）
+              // 3. 设置列表项 第二组
               // ==============================
               Container(
                 decoration: BoxDecoration(
@@ -143,13 +121,26 @@ class UserPage extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildListTile(Icons.lightbulb_outline, const Color(0xFF3B9EBA), '意见与反馈'),
+                    _buildListTile(
+                      Icons.lightbulb_outline,
+                      const Color(0xFF3B9EBA),
+                      '意见反馈',
+                      onTap: () {
+                        context.push(AppRoutes.feedback);
+                      },
+                    ),
                     _buildDivider(),
-                    _buildListTile(Icons.info_outline, const Color(0xFF5C7CEE), '关于我们'),
+                    _buildListTile(
+                      Icons.info_outline,
+                      const Color(0xFF5C7CEE),
+                      '关于我们',
+                      onTap: () {
+                        context.push(AppRoutes.aboutUs);
+                      },
+                    ),
                   ],
                 ),
               ),
-
               const Spacer(),
             ],
           ),
@@ -158,26 +149,9 @@ class UserPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String value, String label) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold, height: 1),
-          ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListTile(IconData icon, Color iconColor, String title) {
+  Widget _buildListTile(IconData icon, Color iconColor, String title, {String? trailingText, VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {
-        // TODO: 点击事件
-      },
+      onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -194,6 +168,9 @@ class UserPage extends StatelessWidget {
               style: const TextStyle(fontSize: 14, color: Color(0xFF333333), fontWeight: FontWeight.w500),
             ),
             const Spacer(),
+            if (trailingText != null && trailingText.isNotEmpty)
+              Text(trailingText, style: const TextStyle(fontSize: 13, color: Color(0xFF999999))),
+            const SizedBox(width: 4),
             const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
           ],
         ),

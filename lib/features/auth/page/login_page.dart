@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/features/auth/auth_provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
+import 'package:fullxpet/common/widgets/privacy_bottom_sheet.dart'; // 引入全局弹窗
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,7 +17,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _accountCtrl = TextEditingController();
   final TextEditingController _passwordCtrl = TextEditingController();
+
   final ValueNotifier<bool> _isSubmitting = ValueNotifier(false);
+
   bool _agreedToTerms = false;
   bool _obscurePassword = true;
 
@@ -47,16 +50,12 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: 40.h),
-
-              // 1. Logo (带 0.5px 浅灰色圆角边框的正方形容器)
               SizedBox(
                 width: 90.w,
                 height: 90.w,
                 child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
               ),
               SizedBox(height: 20.h),
-
-              // 2. 标题："欢迎使用 CHEEWU"
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -76,8 +75,6 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
               SizedBox(height: 40.h),
-
-              // 3. 账号输入框 (带手机/邮箱图标)
               Container(
                 height: 52.h,
                 decoration: BoxDecoration(color: _inputBgColor, borderRadius: BorderRadius.circular(26.r)),
@@ -91,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _accountCtrl,
                         style: TextStyle(color: _textColor, fontSize: 14.sp),
                         decoration: InputDecoration(
-                          hintText: s.emailHint, // "请输入邮箱/手机号"
+                          hintText: s.emailHint,
                           hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
                           border: InputBorder.none,
                           isDense: true,
@@ -102,8 +99,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               SizedBox(height: 16.h),
-
-              // 4. 密码输入框 (带眼镜/显示隐藏图标)
               Container(
                 height: 52.h,
                 decoration: BoxDecoration(color: _inputBgColor, borderRadius: BorderRadius.circular(26.r)),
@@ -125,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: _obscurePassword,
                         style: TextStyle(color: _textColor, fontSize: 14.sp),
                         decoration: InputDecoration(
-                          hintText: s.passwordHint, // "请输入密码"
+                          hintText: s.passwordHint,
                           hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
                           border: InputBorder.none,
                           isDense: true,
@@ -136,8 +131,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               SizedBox(height: 12.h),
-
-              // 5. 忘记密码（靠右对齐，已按照要求不显示验证码登录）
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -154,8 +147,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               SizedBox(height: 30.h),
-
-              // 6. 登录按钮
               ValueListenableBuilder<bool>(
                 valueListenable: _isSubmitting,
                 builder: (context, isSubmitting, child) {
@@ -166,33 +157,47 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: isSubmitting
                           ? null
                           : () async {
+                              // 阻断：未勾选协议则弹出公共组件
                               if (!_agreedToTerms) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.agreeTermsPrompt)));
-                                return;
+                                final allowed = await PrivacyBottomSheet.show(context, _primaryPurple);
+                                if (allowed) {
+                                  setState(() => _agreedToTerms = true);
+                                } else {
+                                  return;
+                                }
                               }
+
                               FocusManager.instance.primaryFocus?.unfocus();
+
                               final account = _accountCtrl.text.trim();
                               final password = _passwordCtrl.text.trim();
+
                               if (account.isEmpty || password.isEmpty) {
                                 ScaffoldMessenger.of(
                                   context,
                                 ).showSnackBar(SnackBar(content: Text(s.emptyAccountOrPassword)));
                                 return;
                               }
+
                               final bool isEmail = RegExp(
                                 r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
                               ).hasMatch(account);
                               final bool isPhone = RegExp(r'^1[3-9]\d{9}$').hasMatch(account);
+
                               if (!isEmail && !isPhone) {
                                 ScaffoldMessenger.of(
                                   context,
                                 ).showSnackBar(SnackBar(content: Text(s.invalidAccountFormat)));
                                 return;
                               }
+
                               _isSubmitting.value = true;
                               final provider = context.read<LoginProvider>();
+
                               final success = await provider.login(account, password, isEmail: isEmail);
+
                               if (mounted) _isSubmitting.value = false;
+
                               if (success && mounted) {
                                 this.context.go(AppRoutes.home);
                               }
@@ -210,7 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
-                              s.login, // "登录"
+                              s.login,
                               style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.bold),
                             ),
                     ),
@@ -218,18 +223,14 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
               SizedBox(height: 16.h),
-
-              // 7. 去注册文本按钮
               TextButton(
                 onPressed: () => context.push(AppRoutes.register),
                 child: Text(
-                  s.register, // "去注册"
+                  s.register,
                   style: TextStyle(color: _hintColor, fontSize: 14.sp),
                 ),
               ),
               SizedBox(height: 60.h),
-
-              // 8. 底部协议复选勾选框及文本
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -252,14 +253,14 @@ class _LoginPageState extends State<LoginPage> {
                     text: TextSpan(
                       style: TextStyle(color: _hintColor, fontSize: 12.sp),
                       children: [
-                        TextSpan(text: s.agreePrefix), // "阅读并同意 "
+                        TextSpan(text: s.agreePrefix),
                         TextSpan(
-                          text: s.userAgreement, // "《用户协议》"
+                          text: s.userAgreement,
                           style: TextStyle(color: _primaryPurple),
                         ),
-                        TextSpan(text: s.andText), // " 和 "
+                        TextSpan(text: s.andText),
                         TextSpan(
-                          text: s.privacyPolicy, // "《隐私政策》"
+                          text: s.privacyPolicy,
                           style: TextStyle(color: _primaryPurple),
                         ),
                       ],

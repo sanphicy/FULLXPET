@@ -7,6 +7,7 @@ import 'package:fullxpet/core/utils/token_manager.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/navigation/nav_service.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class UserProvider extends BaseProvider {
   String _userName = 'Unknown User';
@@ -14,10 +15,8 @@ class UserProvider extends BaseProvider {
   String _avatarUrl = '';
   String _countryCode = '';
   String _timezone = '';
-
-  int _catCount = 0;
-  int _dayCount = 0;
-  int _deviceCount = 0;
+  String _account = ''; // 专门用于存储 邮箱 或 手机号
+  String _appVersion = '1.0.0';
 
   // Getters
   String get userName => _userName;
@@ -25,24 +24,21 @@ class UserProvider extends BaseProvider {
   String get avatarUrl => _avatarUrl;
   String get countryCode => _countryCode;
   String get timezone => _timezone;
-  int get catCount => _catCount;
-  int get dayCount => _dayCount;
-  int get deviceCount => _deviceCount;
+  String get account => _account;
+  String get appVersion => _appVersion;
 
-  // 拉取用户信息
-  // isSilent 为 true 时，不展示加载动画，且不向上抛出阻断性错误 用于冷启动/后台切入
+  /// 获取用户信息
   Future<void> fetchUserInfo({bool isSilent = false}) async {
+    fetchAppVersion();
     final isLoggedIn = await TokenManager.isLoggedIn();
     if (!isLoggedIn) {
       await logout();
       return;
     }
 
-    // 只有在非静默请求，且当前内存中确实没有数据时，才展示 Loading
     if (!isSilent && _userId == '-') {
       setLoading(true);
     }
-
     try {
       final result = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.userInfo);
       if (result.data != null && (result.code == 0 || result.code == 200)) {
@@ -52,12 +48,19 @@ class UserProvider extends BaseProvider {
         final newAvatar = data['avatarDisplay']?.toString() ?? _avatarUrl;
         final newCountryCode = data['countryCode']?.toString() ?? 'CN';
         final newTimezone = data['timezone']?.toString() ?? 'UTC';
-        if (_userName != newName || _userId != newId) {
+        String newAccount = '';
+        if (data['email'] != null && data['email'].toString().isNotEmpty) {
+          newAccount = data['email'].toString();
+        } else if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
+          newAccount = data['phone'].toString();
+        }
+        if (_userName != newName || _userId != newId || _account != newAccount) {
           _userName = newName;
           _userId = newId;
           _avatarUrl = newAvatar;
           _countryCode = newCountryCode;
           _timezone = newTimezone;
+          _account = newAccount;
           notifyListeners();
         }
       } else if (result.code == 401) {
@@ -74,13 +77,24 @@ class UserProvider extends BaseProvider {
     }
   }
 
-  //修改用户昵称
+  // 读取应用版本号
+  Future<void> fetchAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      notifyListeners();
+    } catch (e) {
+      _appVersion = '-';
+      notifyListeners();
+    }
+  }
+
+  /// 修改昵称
   Future<bool> updateNickname(String newName) async {
     final trimmedName = newName.trim();
     if (trimmedName.isEmpty || trimmedName == _userName) {
       return false;
     }
-
     setLoading(true);
     try {
       final payload = {
@@ -88,9 +102,7 @@ class UserProvider extends BaseProvider {
         "countryCode": _countryCode.isNotEmpty ? _countryCode : "CN",
         "timezone": _timezone.isNotEmpty ? _timezone : "Asia/Shanghai",
       };
-
       final result = await locator<HttpClient>().patch<Map<String, dynamic>>(ApiEndpoints.userInfo, data: payload);
-
       if (result.code == 0 || result.code == 200) {
         _userName = trimmedName;
         notifyListeners();
@@ -106,24 +118,16 @@ class UserProvider extends BaseProvider {
     return false;
   }
 
-  // 上传并更新用户头像
+  /// 上传头像
   Future<bool> uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: source,
-        imageQuality: 80, // 压缩质量
-        maxWidth: 800,
-      );
-
-      if (image == null) return false; // 用户取消选择
+      final XFile? image = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 800);
+      if (image == null) return false;
 
       setLoading(true);
-
       final formData = FormData.fromMap({'file': await MultipartFile.fromFile(image.path, filename: image.name)});
-
       final result = await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.uploadAvatar, data: formData);
-
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
         final newAvatar = data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
@@ -143,16 +147,16 @@ class UserProvider extends BaseProvider {
     return false;
   }
 
-  // 登出
+  /// 退出登录
   Future<void> logout() async {
     try {
       await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.logout);
     } catch (_) {
-      // 忽略登出时的网络错误
     } finally {
       await TokenManager.clearToken();
       _userName = 'Unknown User';
       _userId = '-';
+      _account = '';
       NavService.go(AppRoutes.login);
     }
   }

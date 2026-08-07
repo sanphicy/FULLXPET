@@ -32,6 +32,8 @@ import 'package:fullxpet/features/device/active_device_provider.dart';
 // user
 import 'package:fullxpet/features/user/user_provider.dart';
 import 'package:fullxpet/features/user/personal_info_page.dart';
+import 'package:fullxpet/features/user/about_us_page.dart';
+import 'package:fullxpet/features/user/feedback_page.dart';
 
 class AppRoutes {
   static const splash = '/splash';
@@ -50,6 +52,8 @@ class AppRoutes {
   static const deviceAddWifi = '/device-add-wifi';
   static const deviceAddSuccess = '/device-add-success/:id';
   static const personalInfo = '/personal_info';
+  static const String aboutUs = '/about_us';
+  static const String feedback = '/feedback';
 }
 
 class AppRouter {
@@ -173,6 +177,8 @@ class AppRouter {
       builder: (context, state) =>
           ChangeNotifierProvider.value(value: state.extra as UserProvider, child: const PersonalInfoPage()),
     ),
+    GoRoute(path: AppRoutes.aboutUs, builder: (context, state) => const AboutUsPage()),
+    GoRoute(path: AppRoutes.feedback, builder: (context, state) => const FeedbackPage()),
   ];
 
   static void setup(String initialRoute) {

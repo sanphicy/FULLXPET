@@ -49,17 +49,17 @@ class _MainShellState extends State<MainShell> {
             BottomNavigationBarItem(
               icon: Image.asset('assets/images/product-logo-black.png', width: iconSize, height: iconSize),
               activeIcon: Image.asset('assets/images/product-logo.png', width: iconSize, height: iconSize),
-              label: "Device",
+              label: "设备",
             ),
             BottomNavigationBarItem(
-              icon: Image.asset('assets/images/cat-black.png', width: iconSize, height: iconSize),
-              activeIcon: Image.asset('assets/images/cat-green.png', width: iconSize, height: iconSize),
-              label: "Data",
+              icon: Image.asset('assets/images/data-black.png', width: iconSize, height: iconSize),
+              activeIcon: Image.asset('assets/images/data.png', width: iconSize, height: iconSize),
+              label: "概况",
             ),
             BottomNavigationBarItem(
               icon: Image.asset('assets/images/user-black.png', width: iconSize, height: iconSize),
               activeIcon: Image.asset('assets/images/user-purple.png', width: iconSize, height: iconSize),
-              label: "User",
+              label: "用户",
             ),
           ],
         ),
