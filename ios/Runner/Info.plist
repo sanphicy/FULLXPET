@@ -15,15 +15,20 @@
     <string>App需要您的同意，才能访问本地网络，以便发现、连接和控制局域网内的设备。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称并配网。</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>App需要您的同意，才能访问本地网络，以便发现、连接和控制局域网内的设备。</string>
 	<!-- 相册访问权限 -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your photo library to allow you to select a profile avatar.</string>
 	<!-- 相机访问权限 -->
 	<key>NSCameraUsageDescription</key>
 	<string>We need access to your camera to allow you to take a photo for your avatar.</string>
-
+	<!-- 允许非https请求 -->
+ 	<key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+	<key>NSMicrophoneUsageDescription</key>
+    <string>We need access to your microphone if you choose to record a video for your profile.</string>
 	<!-- PETLUX-V3 IOS所需权限声明 end-->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
