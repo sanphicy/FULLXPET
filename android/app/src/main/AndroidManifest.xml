@@ -20,7 +20,7 @@
     <application
         android:label="fullxpet"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher_logo">
+        android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
