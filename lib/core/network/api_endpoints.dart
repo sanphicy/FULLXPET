@@ -9,6 +9,8 @@ class ApiEndpoints {
   static const String register = "$_apiV1/auth/register/email";
   static const String resetPassword = "$_apiV1/auth/password/reset/email";
   static const String logout = "$_apiV1/auth/logout";
+  static const String emailCode = "$_apiV1/auth/verification-codes/email";
+  static const String phoneCode = "$_apiV1/auth/verification-codes/phone";
 
   // --- 用户相关 ---
   static const String homeList = "$_apiV1/me/homes";

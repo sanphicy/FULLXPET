@@ -66,17 +66,29 @@ class LoginProvider extends BaseProvider {
     }
   }
 
-  Future<bool> sendVerifyCode(String account, String type) async {
+  // 返回 int，代表冷却时间（秒）
+  Future<int> sendVerifyCode(String account, String type, {required String purpose}) async {
     if (account.trim().isEmpty) {
-      setError("请输入账号信息");
-      return false;
+      setError("账号不能为空");
+      return 0;
     }
-    final result = await _authRepo.sendVerifyCode(SendCodeRequest(email: account, type: type));
-    if (result.data == true) {
-      return true;
+
+    ResultEntity<int> result;
+
+    if (type == "Email") {
+      result = await _authRepo.sendEmailVerifyCode(SendEmailCodeRequest(email: account, purpose: purpose));
+    } else {
+      final currentPhoneCode = _selectedCountry?.phoneCountryCode ?? "+86";
+      result = await _authRepo.sendPhoneVerifyCode(
+        SendPhoneCodeRequest(phoneCountryCode: currentPhoneCode, phone: account, purpose: purpose),
+      );
+    }
+
+    if (result.data != null && result.data! > 0) {
+      return result.data!;
     } else {
       setError(result.message);
-      return false;
+      return 0;
     }
   }
 

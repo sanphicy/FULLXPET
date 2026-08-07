@@ -4,11 +4,7 @@ class PhoneLoginRequest {
   final String phone;
   final String password;
 
-  PhoneLoginRequest({
-    required this.phoneCountryCode,
-    required this.phone,
-    required this.password,
-  });
+  PhoneLoginRequest({required this.phoneCountryCode, required this.phone, required this.password});
 
   Map<String, dynamic> toJson() => {
     "phoneCountryCode": phoneCountryCode,
@@ -24,10 +20,7 @@ class EmailLoginRequest {
 
   EmailLoginRequest({required this.email, required this.password});
 
-  Map<String, dynamic> toJson() => {
-    "email": email.trim(),
-    "password": password.trim(),
-  };
+  Map<String, dynamic> toJson() => {"email": email.trim(), "password": password.trim()};
 }
 
 /// 注册请求模型
@@ -58,11 +51,7 @@ class ResetPasswordRequest {
   final String newPassword;
   final String verificationCode;
 
-  ResetPasswordRequest({
-    required this.email,
-    required this.newPassword,
-    required this.verificationCode,
-  });
+  ResetPasswordRequest({required this.email, required this.newPassword, required this.verificationCode});
 
   Map<String, dynamic> toJson() => {
     "email": email.trim(),
@@ -79,4 +68,25 @@ class SendCodeRequest {
   SendCodeRequest({required this.email, required this.type});
 
   Map<String, dynamic> toJson() => {"email": email.trim(), "type": type};
+}
+
+// 新增：手机验证码请求模型
+class SendPhoneCodeRequest {
+  final String phoneCountryCode;
+  final String phone;
+  final String purpose;
+
+  SendPhoneCodeRequest({required this.phoneCountryCode, required this.phone, required this.purpose});
+
+  Map<String, dynamic> toJson() => {"phoneCountryCode": phoneCountryCode, "phone": phone.trim(), "purpose": purpose};
+}
+
+// 新增：邮箱验证码请求模型
+class SendEmailCodeRequest {
+  final String email;
+  final String purpose;
+
+  SendEmailCodeRequest({required this.email, required this.purpose});
+
+  Map<String, dynamic> toJson() => {"email": email.trim(), "purpose": purpose};
 }

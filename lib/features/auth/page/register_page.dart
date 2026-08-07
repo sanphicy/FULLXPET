@@ -54,8 +54,8 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _startCountdown() {
-    setState(() => _countdown = 60);
+  void _startCountdown(int seconds) {
+    setState(() => _countdown = seconds);
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return false;
@@ -501,13 +501,14 @@ class _RegisterPageState extends State<RegisterPage> {
                                     }
                                     FocusManager.instance.primaryFocus?.unfocus();
                                     _isSendingCode.value = true;
-                                    final success = await provider.sendVerifyCode(
+                                    final cooldown = await provider.sendVerifyCode(
                                       target,
                                       isPhoneMode ? "Phone" : "Email",
+                                      purpose: "register",
                                     );
                                     if (mounted) _isSendingCode.value = false;
-                                    if (success) {
-                                      _startCountdown();
+                                    if (cooldown > 0) {
+                                      _startCountdown(cooldown);
                                     }
                                   },
                             style: ElevatedButton.styleFrom(

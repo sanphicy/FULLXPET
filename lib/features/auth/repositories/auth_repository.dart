@@ -111,4 +111,26 @@ class AuthRepository {
     }
     return ResultEntity.error(response.message);
   }
+
+  // 发送手机验证码
+  Future<ResultEntity<int>> sendPhoneVerifyCode(SendPhoneCodeRequest request) async {
+    final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.phoneCode, data: request.toJson());
+
+    if (response.data != null && (response.code == 0 || response.code == 200)) {
+      final cooldown = response.data!['cooldownSeconds'] as int? ?? 60;
+      return ResultEntity.success(cooldown);
+    }
+    return ResultEntity.error(response.message);
+  }
+
+  // 发送邮箱验证码
+  Future<ResultEntity<int>> sendEmailVerifyCode(SendEmailCodeRequest request) async {
+    final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.emailCode, data: request.toJson());
+
+    if (response.data != null && (response.code == 0 || response.code == 200)) {
+      final cooldown = response.data!['cooldownSeconds'] as int? ?? 60;
+      return ResultEntity.success(cooldown);
+    }
+    return ResultEntity.error(response.message);
+  }
 }
