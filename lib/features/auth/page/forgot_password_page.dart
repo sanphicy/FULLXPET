@@ -14,15 +14,13 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  int _tabIndex = 0;
+  int _tabIndex = 0; // 0: 手机号, 1: 邮箱
   final TextEditingController _accountCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   final TextEditingController _passwordCtrl = TextEditingController();
   final TextEditingController _confirmPasswordCtrl = TextEditingController();
-
   final ValueNotifier<bool> _isSubmitting = ValueNotifier(false);
   final ValueNotifier<bool> _isSendingCode = ValueNotifier(false);
-
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   int _countdown = 0;
@@ -31,6 +29,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final Color _textColor = const Color(0xFF333333);
   final Color _hintColor = const Color(0xFF9E9E9E);
   final Color _lineColor = const Color(0xFFE5E5E5);
+
+  @override
+  void initState() {
+    super.initState();
+    // 页面初始化时拉取国家/地区列表
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<LoginProvider>().fetchCountries();
+    });
+  }
 
   @override
   void dispose() {
@@ -56,6 +63,58 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     });
   }
 
+  /// 弹出国家选择器
+  void _showCountryPicker(BuildContext context, LoginProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.h),
+                child: Text(
+                  "选择国家或地区",
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: _textColor),
+                ),
+              ),
+              Divider(height: 1, color: _lineColor),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: provider.countryList.length,
+                  itemBuilder: (context, index) {
+                    final country = provider.countryList[index];
+                    final isSelected = provider.selectedCountry?.countryCode == country.countryCode;
+                    return ListTile(
+                      title: Text(
+                        country.name,
+                        style: TextStyle(
+                          color: isSelected ? _primaryPurple : _textColor,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: Text(country.phoneCountryCode, style: TextStyle(color: _hintColor)),
+                      onTap: () {
+                        provider.selectCountry(country);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 处理重置密码提交
   Future<void> _handleResetPassword(LoginProvider provider, S s) async {
     final account = _accountCtrl.text.trim();
     final code = _codeCtrl.text.trim();
@@ -63,22 +122,50 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final confirmPwd = _confirmPasswordCtrl.text.trim();
 
     if (account.isEmpty || code.isEmpty || pwd.isEmpty || confirmPwd.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写完整信息')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写所有必填项')));
       return;
     }
 
+    final isPhoneMode = _tabIndex == 0;
+
+    // 格式校验
+    if (isPhoneMode) {
+      final bool isPhone = RegExp(r'^\d{5,15}$').hasMatch(account);
+      if (!isPhone) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入正确的手机号码')));
+        return;
+      }
+    } else {
+      final bool isEmail = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(account);
+      if (!isEmail) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入正确的邮箱格式')));
+        return;
+      }
+    }
+
     if (pwd != confirmPwd) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('两次密码不一致')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('两次输入的密码不一致')));
       return;
     }
 
     FocusManager.instance.primaryFocus?.unfocus();
     _isSubmitting.value = true;
 
-    final success = await provider.resetPassword(account, pwd, code);
+    final phonePrefix = provider.selectedCountry?.phoneCountryCode ?? "+86";
+
+    // 调用 provider 方法（需要确保 auth_provider 已经按之前所述更新）
+    final success = await provider.resetPassword(
+      account: account,
+      newPassword: pwd,
+      code: code,
+      isPhoneMode: isPhoneMode,
+      phoneCountryCode: phonePrefix,
+    );
 
     if (mounted) _isSubmitting.value = false;
+
     if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码重置成功，请重新登录')));
       context.go(AppRoutes.login);
     }
   }
@@ -120,6 +207,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold, color: _textColor),
               ),
               SizedBox(height: 25.h),
+              // 手机号 / 邮箱 Tab
               Center(
                 child: Container(
                   height: 42.h,
@@ -202,7 +290,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons.person_outline,
+                                      Icons.email_outlined,
                                       size: 18.w,
                                       color: !isPhoneMode ? _primaryPurple : _hintColor,
                                     ),
@@ -227,6 +315,32 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               ),
               SizedBox(height: 30.h),
+
+              // 国家区号选择器（仅手机号模式展示）
+              if (isPhoneMode)
+                GestureDetector(
+                  onTap: () => _showCountryPicker(context, provider),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          provider.selectedCountry != null
+                              ? '${provider.selectedCountry!.name} (${provider.selectedCountry!.phoneCountryCode})'
+                              : '选择国家/地区',
+                          style: TextStyle(color: _textColor, fontSize: 14.sp),
+                        ),
+                        Icon(Icons.arrow_forward_ios, color: _hintColor, size: 14.w),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 账号输入框
               Container(
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
@@ -239,7 +353,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         keyboardType: isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
                         style: TextStyle(color: _textColor, fontSize: 15.sp),
                         decoration: InputDecoration(
-                          hintText: isPhoneMode ? '请输入手机号' : '请输入邮箱',
+                          hintText: isPhoneMode ? '请输入手机号码' : '请输入邮箱地址',
                           hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14.h),
@@ -254,6 +368,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ],
                 ),
               ),
+
+              // 验证码输入框
               Container(
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
@@ -293,13 +409,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                     }
                                     FocusManager.instance.primaryFocus?.unfocus();
                                     _isSendingCode.value = true;
-
                                     final cooldown = await provider.sendVerifyCode(
                                       target,
                                       isPhoneMode ? "Phone" : "Email",
                                       purpose: "reset_password",
                                     );
-
                                     if (mounted) _isSendingCode.value = false;
                                     if (cooldown > 0) {
                                       _startCountdown(cooldown);
@@ -319,7 +433,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                     child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                   )
                                 : Text(
-                                    _countdown > 0 ? '${_countdown}s 重新获取' : '获取验证码',
+                                    _countdown > 0 ? '${_countdown}s' : '获取验证码',
                                     style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.bold),
                                   ),
                           ),
@@ -329,6 +443,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ],
                 ),
               ),
+
+              // 设置密码
               Container(
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
@@ -343,7 +459,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         obscureText: _obscurePassword,
                         style: TextStyle(color: _textColor, fontSize: 15.sp),
                         decoration: InputDecoration(
-                          hintText: '请输入新密码',
+                          hintText: '设置新密码',
                           hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14.h),
@@ -361,6 +477,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ],
                 ),
               ),
+
+              // 确认密码
               Container(
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
@@ -375,7 +493,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         obscureText: _obscureConfirmPassword,
                         style: TextStyle(color: _textColor, fontSize: 15.sp),
                         decoration: InputDecoration(
-                          hintText: '请再次确认密码',
+                          hintText: '确认新密码',
                           hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14.h),
@@ -395,10 +513,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
               SizedBox(height: 10.h),
               Text(
-                '密码必须是 8-16 位英文字母、数字、字符组合(不能是纯数字)',
+                '密码需为 8-16 位，包含字母与数字',
                 style: TextStyle(fontSize: 11.sp, color: _hintColor),
               ),
               SizedBox(height: 35.h),
+
+              // 提交按钮
               ValueListenableBuilder<bool>(
                 valueListenable: _isSubmitting,
                 builder: (context, isSubmitting, child) {
@@ -420,7 +540,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
-                              '确认修改',
+                              '确认重置',
                               style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
                             ),
                     ),
@@ -428,6 +548,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 },
               ),
               SizedBox(height: 12.h),
+
               Center(
                 child: TextButton(
                   onPressed: () => context.go(AppRoutes.login),

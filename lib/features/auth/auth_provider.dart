@@ -101,7 +101,7 @@ class LoginProvider extends BaseProvider {
     String phoneCountryCode = "+86",
   }) async {
     if (account.trim().isEmpty || password.trim().isEmpty || code.trim().isEmpty) {
-      setError("Please fill in all fields");
+      setError("请填写所有字段");
       return false;
     }
 
@@ -116,6 +116,7 @@ class LoginProvider extends BaseProvider {
         phone: account,
         password: password,
         verificationCode: code,
+        countryCode: countryCode,
       );
       result = await _authRepo.registerByPhone(request);
     } else {
@@ -138,14 +139,39 @@ class LoginProvider extends BaseProvider {
     }
   }
 
-  Future<bool> resetPassword(String email, String newPassword, String code) async {
-    if (email.trim().isEmpty || newPassword.trim().isEmpty || code.trim().isEmpty) {
-      setError("Please fill in all fields");
+  Future<bool> resetPassword({
+    required String account,
+    required String newPassword,
+    required String code,
+    required bool isPhoneMode,
+    String phoneCountryCode = "+86",
+  }) async {
+    if (account.trim().isEmpty || newPassword.trim().isEmpty || code.trim().isEmpty) {
+      setError("请填写完整信息"); // 或使用你自定义的报错信息
       return false;
     }
-    final result = await _authRepo.resetPassword(
-      ResetPasswordRequest(email: email, newPassword: newPassword, verificationCode: code),
-    );
+
+    setLoading(true);
+    clearError();
+    ResultEntity<bool> result;
+
+    if (isPhoneMode) {
+      // 走手机号重置逻辑
+      final request = ResetPasswordByPhoneRequest(
+        phoneCountryCode: phoneCountryCode,
+        phone: account,
+        newPassword: newPassword,
+        verificationCode: code,
+      );
+      result = await _authRepo.resetPasswordByPhone(request);
+    } else {
+      // 走邮箱重置逻辑
+      final request = ResetPasswordRequest(email: account, newPassword: newPassword, verificationCode: code);
+      result = await _authRepo.resetPassword(request);
+    }
+
+    if (isLoading) setLoading(false);
+
     if (result.data == true) {
       return true;
     } else {

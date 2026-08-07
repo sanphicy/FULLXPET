@@ -91,7 +91,7 @@ class AuthRepository {
   }
 
   Future<ResultEntity<bool>> register(RegisterRequest request) async {
-    final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.register, data: request.toJson());
+    final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.registerByEmail, data: request.toJson());
     if (response.data != null && (response.code == 0 || response.code == 200)) {
       final accessToken = response.data!['accessToken'] as String?;
       if (accessToken != null && accessToken.isNotEmpty) {
@@ -112,6 +112,19 @@ class AuthRepository {
     return ResultEntity.error(response.message);
   }
 
+  Future<ResultEntity<bool>> resetPasswordByPhone(ResetPasswordByPhoneRequest request) async {
+    // ApiEndpoints.resetPasswordByPhone 已经在你的 api_endpoints.dart 中定义过了
+    final response = await _httpClient.post<Map<String, dynamic>>(
+      ApiEndpoints.resetPasswordByPhone,
+      data: request.toJson(),
+    );
+    if (response.code == 0 || response.code == 200) {
+      return ResultEntity.success(true);
+    }
+    return ResultEntity.error(response.message);
+  }
+
+  //根据电话号码注册
   Future<ResultEntity<bool>> registerByPhone(PhoneRegisterRequest request) async {
     final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.registerByPhone, data: request.toJson());
     if (response.data != null && (response.code == 0 || response.code == 200)) {

@@ -6,12 +6,13 @@ class ApiEndpoints {
   // --- 认证相关 ---
   static const String loginByPhone = '$_apiV1/auth/login';
   static const String loginByEmail = '$_apiV1/auth/login/email';
-  static const String register = "$_apiV1/auth/register/email";
+  static const String registerByEmail = "$_apiV1/auth/register/email";
+  static const String registerByPhone = "$_apiV1/auth/register";
   static const String resetPassword = "$_apiV1/auth/password/reset/email";
+  static const String resetPasswordByPhone = "$_apiV1/auth/password/reset/phone";
   static const String logout = "$_apiV1/auth/logout";
   static const String emailCode = "$_apiV1/auth/verification-codes/email";
   static const String phoneCode = "$_apiV1/auth/verification-codes/phone";
-  static const String registerByPhone = "$_apiV1/auth/password/reset/email";
 
   // --- 用户相关 ---
   static const String homeList = "$_apiV1/me/homes";

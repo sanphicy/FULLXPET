@@ -60,18 +60,42 @@ class ResetPasswordRequest {
   };
 }
 
+// 通过手机验证码重置密码
+class ResetPasswordByPhoneRequest {
+  final String phoneCountryCode;
+  final String phone;
+  final String newPassword;
+  final String verificationCode;
+
+  ResetPasswordByPhoneRequest({
+    required this.phoneCountryCode,
+    required this.phone,
+    required this.newPassword,
+    required this.verificationCode,
+  });
+
+  Map<String, dynamic> toJson() => {
+    "phoneCountryCode": phoneCountryCode.trim(),
+    "phone": phone.trim(),
+    "newPassword": newPassword.trim(),
+    "verificationCode": verificationCode.trim(),
+  };
+}
+
 //根据手机号注册
 class PhoneRegisterRequest {
   final String phoneCountryCode;
   final String phone;
   final String password;
   final String verificationCode;
+  final String countryCode;
 
   PhoneRegisterRequest({
     required this.phoneCountryCode,
     required this.phone,
     required this.password,
     required this.verificationCode,
+    required this.countryCode,
   });
 
   Map<String, dynamic> toJson() => {
@@ -79,6 +103,7 @@ class PhoneRegisterRequest {
     "phone": phone.trim(),
     "password": password.trim(),
     "verificationCode": verificationCode.trim(),
+    "countryCode": countryCode.trim(),
   };
 }
 
