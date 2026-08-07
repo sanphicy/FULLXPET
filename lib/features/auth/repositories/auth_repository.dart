@@ -112,6 +112,18 @@ class AuthRepository {
     return ResultEntity.error(response.message);
   }
 
+  Future<ResultEntity<bool>> registerByPhone(PhoneRegisterRequest request) async {
+    final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.registerByPhone, data: request.toJson());
+    if (response.data != null && (response.code == 0 || response.code == 200)) {
+      final accessToken = response.data!['accessToken'] as String?;
+      if (accessToken != null && accessToken.isNotEmpty) {
+        await TokenManager.setToken(accessToken);
+        return ResultEntity.success(true);
+      }
+    }
+    return ResultEntity.error(response.message);
+  }
+
   // 发送手机验证码
   Future<ResultEntity<int>> sendPhoneVerifyCode(SendPhoneCodeRequest request) async {
     final response = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.phoneCode, data: request.toJson());

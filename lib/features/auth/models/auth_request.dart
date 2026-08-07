@@ -56,7 +56,29 @@ class ResetPasswordRequest {
   Map<String, dynamic> toJson() => {
     "email": email.trim(),
     "newPassword": newPassword.trim(),
-    "code": verificationCode.trim(),
+    "verificationCode": verificationCode.trim(),
+  };
+}
+
+//根据手机号注册
+class PhoneRegisterRequest {
+  final String phoneCountryCode;
+  final String phone;
+  final String password;
+  final String verificationCode;
+
+  PhoneRegisterRequest({
+    required this.phoneCountryCode,
+    required this.phone,
+    required this.password,
+    required this.verificationCode,
+  });
+
+  Map<String, dynamic> toJson() => {
+    "phoneCountryCode": phoneCountryCode.trim(),
+    "phone": phone.trim(),
+    "password": password.trim(),
+    "verificationCode": verificationCode.trim(),
   };
 }
 

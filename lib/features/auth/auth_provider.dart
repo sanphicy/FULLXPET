@@ -92,14 +92,44 @@ class LoginProvider extends BaseProvider {
     }
   }
 
-  Future<bool> register(String email, String password, String code, String countryCode) async {
-    if (email.trim().isEmpty || password.trim().isEmpty || code.trim().isEmpty) {
+  Future<bool> register({
+    required String account,
+    required String password,
+    required String code,
+    required String countryCode,
+    required bool isPhoneMode,
+    String phoneCountryCode = "+86",
+  }) async {
+    if (account.trim().isEmpty || password.trim().isEmpty || code.trim().isEmpty) {
       setError("Please fill in all fields");
       return false;
     }
-    final result = await _authRepo.register(
-      RegisterRequest(email: email, password: password, verificationCode: code, countryCode: countryCode),
-    );
+
+    setLoading(true);
+    clearError();
+    ResultEntity<bool> result;
+
+    if (isPhoneMode) {
+      // 手机号注册逻辑
+      final request = PhoneRegisterRequest(
+        phoneCountryCode: phoneCountryCode,
+        phone: account,
+        password: password,
+        verificationCode: code,
+      );
+      result = await _authRepo.registerByPhone(request);
+    } else {
+      // 邮箱注册逻辑
+      final request = RegisterRequest(
+        email: account,
+        password: password,
+        verificationCode: code,
+        countryCode: countryCode,
+      );
+      result = await _authRepo.register(request);
+    }
+
+    if (isLoading) setLoading(false);
     if (result.data == true) {
       return true;
     } else {
