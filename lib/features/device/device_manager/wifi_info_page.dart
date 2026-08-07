@@ -12,19 +12,19 @@ class WifiInfoPage extends StatelessWidget {
 
     if (device == null) {
       return Scaffold(
-        appBar: AppBar(elevation: 0, backgroundColor: const Color(0xFFF6F6F6)),
+        appBar: AppBar(elevation: 0, backgroundColor: const Color(0xFFF9F9FC)), // 替换为白净背景
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
       appBar: AppBar(
         title: const Text(
           'Wi-Fi Info',
           style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFF6F6F6),
+        backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
@@ -35,7 +35,7 @@ class WifiInfoPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 30),
-              const Icon(Icons.wifi, size: 80, color: Colors.blueAccent),
+              const Icon(Icons.wifi, size: 80, color: Color(0xFF917CEE)), // 替换为紫色
               const SizedBox(height: 20),
               Text(
                 provider.isNetworkGood ? 'The device network is good' : 'Network unstable',
@@ -51,7 +51,7 @@ class WifiInfoPage extends StatelessWidget {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: const Color(0xFFDBAB3F),
+                  backgroundColor: const Color(0xFF917CEE), // 替换为紫色
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),

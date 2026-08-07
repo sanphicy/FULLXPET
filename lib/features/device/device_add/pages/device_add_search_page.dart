@@ -16,6 +16,9 @@ class DeviceAddSearchPage extends StatefulWidget {
 }
 
 class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
+  // 定义统一紫色调
+  static const Color _primaryPurple = Color(0xFF917CEE);
+
   @override
   void initState() {
     super.initState();
@@ -24,7 +27,6 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
     });
   }
 
-  // 呼出配置面板的方法
   void _showSettingsBottomSheet(BuildContext context, DeviceAddProvider provider) {
     bool filterUnknown = provider.filterUnknown;
     bool autoFetchWifi = provider.autoFetchWifi;
@@ -57,16 +59,14 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 15.h),
-
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text("过滤未知设备", style: TextStyle(fontWeight: FontWeight.w500)),
                     subtitle: const Text("隐藏没有名称的蓝牙设备", style: TextStyle(fontSize: 12, color: Colors.grey)),
                     value: filterUnknown,
                     onChanged: (val) => setState(() => filterUnknown = val),
-                    activeColor: Theme.of(context).colorScheme.primary,
+                    activeColor: _primaryPurple, // 替换颜色
                   ),
-
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text("自动获取周围 Wi-Fi", style: TextStyle(fontWeight: FontWeight.w500)),
@@ -76,9 +76,8 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     ),
                     value: autoFetchWifi,
                     onChanged: (val) => setState(() => autoFetchWifi = val),
-                    activeColor: Theme.of(context).colorScheme.primary,
+                    activeColor: _primaryPurple, // 替换颜色
                   ),
-
                   SizedBox(height: 15.h),
                   Text(
                     "精确过滤",
@@ -100,11 +99,10 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     ),
                   ),
                   SizedBox(height: 30.h),
-
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       minimumSize: Size(double.infinity, 50.h),
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: _primaryPurple, // 替换颜色
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                     ),
                     onPressed: () {
@@ -117,7 +115,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     },
                     child: const Text(
                       "保存并重新搜索",
-                      style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
                   SizedBox(height: 20.h),
@@ -132,19 +130,17 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final s = S.of(context)!;
     final provider = context.watch<DeviceAddProvider>();
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.white, // 强制纯白背景，去除发黄
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            // 将原有的 Help 图标替换为 Settings 设置图标
-            icon: Icon(Icons.settings, color: theme.colorScheme.onSurfaceVariant),
+            icon: const Icon(Icons.settings, color: Color(0xFF666666)), // 替换颜色
             onPressed: () => _showSettingsBottomSheet(context, provider),
           ),
         ],
@@ -156,14 +152,14 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
           children: [
             Text(
               s.searchingLabel,
-              style: TextStyle(fontSize: 32.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface),
+              style: TextStyle(fontSize: 32.sp, fontWeight: FontWeight.w900, color: const Color(0xFF333333)),
             ),
             SizedBox(height: Dimens.spacingMini),
             Text(
               s.autoSearching,
               style: TextStyle(
                 fontSize: Dimens.fontMedium,
-                color: theme.colorScheme.primary,
+                color: _primaryPurple, // 替换颜色
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -172,7 +168,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
               child: Icon(
                 Icons.bluetooth_searching,
                 size: 140.w,
-                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                color: _primaryPurple.withValues(alpha: 0.15), // 替换颜色
               ),
             ),
             SizedBox(height: 40.h),
@@ -181,7 +177,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                 s.noDeviceFoundDesc,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  color: _primaryPurple.withValues(alpha: 0.5), // 替换颜色
                   fontSize: Dimens.fontSmall,
                   height: 1.5,
                 ),
@@ -199,12 +195,12 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                   SizedBox(
                     width: 16.w,
                     height: 16.w,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
+                    child: const CircularProgressIndicator(strokeWidth: 2, color: _primaryPurple), // 替换颜色
                   )
                 else
                   GestureDetector(
                     onTap: () => provider.startSearchDevices(),
-                    child: Icon(Icons.refresh, size: 18.w, color: theme.colorScheme.primary),
+                    child: Icon(Icons.refresh, size: 18.w, color: _primaryPurple), // 替换颜色
                   ),
               ],
             ),
@@ -214,7 +210,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                   ? Center(
                       child: TextButton(
                         onPressed: () => provider.startSearchDevices(),
-                        child: Text("重新搜索", style: TextStyle(color: theme.colorScheme.primary)),
+                        child: const Text("重新搜索", style: TextStyle(color: _primaryPurple)), // 替换颜色
                       ),
                     )
                   : ListView.separated(
@@ -222,7 +218,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                       itemCount: provider.discoveredDevices.length,
                       separatorBuilder: (_, __) => SizedBox(height: Dimens.spacingNormal),
                       itemBuilder: (context, index) {
-                        return _buildDeviceCard(context, theme, s, provider, provider.discoveredDevices[index]);
+                        return _buildDeviceCard(context, s, provider, provider.discoveredDevices[index]);
                       },
                     ),
             ),
@@ -232,17 +228,11 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
     );
   }
 
-  Widget _buildDeviceCard(
-    BuildContext context,
-    ThemeData theme,
-    S s,
-    DeviceAddProvider provider,
-    DiscoveredDevice device,
-  ) {
+  Widget _buildDeviceCard(BuildContext context, S s, DeviceAddProvider provider, DiscoveredDevice device) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: Dimens.spacingNormal, vertical: Dimens.spacingSmall),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: Colors.white, // 强制纯白卡片
         borderRadius: BorderRadius.circular(Dimens.radiusNormal),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 2))],
       ),
@@ -250,8 +240,8 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
         children: [
           Container(
             padding: EdgeInsets.all(Dimens.spacingSmall),
-            decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(Icons.devices_other, color: theme.colorScheme.primary, size: Dimens.iconNormal),
+            decoration: BoxDecoration(color: _primaryPurple.withValues(alpha: 0.1), shape: BoxShape.circle), // 替换颜色
+            child: Icon(Icons.devices_other, color: _primaryPurple, size: Dimens.iconNormal), // 替换颜色
           ),
           SizedBox(width: Dimens.spacingNormal),
           Expanded(
@@ -264,8 +254,8 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.08),
-              foregroundColor: theme.colorScheme.primary,
+              backgroundColor: const Color(0xFFF9F9FC), // 浅灰背景
+              foregroundColor: _primaryPurple, // 替换文字颜色为紫
               elevation: 0,
               minimumSize: Size(80.w, 36.h),
               padding: EdgeInsets.symmetric(horizontal: Dimens.spacingNormal),

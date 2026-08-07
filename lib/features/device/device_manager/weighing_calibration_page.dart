@@ -66,7 +66,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ActiveDeviceProvider>();
-    const Color primaryColor = Color(0xFFF3D14B); // 契合 UI 的黄色
+    const Color primaryColor = Color(0xFF917CEE); // 替换为紫色
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -105,7 +105,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: isActive ? const Color(0xFF8CC152) : Colors.grey.shade300,
+                          color: isActive ? const Color(0xFF917CEE) : Colors.grey.shade300, // 替换为紫色
                           shape: BoxShape.circle,
                         ),
                       );
@@ -130,7 +130,11 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
                           )
                         : Text(
                             _currentStep == 3 ? 'Done' : 'Next Step',
-                            style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ), // 白色字体适配紫背景
                           ),
                   ),
                 ],
@@ -154,7 +158,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
           const Text(
             '· Ensure that there are no obstacles around the litter box\n'
             '· Ensure that the litter box is placed on a flat and hard floor',
-            style: TextStyle(fontSize: 14, color: Color(0xFF8CC152), height: 1.5),
+            style: TextStyle(fontSize: 14, color: Color(0xFF917CEE), height: 1.5), // 替换为紫色
           ),
           const SizedBox(height: 80),
           Row(
@@ -163,7 +167,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
               // 正确示例图标
               Column(
                 children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF8CC152), size: 24),
+                  const Icon(Icons.check_circle, color: Color(0xFF917CEE), size: 24), // 替换为紫色
                   const SizedBox(height: 10),
                   Icon(Icons.crop_square, size: 80, color: Colors.grey.shade400), // 用正方形图标替代正确放置
                 ],
@@ -194,7 +198,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
           const SizedBox(height: 20),
           const Text(
             '· Ensure that the reference object is between 1000g-5000g',
-            style: TextStyle(fontSize: 14, color: Color(0xFF8CC152), height: 1.5),
+            style: TextStyle(fontSize: 14, color: Color(0xFF917CEE), height: 1.5), // 替换为紫色
           ),
           const SizedBox(height: 60),
           Container(
@@ -215,7 +219,10 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
           ),
           const SizedBox(height: 40),
           const Center(
-            child: Text('Select the objectfrom the list', style: TextStyle(fontSize: 14, color: Color(0xFF8CC152))),
+            child: Text(
+              'Select the objectfrom the list',
+              style: TextStyle(fontSize: 14, color: Color(0xFF917CEE)),
+            ), // 替换为紫色
           ),
         ],
       ),
@@ -237,11 +244,11 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
           Center(
             child: Column(
               children: [
-                Icon(Icons.local_drink, size: 100, color: Colors.blue.shade300), // 用水瓶Icon替代农夫山泉
+                Icon(Icons.local_drink, size: 100, color: Color(0xFF917CEE)), // 替换为紫色
                 const SizedBox(height: 30),
                 const Text(
                   'Put the reference object into the device',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF8CC152)),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF917CEE)), // 替换为紫色
                 ),
               ],
             ),
@@ -268,7 +275,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
               const SizedBox(width: 20),
               const Column(
                 children: [
-                  Icon(Icons.check_circle, color: Color(0xFF8CC152), size: 30),
+                  Icon(Icons.check_circle, color: Color(0xFF917CEE), size: 30), // 替换为紫色
                   SizedBox(height: 20),
                   Icon(Icons.pets, size: 60, color: Colors.grey), // 猫咪Icon
                 ],

@@ -111,13 +111,13 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
     final bool isCurrentSelectedInList = _filteredTimeZones.contains(_tempSelectedTzId);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
       appBar: AppBar(
         title: const Text(
           'Time Zone',
           style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFF6F6F6),
+        backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
         elevation: 0,
         leading: TextButton(
           onPressed: () => context.pop(),
@@ -132,7 +132,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
             },
             child: const Text(
               'Confirm',
-              style: TextStyle(color: Color(0xFFDBAB3F), fontWeight: FontWeight.bold),
+              style: TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold), // 替换为紫色
             ),
           ),
         ],
@@ -164,11 +164,11 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Row(
                   children: [
-                    const Icon(Icons.my_location, size: 18, color: Color(0xFFDBAB3F)),
+                    const Icon(Icons.my_location, size: 18, color: Color(0xFF917CEE)), // 替换为紫色
                     const SizedBox(width: 8),
                     Text(
                       'Use system timezone ($_systemTzId)',
-                      style: const TextStyle(color: Color(0xFFDBAB3F), fontWeight: FontWeight.w500),
+                      style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.w500), // 替换为紫色
                     ),
                   ],
                 ),
@@ -189,7 +189,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
                   title: Text(
                     tzName,
                     style: TextStyle(
-                      color: isSelected ? const Color(0xFFDBAB3F) : const Color(0xFF333333),
+                      color: isSelected ? const Color(0xFF917CEE) : const Color(0xFF333333), // 替换为紫色
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     maxLines: 1,
@@ -201,7 +201,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
                       Text(offsetStr, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                       if (isSelected) ...[
                         const SizedBox(width: 8),
-                        const Icon(Icons.check, color: Color(0xFFDBAB3F), size: 20),
+                        const Icon(Icons.check, color: Color(0xFF917CEE), size: 20), // 替换为紫色
                       ],
                     ],
                   ),
@@ -221,7 +221,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
       floatingActionButton: isCurrentSelectedInList
           ? FloatingActionButton(
               mini: true,
-              backgroundColor: const Color(0xFFDBAB3F),
+              backgroundColor: const Color(0xFF917CEE), // 替换为紫色
               onPressed: () => _scrollToCurrentSelected(isAnimate: true),
               child: const Icon(Icons.center_focus_strong, color: Colors.white),
             )

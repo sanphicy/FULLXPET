@@ -24,16 +24,16 @@ class TimerModePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ActiveDeviceProvider>();
-    const Color primaryColor = Color(0xFFDBAB3F);
+    const Color primaryColor = Color(0xFF917CEE); // 替换为紫色
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
       appBar: AppBar(
         title: const Text(
           'Timer List',
           style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFF6F6F6),
+        backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
@@ -47,7 +47,7 @@ class TimerModePage extends StatelessWidget {
             },
             child: const Text(
               'Save',
-              style: TextStyle(color: Color(0xFFDBAB3F), fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold, fontSize: 16), // 替换为紫色
             ),
           ),
         ],
