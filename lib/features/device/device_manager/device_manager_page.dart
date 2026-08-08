@@ -226,7 +226,8 @@ class DeviceManagerPage extends StatelessWidget {
 
                   // 紫色控制操作区域卡片
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
+                    // 修改：减小水平内边距以容纳4个按钮
+                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
                     decoration: BoxDecoration(
                       color: primaryPurple,
                       borderRadius: BorderRadius.circular(20),
@@ -235,25 +236,33 @@ class DeviceManagerPage extends StatelessWidget {
                       ],
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      // 修改：改为 spaceEvenly 使4个按钮分布更均匀
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _buildActionButton(
                           context,
-                          '清理猫砂',
+                          '清理',
                           Icons.cleaning_services_rounded,
                           isLocked ? null : () => provider.executeAction(ExecuteAction.cleaning),
                           isLocked: isLocked,
                         ),
                         _buildActionButton(
                           context,
-                          '平整猫砂',
+                          '抚平',
                           Icons.blur_on_rounded,
                           isLocked ? null : () => provider.executeAction(ExecuteAction.smoothing),
                           isLocked: isLocked,
                         ),
                         _buildActionButton(
                           context,
-                          '童锁开关',
+                          '除臭',
+                          device.isPlasmaEnabled ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
+                          provider.isLoading ? null : () => provider.togglePlasma(),
+                          isLocked: provider.isLoading,
+                        ),
+                        _buildActionButton(
+                          context,
+                          '童锁',
                           device.isChildLockEnabled ? Icons.lock_rounded : Icons.lock_open_rounded,
                           provider.isLoading ? null : () => provider.toggleChildLock(),
                           isLocked: provider.isLoading,
@@ -389,8 +398,8 @@ class DeviceManagerPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 50,
+              height: 50,
               decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
               child: Icon(icon, color: const Color(0xFF917CEE), size: 26),
             ),

@@ -99,6 +99,13 @@ class DeviceRepository extends BaseProvider {
     ]);
   }
 
+  //等离子开关
+  Future<bool> setPlasmaState(String deviceId, bool isEnabled) async {
+    return await _sendDeviceCommand(deviceId, [
+      {"dpid": DeviceThingModel.palsmaState.dpid, "value": isEnabled},
+    ]);
+  }
+
   // 执行单次设备操作 (清理/抚平)
   Future<bool> executeAction(String deviceId, ExecuteAction action) async {
     String? targetDpid;

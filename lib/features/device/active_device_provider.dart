@@ -229,6 +229,21 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     );
   }
 
+  // 等离子状态
+  Future<void> togglePlasma() async {
+    if (!_checkOffline()) return;
+
+    final previousState = _currentDevice!.isPlasmaEnabled;
+    final targetState = !previousState;
+
+    await _executeOptimistic(
+      newAttrs: {DeviceThingModel.palsmaState.dpid: targetState},
+      oldAttrs: {DeviceThingModel.palsmaState.dpid: previousState},
+      apiCall: () => _deviceRepo.setPlasmaState(_currentDevice!.deviceId, targetState),
+      errorMsg: "Failed to toggle plasma",
+    );
+  }
+
   // 更新自动模式下的延迟等待时长
   void updateAutoMode(int index) async {
     if (!_checkOffline()) return;

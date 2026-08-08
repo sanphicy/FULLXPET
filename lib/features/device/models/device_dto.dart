@@ -53,6 +53,11 @@ class DeviceDto {
     return val == true || val?.toString() == 'true';
   }
 
+  bool get isPlasmaEnabled {
+    final val = _attributes[DeviceThingModel.palsmaState.dpid];
+    return val == true || val?.toString() == 'true';
+  }
+
   bool get isDndEnabled {
     final val = _attributes[DeviceThingModel.notdisturbModeStatus.dpid];
     return val == true || val?.toString() == 'true';
