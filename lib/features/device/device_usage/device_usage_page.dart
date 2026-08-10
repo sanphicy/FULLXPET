@@ -375,7 +375,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
         lineBarsData: [
           LineChartBarData(
             spots: spots,
-            isCurved: true,
+            isCurved: false,
             color: _primaryPurple,
             barWidth: 3,
             isStrokeCapRound: true,
