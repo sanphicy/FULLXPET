@@ -30,6 +30,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
   void _showSettingsBottomSheet(BuildContext context, DeviceAddProvider provider) {
     bool filterUnknown = provider.filterUnknown;
     bool autoFetchWifi = provider.autoFetchWifi;
+    bool isFactoryDebugMode = provider.isFactoryDebugMode;
     TextEditingController nameCtrl = TextEditingController(text: provider.filterName);
 
     showModalBottomSheet(
@@ -79,6 +80,18 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     activeColor: _primaryPurple, // 替换颜色
                   ),
                   SizedBox(height: 15.h),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text("工厂调试模式", style: TextStyle(fontWeight: FontWeight.w500)),
+                    subtitle: const Text(
+                      "开启后，点击连接将进入 BLE 开发者调试控制台",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    value: isFactoryDebugMode,
+                    onChanged: (val) => setState(() => isFactoryDebugMode = val),
+                    activeColor: _primaryPurple,
+                  ),
+                  SizedBox(height: 15.h),
                   Text(
                     "精确过滤",
                     style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500),
@@ -110,6 +123,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                         filterUnknown: filterUnknown,
                         filterName: nameCtrl.text.trim(),
                         autoFetchWifi: autoFetchWifi,
+                        isFactoryDebugMode: isFactoryDebugMode,
                       );
                       Navigator.pop(ctx);
                     },
@@ -254,15 +268,20 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF9F9FC), // 浅灰背景
-              foregroundColor: _primaryPurple, // 替换文字颜色为紫
+              backgroundColor: const Color(0xFFF9F9FC),
+              foregroundColor: _primaryPurple,
               elevation: 0,
               minimumSize: Size(80.w, 36.h),
               padding: EdgeInsets.symmetric(horizontal: Dimens.spacingNormal),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Dimens.radiusMax)),
             ),
             onPressed: () {
-              context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
+              // 根据模式跳转是否跳转调试
+              if (provider.isFactoryDebugMode) {
+                context.push(AppRoutes.factoryDebug, extra: {'device': device});
+              } else {
+                context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
+              }
             },
             child: Text(s.connectBtn),
           ),

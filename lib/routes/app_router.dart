@@ -37,6 +37,8 @@ import 'package:fullxpet/features/user/feedback_page.dart';
 
 //other
 import 'package:fullxpet/common/widgets/web_view_page.dart';
+import 'package:fullxpet/features/device/device_add/pages/factory_debug.dart';
+import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
 
 class AppRoutes {
   static const splash = '/splash';
@@ -58,6 +60,7 @@ class AppRoutes {
   static const String aboutUs = '/about_us';
   static const String feedback = '/feedback';
   static const webView = '/web_view';
+  static const factoryDebug = '/factory-debug';
 }
 
 class AppRouter {
@@ -171,6 +174,14 @@ class AppRouter {
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
         return DeviceAddSuccessPage(deviceId: deviceId);
+      },
+    ),
+    // 工厂调试入口
+    GoRoute(
+      path: AppRoutes.factoryDebug,
+      builder: (context, state) {
+        final args = state.extra as Map<String, dynamic>;
+        return FactoryDebugPage(targetDevice: args['device'] as DiscoveredDevice);
       },
     ),
   ];
