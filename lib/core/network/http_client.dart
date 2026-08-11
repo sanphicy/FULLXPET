@@ -2,6 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:fullxpet/core/result/result_model.dart';
 import 'package:fullxpet/core/network/auth_interceptor.dart';
 import 'package:fullxpet/core/network/api_exception.dart';
+import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/routes/app_router.dart';
+import 'package:fullxpet/core/utils/token_manager.dart';
 
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
@@ -57,6 +60,10 @@ class HttpClient {
           final T? finalData = (fromJson != null && rawData != null) ? fromJson(rawData) : rawData as T?;
           return ResultEntity.success(finalData, msg: resData['message'] ?? '请求成功');
         }
+        if (code == 401 || (code != null && code.toString().startsWith('401'))) {
+          _handleUnauthorized();
+          return ResultEntity.error(resData['message'] ?? '登录已失效', code: code);
+        }
         return ResultEntity.error(resData['message'] ?? '请求失败', code: code);
       }
       return ResultEntity.error('未知数据格式');
@@ -87,6 +94,13 @@ class HttpClient {
       }
       return ResultEntity.error(ApiException.format(e));
     }
+  }
+
+  /// 处理登录失效逻辑
+  void _handleUnauthorized() async {
+    await TokenManager.clearToken();
+    // 使用 NavService 全局导航回登录页
+    NavService.go(AppRoutes.login);
   }
 
   Future<ResultEntity<T>> patch<T>(

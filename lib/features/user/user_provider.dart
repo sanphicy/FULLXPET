@@ -63,7 +63,7 @@ class UserProvider extends BaseProvider {
           _account = newAccount;
           notifyListeners();
         }
-      } else if (result.code == 401) {
+      } else if (result.code == 401 || (result.code != null && result.code.toString().startsWith('401'))) {
         await logout();
       } else if (!isSilent) {
         setError(result.message);
