@@ -19,10 +19,6 @@ class FactoryDebugLog {
 class FactoryDebugProvider extends BaseProvider {
   final BluetoothManager _bleManager = locator<BluetoothManager>();
 
-  // 🌟 核心修复：根据项目的配网协议，明确使用 FF02 和 FF03
-  static const String targetNotifyUuidPartial = "ff02";
-  static const String targetWriteUuidPartial = "ff03";
-
   DiscoveredDevice? _targetDevice;
   BluetoothDevice? get connectedDevice => _targetDevice?.device;
 
@@ -39,6 +35,11 @@ class FactoryDebugProvider extends BaseProvider {
 
   bool _isPaused = false;
   bool get isPaused => _isPaused;
+
+  // --- 电机卡死/无动作检测变量 ---
+  final List<int> _recentEncoderCounts = []; // 存储运动状态下的编码器脉冲
+  bool _isMotorStuckWarning = false; // 是否触发“电机有动作指令但编码器无变化”警告
+  bool get isMotorStuckWarning => _isMotorStuckWarning;
 
   @override
   void dispose() {
@@ -59,7 +60,6 @@ class FactoryDebugProvider extends BaseProvider {
       final device = target.device;
       if (device == null) throw Exception("设备对象为空");
 
-      // 强制停止扫描，防止信道冲突
       await _bleManager.stopScan();
 
       // 1. 连接 GATT
@@ -76,33 +76,42 @@ class FactoryDebugProvider extends BaseProvider {
 
       // 2. 发现服务
       List<BluetoothService> services = await device.discoverServices();
-      _notifyCharacteristic = null;
-      _writeCharacteristic = null;
 
-      // 🌟 核心修复：精准匹配 FF02 和 FF03，不匹配绝不随意兜底
+      BluetoothCharacteristic? notifyChrFA01;
+      BluetoothCharacteristic? writeChrFA02;
+      BluetoothCharacteristic? notifyChrFF02;
+      BluetoothCharacteristic? writeChrFF03;
+
       for (var s in services) {
         for (var c in s.characteristics) {
           final uuidStr = c.uuid.toString().toLowerCase();
 
-          // 匹配 Notify
-          if ((c.properties.notify || c.properties.indicate) &&
-              (uuidStr.contains(targetNotifyUuidPartial) || uuidStr.contains("fa01"))) {
-            _notifyCharacteristic = c;
+          if (uuidStr.contains("fa01") && (c.properties.notify || c.properties.indicate)) {
+            notifyChrFA01 = c;
+          }
+          if (uuidStr.contains("fa02") && (c.properties.write || c.properties.writeWithoutResponse)) {
+            writeChrFA02 = c;
           }
 
-          // 匹配 Write
-          if ((c.properties.write || c.properties.writeWithoutResponse) &&
-              (uuidStr.contains(targetWriteUuidPartial) || uuidStr.contains("fa02"))) {
-            _writeCharacteristic = c;
+          if (uuidStr.contains("ff02") && (c.properties.notify || c.properties.indicate)) {
+            notifyChrFF02 = c;
+          }
+          if (uuidStr.contains("ff03") && (c.properties.write || c.properties.writeWithoutResponse)) {
+            writeChrFF03 = c;
           }
         }
       }
 
-      if (_notifyCharacteristic == null) {
-        throw Exception("找不到对应的 Notify 特征值 (FF02/FA01)");
-      }
-      if (_writeCharacteristic == null) {
-        throw Exception("找不到对应的 Write 特征值 (FF03/FA02)");
+      if (notifyChrFA01 != null && writeChrFA02 != null) {
+        _notifyCharacteristic = notifyChrFA01;
+        _writeCharacteristic = writeChrFA02;
+        debugPrint("工厂调试: 成功匹配专属厂测通道 FA01/FA02");
+      } else if (notifyChrFF02 != null && writeChrFF03 != null) {
+        _notifyCharacteristic = notifyChrFF02;
+        _writeCharacteristic = writeChrFF03;
+        debugPrint("工厂调试: 启用降级通道 FF02/FF03");
+      } else {
+        throw Exception("此设备未暴露厂测通道，无法调试。");
       }
 
       // 3. 开启监听
@@ -121,7 +130,7 @@ class FactoryDebugProvider extends BaseProvider {
   }
 
   // ==========================================
-  // 处理接收到的字节流 (滑动窗口容错解析)
+  // 处理接收字节流与逻辑检测
   // ==========================================
   void _handleIncomingBytes(List<int> bytes) {
     if (bytes.isEmpty || _isPaused) return;
@@ -161,6 +170,7 @@ class FactoryDebugProvider extends BaseProvider {
             }
 
             if (finalJsonMap != null) {
+              // 1. 追加日志
               _addLog(
                 FactoryDebugLog(
                   timestamp: DateTime.now(),
@@ -169,6 +179,9 @@ class FactoryDebugProvider extends BaseProvider {
                   parsedJson: finalJsonMap,
                 ),
               );
+
+              // 2. 结合“运行状态 + 编码器脉冲”判定电机是否异常卡死
+              _checkMotorStuckCondition(finalJsonMap);
             }
 
             currentString = currentString.substring(i);
@@ -183,6 +196,50 @@ class FactoryDebugProvider extends BaseProvider {
 
     if (_rxBuffer.length > 4096) {
       _rxBuffer.clear();
+    }
+  }
+
+  /// 准确检测：只有在电机处于“非空闲状态 (state != 0)”时，如果编码器脉冲持续不变化，才报卡死/无动作
+  void _checkMotorStuckCondition(Map<String, dynamic>? telemetry) {
+    if (telemetry == null) return;
+
+    final motor = telemetry['sensors']?['motor'];
+    if (motor == null) return;
+
+    final int state = motor['state'] is num ? (motor['state'] as num).toInt() : 0;
+    final int currentEncoder = motor['encoder_cnt'] is num ? (motor['encoder_cnt'] as num).toInt() : 0;
+
+    // 核心逻辑：只有 state != 0 (电机被指令驱动运转中/寻零中) 才需要监测编码器脉冲！
+    final bool isMotorWorking = (state != 0);
+
+    if (!isMotorWorking) {
+      // 只要电机回到空闲 (state == 0)，无论过载与否、无论脉冲是多少，直接清空计数并关闭黄色提示！
+      if (_recentEncoderCounts.isNotEmpty || _isMotorStuckWarning) {
+        _recentEncoderCounts.clear();
+        _isMotorStuckWarning = false;
+        notifyListeners();
+      }
+      return;
+    }
+
+    // 以下只有在 state != 0 (电机正在运转) 时才会执行：
+    _recentEncoderCounts.add(currentEncoder);
+
+    if (_recentEncoderCounts.length > 3) {
+      _recentEncoderCounts.removeAt(0);
+    }
+
+    // 运行状态下，连续 3 次脉冲完全没有变化 -> 判定堵转/无动作
+    if (_recentEncoderCounts.length == 3 && _recentEncoderCounts.every((cnt) => cnt == _recentEncoderCounts.first)) {
+      if (!_isMotorStuckWarning) {
+        _isMotorStuckWarning = true;
+        notifyListeners();
+      }
+    } else {
+      if (_isMotorStuckWarning) {
+        _isMotorStuckWarning = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -255,7 +312,7 @@ class FactoryDebugProvider extends BaseProvider {
   }
 
   // ==========================================
-  // 清理
+  // 资源释放与清理
   // ==========================================
   Future<void> _safeDisconnectAndRelease() async {
     _notifySub?.cancel();
@@ -284,6 +341,8 @@ class FactoryDebugProvider extends BaseProvider {
   void clearLogs() {
     _logs.clear();
     _rxBuffer.clear();
+    _recentEncoderCounts.clear();
+    _isMotorStuckWarning = false;
     notifyListeners();
   }
 
