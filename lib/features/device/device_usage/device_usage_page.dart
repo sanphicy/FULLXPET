@@ -357,6 +357,9 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
               showTitles: true,
               reservedSize: 36,
               getTitlesWidget: (value, meta) {
+                if (value % 1 != 0) {
+                  return const SizedBox.shrink();
+                }
                 return Text(
                   '${value.toInt()}${isTimes ? '次' : '秒'}',
                   style: TextStyle(fontSize: 10, color: _subTextColor),
