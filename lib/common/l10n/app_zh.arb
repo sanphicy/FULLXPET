@@ -15,6 +15,8 @@
   "sendCode": "发送验证码",
   "enterCode": "请输入验证码",
   "submitAndRegister": "提交并注册",
+  "emptyAccountOrPassword": "账号或密码不能为空",
+  "invalidAccountFormat": "请输入合法的邮箱或手机号",
   "cancel": "取消",
   "confirm": "确定",
   "connectBtn": "连接",
@@ -32,7 +34,5 @@
   "configSuccess": "设备添加成功！",
   "autoSearching": "正在自动搜索可用设备...",
   "noDeviceFoundDesc": "当前未连接设备，请点击下方进行连接。",
-  "searchingAvailable": "正在搜索可用设备",
-    "emptyAccountOrPassword": "账号或密码不能为空",
-  "invalidAccountFormat": "请输入合法的邮箱或手机号"
+  "searchingAvailable": "正在搜索可用设备"
 }

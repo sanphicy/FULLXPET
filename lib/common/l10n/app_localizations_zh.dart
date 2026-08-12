@@ -54,6 +54,12 @@ class SZh extends S {
   String get submitAndRegister => '提交并注册';
 
   @override
+  String get emptyAccountOrPassword => '账号或密码不能为空';
+
+  @override
+  String get invalidAccountFormat => '请输入合法的邮箱或手机号';
+
+  @override
   String get cancel => '取消';
 
   @override
@@ -106,10 +112,4 @@ class SZh extends S {
 
   @override
   String get searchingAvailable => '正在搜索可用设备';
-
-  @override
-  String get emptyAccountOrPassword => '账号或密码不能为空';
-
-  @override
-  String get invalidAccountFormat => '请输入合法的邮箱或手机号';
 }

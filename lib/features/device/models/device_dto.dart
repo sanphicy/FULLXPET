@@ -21,7 +21,7 @@ class DeviceDto {
 
   DeviceDto({
     required this.deviceId,
-    this.deviceName = 'PETLUX-V3',
+    this.deviceName = 'FULLXPET',
     this.isOnline = false,
     Map<String, dynamic>? attributes,
   }) {

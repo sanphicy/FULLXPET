@@ -6,11 +6,11 @@ class AppConfig {
 
   // 开发环境配置
   factory AppConfig.dev() {
-    return AppConfig(baseUrl: 'http://192.168.100.71:8080', accessTokenKey: 'v3_dev_access_token');
+    return AppConfig(baseUrl: 'https://web.api.stellapets.com', accessTokenKey: 'v3_dev_access_token');
   }
 
   // 生产环境配置
   factory AppConfig.prod() {
-    return AppConfig(baseUrl: 'https://web.api.stellapets.com', accessTokenKey: 'v3_prod_access_token');
+    return AppConfig(baseUrl: 'https://us-web.iot.junvine.com.cn', accessTokenKey: 'v3_prod_access_token');
   }
 }

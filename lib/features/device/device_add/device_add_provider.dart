@@ -18,7 +18,7 @@ class DeviceAddProvider extends BaseProvider {
   // ================= 设置项持久化 =================
   bool _hasLoadedSettings = false;
   bool _filterUnknown = true;
-  String _filterName = 'PETLUX';
+  String _filterName = 'FULLXPET';
   bool _autoFetchWifi = true;
 
   bool _isFactoryDebugMode = false; //工厂调试
@@ -33,7 +33,7 @@ class DeviceAddProvider extends BaseProvider {
     if (_hasLoadedSettings) return;
     final prefs = await SharedPreferences.getInstance();
     _filterUnknown = prefs.getBool('pref_filter_unknown') ?? true;
-    _filterName = prefs.getString('pref_filter_name') ?? 'PETLUX';
+    _filterName = prefs.getString('pref_filter_name') ?? 'FULLXPET';
     _autoFetchWifi = prefs.getBool('pref_auto_fetch_wifi') ?? true;
     _hasLoadedSettings = true;
     _isFactoryDebugMode = prefs.getBool('pref_factory_debug_mode') ?? false;
@@ -495,7 +495,7 @@ class DeviceAddProvider extends BaseProvider {
                   final String realDeviceId = payload['deviceId']?.toString() ?? '';
                   _boundDeviceId = realDeviceId;
 
-                  _bindDeviceToCloud(mac, pid, "PETLUX-V3").then((isBindSuccess) {
+                  _bindDeviceToCloud(mac, pid, "FULLXPET").then((isBindSuccess) {
                     if (isBindSuccess) {
                       _progress = 1.0;
                       _addLog("设备云端注册完成！", isHighlight: true);

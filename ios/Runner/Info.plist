@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- PETLUX-V3 IOS所需权限声明 start-->
+	<!-- FULLXPET IOS所需权限声明 start-->
 	<key>NSBluetoothAlwaysUsageDescription</key>
     <string>App需要您的同意，才能始终访问蓝牙，以便扫描、连接和管理设备。</string>
     <key>NSBluetoothPeripheralUsageDescription</key>
@@ -29,7 +29,7 @@
     </dict>
 	<key>NSMicrophoneUsageDescription</key>
     <string>We need access to your microphone if you choose to record a video for your profile.</string>
-	<!-- PETLUX-V3 IOS所需权限声明 end-->
+	<!-- FULLXPET IOS所需权限声明 end-->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

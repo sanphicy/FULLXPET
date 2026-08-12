@@ -187,6 +187,18 @@ abstract class S {
   /// **'提交并注册'**
   String get submitAndRegister;
 
+  /// No description provided for @emptyAccountOrPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号或密码不能为空'**
+  String get emptyAccountOrPassword;
+
+  /// No description provided for @invalidAccountFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入合法的邮箱或手机号'**
+  String get invalidAccountFormat;
+
   /// No description provided for @cancel.
   ///
   /// In zh, this message translates to:
@@ -294,18 +306,6 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'正在搜索可用设备'**
   String get searchingAvailable;
-
-  /// No description provided for @emptyAccountOrPassword.
-  ///
-  /// In zh, this message translates to:
-  /// **'账号或密码不能为空'**
-  String get emptyAccountOrPassword;
-
-  /// No description provided for @invalidAccountFormat.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入合法的邮箱或手机号'**
-  String get invalidAccountFormat;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {
