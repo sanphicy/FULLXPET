@@ -9,7 +9,7 @@ import 'package:fullxpet/core/utils/token_manager.dart';
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
   factory HttpClient() => _instance;
-  late final Dio dio;
+  late Dio dio;
 
   HttpClient._internal();
 
@@ -23,6 +23,7 @@ class HttpClient {
       ),
     );
     dio.interceptors.add(AuthInterceptor(dio));
+    dio.options.baseUrl = baseUrl;
   }
 
   Future<ResultEntity<T>> request<T>(

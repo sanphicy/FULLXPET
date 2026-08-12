@@ -6,6 +6,7 @@ import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/app.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:fullxpet/core/network/api_endpoints.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +15,34 @@ void main() async {
 
   final config = AppConfig.prod();
   TokenManager.init(accessKey: config.accessTokenKey);
+  // 1. 先用默认的 baseUrl 初始化 HttpClient
   locator<HttpClient>().init(baseUrl: config.baseUrl);
+
+  // 临时添加 start：启动时获取动态 baseUrl
+  try {
+    final HttpClient httpClient = locator<HttpClient>();
+    final payload = {"countryCode": "CN", "clientAppId": "fullxpet"};
+
+    // 2. 发起请求
+    final response = await httpClient.get<Map<String, dynamic>>(ApiEndpoints.mqttUri, query: payload);
+
+    if (response.code == 0 || response.code == 200) {
+      final data = response.data;
+      if (data != null && data['apiBaseUrl'] != null) {
+        String apiBaseUrl = data['apiBaseUrl'].toString();
+        if (apiBaseUrl.endsWith('/app')) {
+          apiBaseUrl = apiBaseUrl.substring(0, apiBaseUrl.length - 4);
+        }
+        print("✅ 动态获取到 apiBaseUrl: $apiBaseUrl");
+
+        // 3. 动态更新 baseUrl
+        locator<HttpClient>().init(baseUrl: apiBaseUrl);
+      }
+    }
+  } catch (e) {
+    print("⚠️ 获取动态 apiBaseUrl 失败，使用默认配置: $e");
+  }
+  // 临时添加 end
 
   AppRouter.setup(AppRoutes.splash);
 
