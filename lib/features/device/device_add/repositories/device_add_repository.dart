@@ -8,7 +8,7 @@ class DeviceAddRepository {
 
   Future<String?> getDeviceMqttRui() async {
     try {
-      final payload = {"countryCode": "US", "clientAppId": "stellapets"};
+      final payload = {"countryCode": "CN", "clientAppId": "fullxpet"};
 
       final response = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.mqttUri, query: payload);
       print(response.data.toString());
