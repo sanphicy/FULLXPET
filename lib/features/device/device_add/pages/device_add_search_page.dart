@@ -80,18 +80,18 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     onChanged: (val) => setState(() => autoFetchWifi = val),
                     activeColor: _primaryPurple, // 替换颜色
                   ),
-                  SizedBox(height: 15.h),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text("工厂调试模式", style: TextStyle(fontWeight: FontWeight.w500)),
-                    subtitle: const Text(
-                      "开启后，点击连接将进入 BLE 开发者调试控制台",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    value: isFactoryDebugMode,
-                    onChanged: (val) => setState(() => isFactoryDebugMode = val),
-                    activeColor: _primaryPurple,
-                  ),
+                  // SizedBox(height: 15.h),
+                  // SwitchListTile(
+                  //   contentPadding: EdgeInsets.zero,
+                  //   title: const Text("工厂调试模式", style: TextStyle(fontWeight: FontWeight.w500)),
+                  //   subtitle: const Text(
+                  //     "开启后，点击连接将进入 BLE 开发者调试控制台",
+                  //     style: TextStyle(fontSize: 12, color: Colors.grey),
+                  //   ),
+                  //   value: isFactoryDebugMode,
+                  //   onChanged: (val) => setState(() => isFactoryDebugMode = val),
+                  //   activeColor: _primaryPurple,
+                  // ),
                   SizedBox(height: 15.h),
                   Text(
                     "精确过滤",
@@ -278,12 +278,12 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
             ),
             onPressed: () {
               // 根据模式跳转是否跳转调试
-              if (provider.isFactoryDebugMode) {
-                context.push(AppRoutes.factoryDebug, extra: {'device': device});
-              } else {
-                context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
-              }
-              // context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
+              // if (provider.isFactoryDebugMode) {
+              //   context.push(AppRoutes.factoryDebug, extra: {'device': device});
+              // } else {
+              //   context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
+              // }
+              context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
             },
             child: Text(s.connectBtn),
           ),
