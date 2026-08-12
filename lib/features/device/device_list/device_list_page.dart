@@ -246,13 +246,8 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ],
                   ),
                   IconButton(
-                    icon: Icon(Icons.add_circle_rounded, size: 28.w, color: const Color(0xFF555555)),
-                    onPressed: () async {
-                      await context.push(AppRoutes.deviceAddSearch);
-                      if (context.mounted) {
-                        context.read<DeviceProvider>().fetchDevices();
-                      }
-                    },
+                    icon: Icon(Icons.help_outline_rounded, size: 26.w, color: const Color(0xFF555555)),
+                    onPressed: () => _showHelpDialog(context),
                   ),
                 ],
               ),
