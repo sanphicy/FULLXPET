@@ -25,6 +25,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DeviceProvider>().fetchDevices();
+      context.read<UserProvider>().fetchUserInfo(isSilent: true);
     });
   }
 
@@ -34,9 +35,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28.r),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
           backgroundColor: const Color(0xFFF4F5F0),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 28.h),
@@ -47,11 +46,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 Center(
                   child: Text(
                     '使用指南',
-                    style: TextStyle(
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                    style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold, color: Colors.black),
                   ),
                 ),
                 SizedBox(height: 20.h),
@@ -66,22 +61,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     height: 44.h,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: const Color(0xFF999999),
-                          width: 1.w,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(22.r),
-                        ),
+                        side: BorderSide(color: const Color(0xFF999999), width: 1.w),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22.r)),
                       ),
                       onPressed: () => Navigator.pop(ctx),
                       child: Text(
                         '我知道了',
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          color: const Color(0xFF333333),
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: TextStyle(fontSize: 16.sp, color: const Color(0xFF333333), fontWeight: FontWeight.w500),
                       ),
                     ),
                   ),
@@ -99,31 +85,19 @@ class _DeviceListPageState extends State<DeviceListPage> {
       padding: EdgeInsets.only(bottom: 8.h),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 14.sp,
-          color: const Color(0xFF666666),
-          height: 1.5,
-        ),
+        style: TextStyle(fontSize: 14.sp, color: const Color(0xFF666666), height: 1.5),
       ),
     );
   }
 
   /// 修改名称弹窗
-  void _showRenameDialog(
-    BuildContext context,
-    String deviceId,
-    String currentName,
-  ) {
-    final TextEditingController controller = TextEditingController(
-      text: currentName,
-    );
+  void _showRenameDialog(BuildContext context, String deviceId, String currentName) {
+    final TextEditingController controller = TextEditingController(text: currentName);
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.r),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.r)),
           title: Text(
             '修改设备名称',
             style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
@@ -133,9 +107,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
             autofocus: true,
             decoration: InputDecoration(
               hintText: '请输入新的名称',
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: _primaryPurple),
-              ),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _primaryPurple)),
             ),
           ),
           actions: [
@@ -149,18 +121,12 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 final newName = controller.text.trim();
                 Navigator.pop(ctx);
                 if (newName.isNotEmpty && newName != currentName) {
-                  await context.read<DeviceProvider>().renameDevice(
-                    deviceId,
-                    newName,
-                  );
+                  await context.read<DeviceProvider>().renameDevice(deviceId, newName);
                 }
               },
               child: Text(
                 '确认',
-                style: TextStyle(
-                  color: _primaryPurple,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: _primaryPurple, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -192,10 +158,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       SizedBox(
                         width: 36.w,
                         height: 36.w,
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          fit: BoxFit.contain,
-                        ),
+                        child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
                       ),
                       SizedBox(width: 8.w),
                       Text(
@@ -210,11 +173,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ],
                   ),
                   IconButton(
-                    icon: Icon(
-                      Icons.help_outline_rounded,
-                      size: 26.w,
-                      color: Colors.black87,
-                    ),
+                    icon: Icon(Icons.help_outline_rounded, size: 26.w, color: Colors.black87),
                     onPressed: () => _showHelpDialog(context),
                   ),
                 ],
@@ -223,15 +182,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
               // 2. 固定问候语
               Text(
-                'Hello,',
-                style: TextStyle(
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryPurple,
-                ),
+                userProvider.userName.isNotEmpty && userProvider.userName != 'Unknown User'
+                    ? '你好, ${userProvider.userName}'
+                    : '你好,',
+                style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold, color: _primaryPurple),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis, // 避免用户昵称过长溢出
               ),
               SizedBox(height: 16.h),
 
+              // 3. 固定用户与在线状态卡片 Banner
               // 3. 固定用户与在线状态卡片 Banner
               Stack(
                 clipBehavior: Clip.none,
@@ -249,50 +209,47 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   ),
                   Positioned(
                     top: 10.h,
-                    left: 0,
+                    left: 0, // 保持绝对靠左，与整体外层 Padding 0 端对齐
                     child: Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 8.h,
+                        horizontal: 10.w, // 适当收紧内边距，使头像更靠近边缘
+                        vertical: 6.h,
                       ),
-                      decoration: const ShapeDecoration(
-                        color: Color(0xFFFCE21B),
-                        shape: StadiumBorder(),
-                      ),
+                      decoration: const ShapeDecoration(color: Color(0xFFFCE21B), shape: StadiumBorder()),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          AppAvatar(
-                            avatarUrl: userProvider.avatarUrl,
-                            radius: 18.r,
-                          ),
-                          SizedBox(width: 10.w),
+                          AppAvatar(avatarUrl: userProvider.avatarUrl, radius: 18.r),
+                          SizedBox(width: 8.w),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                userProvider.userName.isNotEmpty
-                                    ? userProvider.userName
-                                    : 'CHEN',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                              ConstrainedBox(
+                                constraints: BoxConstraints(maxWidth: 100.w),
+                                child: Text(
+                                  userProvider.userName.isNotEmpty ? userProvider.userName : 'CHEN',
+                                  style: TextStyle(
+                                    fontSize: 12.sp, // 调小字号
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF222222), // 纯净深灰黑
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              SizedBox(height: 2.h),
+                              SizedBox(height: 1.h),
                               Text(
                                 '在线: $onlineCount',
                                 style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: Colors.pink,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10.sp, // 调小字号
+                                  color: const Color(0xFF7A60E6), // 呼应 App 主色调紫色（稍微加深以防黄色背景上看不清）
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
                           ),
-                          SizedBox(width: 12.w),
+                          SizedBox(width: 8.w),
                         ],
                       ),
                     ),
@@ -307,18 +264,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 children: [
                   Text(
                     '我的设备',
-                    style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
-                      color: _textColor,
-                    ),
+                    style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: _textColor),
                   ),
                   IconButton(
-                    icon: Icon(
-                      Icons.add_circle_rounded,
-                      size: 28.w,
-                      color: const Color(0xFF555555),
-                    ),
+                    icon: Icon(Icons.add_circle_rounded, size: 28.w, color: const Color(0xFF555555)),
                     onPressed: () => context.push(AppRoutes.deviceAddSearch),
                   ),
                 ],
@@ -337,17 +286,11 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       ? ListView(
                           children: [
                             SizedBox(height: 60.h),
-                            Center(
-                              child: CircularProgressIndicator(
-                                color: _primaryPurple,
-                              ),
-                            ),
+                            Center(child: CircularProgressIndicator(color: _primaryPurple)),
                           ],
                         )
                       : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
+                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                           itemCount: provider.devices.length,
                           itemBuilder: (context, index) {
                             final device = provider.devices[index];
@@ -357,19 +300,11 @@ class _DeviceListPageState extends State<DeviceListPage> {
                               isOnline: device.isOnline,
                               imageUrl: 'assets/images/product-pic.png',
                               onTap: () {
-                                context.push(
-                                  '/device_manager/${device.deviceId}',
-                                );
+                                context.push('/device_manager/${device.deviceId}');
                               },
-                              onRename: () => _showRenameDialog(
-                                context,
-                                device.deviceId,
-                                device.deviceName,
-                              ),
+                              onRename: () => _showRenameDialog(context, device.deviceId, device.deviceName),
                               onDelete: () async {
-                                await context
-                                    .read<DeviceProvider>()
-                                    .deleteDevice(device.deviceId);
+                                await context.read<DeviceProvider>().deleteDevice(device.deviceId);
                                 if (mounted) {
                                   context.read<DeviceProvider>().fetchDevices();
                                 }
