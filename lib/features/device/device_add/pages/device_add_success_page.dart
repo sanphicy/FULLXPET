@@ -3,6 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fullxpet/common/constants/dimens.dart';
 import 'package:fullxpet/routes/app_router.dart';
+import 'package:provider/provider.dart';
+import 'package:fullxpet/features/device/device_provider.dart';
 
 class DeviceAddSuccessPage extends StatelessWidget {
   final String deviceId;
@@ -42,10 +44,11 @@ class DeviceAddSuccessPage extends StatelessWidget {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: Size(double.infinity, Dimens.buttonLarge),
-                    backgroundColor: _primaryPurple, // 替换为紫色
+                    backgroundColor: _primaryPurple,
                   ),
                   onPressed: () {
-                    // 核心修改：携带真实 deviceId 跳转至设备管理页
+                    // 跳转前刷新列表，确保回到列表页时数据是最新的
+                    context.read<DeviceProvider>().fetchDevices();
                     context.go('/device_manager/$deviceId');
                   },
                   child: const Text(
@@ -59,7 +62,11 @@ class DeviceAddSuccessPage extends StatelessWidget {
                     minimumSize: Size(double.infinity, Dimens.buttonLarge),
                     side: const BorderSide(color: Color(0xFFE0E0E0)),
                   ),
-                  onPressed: () => context.go(AppRoutes.home),
+                  onPressed: () {
+                    // 刷新数据后再切换回首页
+                    context.read<DeviceProvider>().fetchDevices();
+                    context.go(AppRoutes.home);
+                  },
                   child: const Text("返回首页", style: TextStyle(color: Color(0xFF333333))),
                 ),
               ],

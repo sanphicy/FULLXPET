@@ -109,8 +109,28 @@ class DeviceProvider extends BaseProvider {
     }
   }
 
-  Future<void> deleteDevice(String deviceId) async {
-    final homeList = await locator<HttpClient>().get(ApiEndpoints.homeList);
-    await locator<HttpClient>().delete(ApiEndpoints.deviceUnBind(homeList.data['items'][0]['id'], deviceId));
+  Future<bool> deleteDevice(String deviceId) async {
+    setLoading(true);
+    clearError();
+    try {
+      final homeList = await locator<HttpClient>().get(ApiEndpoints.homeList);
+      if (homeList.data != null && homeList.data['items'] != null && homeList.data['items'].isNotEmpty) {
+        final homeId = homeList.data['items'][0]['id'];
+        final res = await locator<HttpClient>().delete(ApiEndpoints.deviceUnBind(homeId, deviceId));
+
+        if (res.code == 0 || res.code == 200) {
+          _devices.removeWhere((d) => d.deviceId == deviceId);
+          notifyListeners();
+          return true;
+        } else {
+          setError(res.message);
+        }
+      }
+    } catch (e) {
+      setError("删除设备失败，请稍后重试");
+    } finally {
+      setLoading(false);
+    }
+    return false;
   }
 }

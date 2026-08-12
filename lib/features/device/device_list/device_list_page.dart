@@ -135,6 +135,79 @@ class _DeviceListPageState extends State<DeviceListPage> {
     );
   }
 
+  /// 显示删除确认弹窗并执行带等待的删除
+  void _showDeleteConfirmDialog(BuildContext context, String deviceId, String deviceName) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          title: Text(
+            '删除设备',
+            style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: _textColor),
+          ),
+          content: Text(
+            '确定要删除设备 "$deviceName" 吗？解绑后设备将无法在 App 中操控。',
+            style: TextStyle(fontSize: 14.sp, color: const Color(0xFF666666)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx); // 关掉确认弹窗
+
+                // 弹出透明阻塞式 Loading 弹窗
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => Center(
+                    child: Container(
+                      padding: EdgeInsets.all(20.w),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12.r)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: _primaryPurple),
+                          SizedBox(height: 12.h),
+                          Text(
+                            '正在删除...',
+                            style: TextStyle(fontSize: 13.sp, color: _textColor, decoration: TextDecoration.none),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+
+                // 执行删除 API
+                final success = await context.read<DeviceProvider>().deleteDevice(deviceId);
+
+                if (mounted) {
+                  Navigator.pop(context); // 关掉 Loading 弹窗
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('设备已成功解绑与删除')));
+                  } else {
+                    final errorMsg = context.read<DeviceProvider>().errorMsg;
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(errorMsg.isNotEmpty ? errorMsg : '删除失败，请稍后重试')));
+                  }
+                }
+              },
+              child: const Text(
+                '确定删除',
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<DeviceProvider>();
@@ -173,8 +246,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ],
                   ),
                   IconButton(
-                    icon: Icon(Icons.help_outline_rounded, size: 26.w, color: Colors.black87),
-                    onPressed: () => _showHelpDialog(context),
+                    icon: Icon(Icons.add_circle_rounded, size: 28.w, color: const Color(0xFF555555)),
+                    onPressed: () async {
+                      await context.push(AppRoutes.deviceAddSearch);
+                      if (context.mounted) {
+                        context.read<DeviceProvider>().fetchDevices();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -191,7 +269,6 @@ class _DeviceListPageState extends State<DeviceListPage> {
               ),
               SizedBox(height: 16.h),
 
-              // 3. 固定用户与在线状态卡片 Banner
               // 3. 固定用户与在线状态卡片 Banner
               Stack(
                 clipBehavior: Clip.none,
@@ -303,12 +380,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                                 context.push('/device_manager/${device.deviceId}');
                               },
                               onRename: () => _showRenameDialog(context, device.deviceId, device.deviceName),
-                              onDelete: () async {
-                                await context.read<DeviceProvider>().deleteDevice(device.deviceId);
-                                if (mounted) {
-                                  context.read<DeviceProvider>().fetchDevices();
-                                }
-                              },
+                              onDelete: () => _showDeleteConfirmDialog(context, device.deviceId, device.deviceName),
                             );
                           },
                         ),
