@@ -173,11 +173,17 @@ class DeviceAddProvider extends BaseProvider {
     _discoveredDevices.clear();
     _cancelSubscriptions();
 
-    final hasPermission = await _bleManager.checkAndRequestPermissions();
-    if (!hasPermission) {
-      setError("未获取蓝牙权限");
-      return;
+    // ✅ 仅在 Android 上使用 permission_handler，iOS 端跳过拦截直接启动扫描
+    if (Platform.isAndroid) {
+      final hasPermission = await _bleManager.checkAndRequestPermissions();
+      if (!hasPermission) {
+        setError("未获取蓝牙权限");
+        return;
+      }
     }
+
+    // iOS 端直接让 FlutterBluePlus 启动扫描
+    // 当调用 startScan 时，iOS 系统底层捕捉到蓝牙动作，会自动触发系统蓝牙授权弹窗！
 
     if (Platform.isAndroid) {
       try {
