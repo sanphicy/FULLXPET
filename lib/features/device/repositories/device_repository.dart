@@ -74,6 +74,39 @@ class DeviceRepository extends BaseProvider {
     }
   }
 
+  // 检查是否有待升级的 OTA 固件
+  Future<Map<String, dynamic>?> checkPendingFirmware(String deviceId) async {
+    try {
+      final apiPath = ApiEndpoints.checkFirmware(deviceId);
+
+      // 注意：这里将泛型改为 dynamic，因为后端 data 返回的是 List
+      final res = await _httpClient.get<dynamic>(apiPath);
+
+      if ((res.code == 0 || res.code == 200) && res.data != null) {
+        final rawData = res.data;
+        // 如果后端返回的是数组，取第一个元素；如果是对象，直接使用
+        if (rawData is List && rawData.isNotEmpty) {
+          return Map<String, dynamic>.from(rawData.first as Map);
+        } else if (rawData is Map<String, dynamic>) {
+          return rawData;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // 下发/派发固件升级指令
+  Future<bool> dispatchFirmwareUpgrade(String deviceId, String recordId) async {
+    try {
+      final apiPath = ApiEndpoints.upgradeFirmware(deviceId, recordId);
+      final result = await _httpClient.post<Map<String, dynamic>>(apiPath);
+      return result.code == 0 || result.code == 200;
+    } catch (e) {
+      debugPrint("Dispatch Firmware Upgrade Error [$deviceId]: $e");
+      return false;
+    }
+  }
+
   // 设置设备工作模式
   Future<bool> setWorkMode(String deviceId, WorkMode mode) async {
     final attrs = <Map<String, dynamic>>[

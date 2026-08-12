@@ -113,7 +113,6 @@ class AuthRepository {
   }
 
   Future<ResultEntity<bool>> resetPasswordByPhone(ResetPasswordByPhoneRequest request) async {
-    // ApiEndpoints.resetPasswordByPhone 已经在你的 api_endpoints.dart 中定义过了
     final response = await _httpClient.post<Map<String, dynamic>>(
       ApiEndpoints.resetPasswordByPhone,
       data: request.toJson(),

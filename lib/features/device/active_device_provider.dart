@@ -27,6 +27,8 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   // --->  设备动作
 
   // --->  设备属性
+  // 暂存 OTA 记录 ID
+  String _pendingOtaRecordId = '';
   // 当前设备时区标识标识（如：Asia/Shanghai）
   String _currentTimeZoneId = 'Asia/Shanghai';
   String get currentTimeZoneId => _currentTimeZoneId;
@@ -154,6 +156,21 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     try {
       await _deviceRepo.fetchDeviceProperties(id);
       await _deviceRepo.fetchDeviceLogs(id, isLoadMore: false);
+
+      // 主动检查设备是否有待升级的固件
+      final otaData = await _deviceRepo.checkPendingFirmware(id);
+
+      if (otaData != null && otaData['recordId'] != null) {
+        _hasNewFirmware = true;
+        // 核心修改：读取文档定义的 version 字段
+        _newFirmwareVersion = otaData['version']?.toString() ?? '最新版';
+        _pendingOtaRecordId = otaData['recordId'].toString();
+        debugPrint("✅ 匹配到固件升级! 版本: $_newFirmwareVersion, RecordID: $_pendingOtaRecordId");
+      } else {
+        _hasNewFirmware = false;
+        _newFirmwareVersion = '';
+        _pendingOtaRecordId = '';
+      }
     } catch (e) {
       setError("Sync Error: $e");
     } finally {
@@ -359,7 +376,23 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   // 发起设备固件升级指令
   Future<bool> startFirmwareUpgrade() async {
     if (!_checkOffline()) return false;
-    return true;
+    if (_pendingOtaRecordId.isEmpty) {
+      setError("未找到有效升级记录");
+      return false;
+    }
+
+    setLoading(true);
+    final success = await _deviceRepo.dispatchFirmwareUpgrade(_currentDevice!.deviceId, _pendingOtaRecordId);
+    setLoading(false);
+
+    if (success) {
+      _hasNewFirmware = false; // 升级指令下发成功后隐藏红点
+      notifyListeners();
+      return true;
+    } else {
+      setError("下发升级指令失败，请稍后重试");
+      return false;
+    }
   }
 
   // 修改设备名称

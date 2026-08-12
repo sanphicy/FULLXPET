@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:fullxpet/common/constants/dimens.dart';
 import 'package:fullxpet/routes/app_router.dart';
-import 'package:provider/provider.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
 
 class DeviceAddSuccessPage extends StatelessWidget {
@@ -15,7 +15,7 @@ class DeviceAddSuccessPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // 强制纯白背景
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -26,7 +26,7 @@ class DeviceAddSuccessPage extends StatelessWidget {
                 Container(
                   width: 100.w,
                   height: 100.w,
-                  decoration: const BoxDecoration(color: _primaryPurple, shape: BoxShape.circle), // 替换为紫色
+                  decoration: const BoxDecoration(color: _primaryPurple, shape: BoxShape.circle),
                   child: Icon(Icons.check, size: 50.w, color: Colors.white),
                 ),
                 SizedBox(height: Dimens.spacingXLarge),
@@ -47,8 +47,9 @@ class DeviceAddSuccessPage extends StatelessWidget {
                     backgroundColor: _primaryPurple,
                   ),
                   onPressed: () {
-                    // 跳转前刷新列表，确保回到列表页时数据是最新的
+                    // 1. 触发刷新 API
                     context.read<DeviceProvider>().fetchDevices();
+                    // 2. 跳转进入管理设备页
                     context.go('/device_manager/$deviceId');
                   },
                   child: const Text(
@@ -63,8 +64,9 @@ class DeviceAddSuccessPage extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   onPressed: () {
-                    // 刷新数据后再切换回首页
+                    // 1. 触发刷新 API
                     context.read<DeviceProvider>().fetchDevices();
+                    // 2. 切回首页，首页 UI 会因为 fetchDevices 内的 notifyListeners 自动重绘并展示最新设备
                     context.go(AppRoutes.home);
                   },
                   child: const Text("返回首页", style: TextStyle(color: Color(0xFF333333))),

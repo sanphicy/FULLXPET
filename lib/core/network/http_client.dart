@@ -54,7 +54,8 @@ class HttpClient {
       print('=================================================\n');
 
       if (resData is Map<String, dynamic>) {
-        final int? code = resData['code'];
+        final dynamic rawCode = resData['code'];
+        final int? code = rawCode is int ? rawCode : int.tryParse(rawCode?.toString() ?? '');
         if (code == 200 || code == 0) {
           final rawData = resData['data'];
           final T? finalData = (fromJson != null && rawData != null) ? fromJson(rawData) : rawData as T?;

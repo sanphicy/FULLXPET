@@ -92,7 +92,6 @@ class AppRouter {
       path: AppRoutes.home,
       builder: (context, state) => MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => DeviceProvider()),
           ChangeNotifierProvider(create: (_) => UserProvider()..fetchUserInfo()),
           ChangeNotifierProvider(create: (_) => DeviceUsageProvider()..selectDevice(0)),
         ],
@@ -177,13 +176,13 @@ class AppRouter {
       },
     ),
     // 工厂调试入口
-    // GoRoute(
-    //   path: AppRoutes.factoryDebug,
-    //   builder: (context, state) {
-    //     final args = state.extra as Map<String, dynamic>;
-    //     return FactoryDebugPage(targetDevice: args['device'] as DiscoveredDevice);
-    //   },
-    // ),
+    GoRoute(
+      path: AppRoutes.factoryDebug,
+      builder: (context, state) {
+        final args = state.extra as Map<String, dynamic>;
+        return FactoryDebugPage(targetDevice: args['device'] as DiscoveredDevice);
+      },
+    ),
   ];
 
   static final List<GoRoute> _userRoutes = [
