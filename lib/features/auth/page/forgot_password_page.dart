@@ -511,11 +511,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ],
                 ),
               ),
-              SizedBox(height: 10.h),
-              Text(
-                '密码需为 8-16 位，包含字母与数字',
-                style: TextStyle(fontSize: 11.sp, color: _hintColor),
-              ),
+
               SizedBox(height: 35.h),
 
               // 提交按钮
