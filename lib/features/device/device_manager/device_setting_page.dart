@@ -28,7 +28,7 @@ class DeviceSettingPage extends StatelessWidget {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('固件升级', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: Text('发现新版本固件 (${provider.newFirmwareVersion})，是否立即进行升级？'),
+          content: Text('检测到新版本 (${provider.newFirmwareVersion})，是否立即升级？升级过程约需要 1~2 分钟。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -37,9 +37,9 @@ class DeviceSettingPage extends StatelessWidget {
             TextButton(
               onPressed: () async {
                 Navigator.pop(ctx);
-                final success = await provider.startFirmwareUpgrade();
+                final success = await provider.startFirmwareUpgrade(timeoutSeconds: 120);
                 if (success && context.mounted) {
-                  context.showAppToast(message: "升级指令已发送", type: AppToastType.success);
+                  context.showAppToast(message: "升级指令已下发，正在检测升级状态...", type: AppToastType.info);
                 }
               },
               child: const Text(
@@ -228,11 +228,14 @@ class DeviceSettingPage extends StatelessWidget {
                     _buildSettingTile(
                       Icons.system_update_alt_rounded,
                       const Color(0xFFEE7C8C),
-                      '固件检查与升级',
+                      provider.isOtaUpdating ? '固件升级中...' : '固件升级',
                       showDivider: true,
-                      trailingText: device.firmwareVersion,
-                      showRedDot: provider.hasNewFirmware,
-                      onTap: provider.hasNewFirmware ? () => _showOtaDialog(context, provider) : null,
+                      trailingText: provider.isOtaUpdating ? '升级中' : device.firmwareVersion,
+                      showRedDot: provider.hasNewFirmware && !provider.isOtaUpdating,
+                      isLoading: provider.isOtaUpdating,
+                      onTap: (provider.hasNewFirmware && !provider.isOtaUpdating)
+                          ? () => _showOtaDialog(context, provider)
+                          : null,
                     ),
                     _buildSettingTile(
                       Icons.wifi_rounded,
@@ -335,6 +338,7 @@ class DeviceSettingPage extends StatelessWidget {
     bool showDivider = false,
     String? trailingText,
     bool showRedDot = false,
+    bool isLoading = false,
     VoidCallback? onTap,
   }) {
     return Column(
@@ -354,7 +358,15 @@ class DeviceSettingPage extends StatelessWidget {
             children: [
               if (trailingText != null)
                 Text(trailingText, style: const TextStyle(fontSize: 13, color: Color(0xFF888888))),
-              if (showRedDot) ...[
+
+              if (isLoading) ...[
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF917CEE)),
+                ),
+              ] else if (showRedDot) ...[
                 const SizedBox(width: 8),
                 Container(
                   width: 8,
@@ -362,12 +374,13 @@ class DeviceSettingPage extends StatelessWidget {
                   decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
                 ),
               ],
+
               const SizedBox(width: 5),
               const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
             ],
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-          onTap: onTap,
+          onTap: isLoading ? null : onTap,
         ),
         if (showDivider) const Divider(height: 1, thickness: 0.5, indent: 52, endIndent: 16, color: Color(0xFFF0EFF5)),
       ],

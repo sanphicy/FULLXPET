@@ -15,7 +15,6 @@ void main() async {
 
   final config = AppConfig.prod();
   TokenManager.init(accessKey: config.accessTokenKey);
-  // 1. 先用默认的 baseUrl 初始化 HttpClient
   locator<HttpClient>().init(baseUrl: config.baseUrl);
 
   // 临时添加 start：启动时获取动态 baseUrl
@@ -33,15 +32,11 @@ void main() async {
         if (apiBaseUrl.endsWith('/app')) {
           apiBaseUrl = apiBaseUrl.substring(0, apiBaseUrl.length - 4);
         }
-        print("✅ 动态获取到 apiBaseUrl: $apiBaseUrl");
-
         // 3. 动态更新 baseUrl
         locator<HttpClient>().init(baseUrl: apiBaseUrl);
       }
     }
-  } catch (e) {
-    print("⚠️ 获取动态 apiBaseUrl 失败，使用默认配置: $e");
-  }
+  } catch (e) {}
   // 临时添加 end
 
   AppRouter.setup(AppRoutes.splash);

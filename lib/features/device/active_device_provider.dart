@@ -22,14 +22,10 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
   // 设备更新事件订阅
   StreamSubscription<String>? _repoSubscription;
-  // --->  设备模式
 
-  // --->  设备动作
-
-  // --->  设备属性
   // 暂存 OTA 记录 ID
   String _pendingOtaRecordId = '';
-  // 当前设备时区标识标识（如：Asia/Shanghai）
+  // 当前设备时区标识（如：Asia/Shanghai）
   String _currentTimeZoneId = 'Asia/Shanghai';
   String get currentTimeZoneId => _currentTimeZoneId;
 
@@ -58,17 +54,22 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   int _savedCalibrationWeight = 5000;
   int get savedCalibrationWeight => _savedCalibrationWeight;
 
-  // --->设备属性选择配置(包括列表值,可选范围)
   // 自动模式延迟时间选项列表（单位：分钟）
   final List<String> _autoModeOptions = ['1', '2', '3', '4', '5'];
   List<String> get autoModeOptions => _autoModeOptions;
-  // 获取当前设备对应的自动模式选项索引(将自动模式选择的列表值转换为对应的秒数)
+
   int get autoModeIndex {
     if (_currentDevice == null) return 0;
     int mins = _currentDevice!.autoModeDelaySeconds ~/ 60;
     int idx = _autoModeOptions.indexOf(mins.toString());
     return idx == -1 ? 0 : idx;
   }
+
+  // ================= OTA 纯轮询状态变量 =================
+  Timer? _otaPollingTimer;
+  bool _isOtaUpdating = false;
+  bool get isOtaUpdating => _isOtaUpdating;
+  // ====================================================
 
   // 构造函数，监听设备仓库数据更新与应用生命周期
   ActiveDeviceProvider() {
@@ -81,15 +82,14 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  // 资源释放，取消订阅和监听
   @override
   void dispose() {
+    stopOtaPolling();
     WidgetsBinding.instance.removeObserver(this);
     _repoSubscription?.cancel();
     super.dispose();
   }
 
-  // 监听应用生命周期切换（从后台切回前台时自动刷新设备属性）
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
@@ -162,7 +162,6 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
       if (otaData != null && otaData['recordId'] != null) {
         _hasNewFirmware = true;
-        // 核心修改：读取文档定义的 version 字段
         _newFirmwareVersion = otaData['version']?.toString() ?? '最新版';
         _pendingOtaRecordId = otaData['recordId'].toString();
         debugPrint("✅ 匹配到固件升级! 版本: $_newFirmwareVersion, RecordID: $_pendingOtaRecordId");
@@ -212,13 +211,13 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: targetState},
-      oldAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: previousState},
+      oldAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: previousState},
       apiCall: () => _deviceRepo.setDndStatus(_currentDevice!.deviceId, targetState),
       errorMsg: "Failed to toggle Do Not Disturb",
     );
   }
 
-  // 执行设备指定动作（如铲屎、平砂等）
+  // 执行设备指定动作（如清理、抚平等）
   Future<void> executeAction(ExecuteAction action) async {
     if (!_checkOffline()) return;
 
@@ -333,7 +332,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     setLoading(false);
   }
 
-  // 开始称重校准的第一步（准备校准/去皮）
+  // 开始称重校准 (第一步)
   Future<bool> startCalibrationStep1() async {
     if (!_checkOffline()) return false;
     setLoading(true);
@@ -343,7 +342,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     return success;
   }
 
-  // 提交称重校准的第三步（传入参照物重量完成校准）
+  // 提交称重校准 (第三步)
   Future<bool> submitCalibrationStep3(int weightGrams) async {
     if (!_checkOffline()) return false;
     setLoading(true);
@@ -373,27 +372,73 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
-  // 发起设备固件升级指令
-  Future<bool> startFirmwareUpgrade() async {
+  // ==================== 最简 OTA 短轮询逻辑 ====================
+
+  /// 启动 OTA 升级并开启纯轮询
+  Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
     if (!_checkOffline()) return false;
     if (_pendingOtaRecordId.isEmpty) {
-      setError("未找到有效升级记录");
+      setError("没有可升级的固件");
       return false;
     }
 
     setLoading(true);
+    final targetVersion = _newFirmwareVersion; // 目标版本号
     final success = await _deviceRepo.dispatchFirmwareUpgrade(_currentDevice!.deviceId, _pendingOtaRecordId);
     setLoading(false);
 
     if (success) {
-      _hasNewFirmware = false; // 升级指令下发成功后隐藏红点
+      _hasNewFirmware = false;
+      _isOtaUpdating = true;
       notifyListeners();
+
+      // 开始纯短轮询检测版本号
+      _startOtaPolling(_currentDevice!.deviceId, targetVersion, timeoutSeconds);
       return true;
     } else {
-      setError("下发升级指令失败，请稍后重试");
+      setError("下发固件升级指令失败");
       return false;
     }
   }
+
+  /// 纯短轮询：每 3 秒检测一次 fetchDeviceProperties
+  void _startOtaPolling(String deviceId, String targetVersion, int timeoutSeconds) {
+    _otaPollingTimer?.cancel();
+    final startTime = DateTime.now();
+
+    _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      // 1. 检查超时
+      if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
+        stopOtaPolling();
+        setError("OTA 升级超时，请检查设备状态");
+        notifyListeners();
+        return;
+      }
+
+      try {
+        // 2. 拉取最新物模型属性
+        await _deviceRepo.fetchDeviceProperties(deviceId);
+
+        // 3. 判断版本号是否升级成功
+        if (_currentDevice != null && _currentDevice!.firmwareVersion == targetVersion) {
+          stopOtaPolling();
+          showSuccessToast("固件升级完成！");
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint("OTA 轮询异常: $e");
+      }
+    });
+  }
+
+  /// 停止 OTA 轮询
+  void stopOtaPolling() {
+    _otaPollingTimer?.cancel();
+    _otaPollingTimer = null;
+    _isOtaUpdating = false;
+  }
+
+  // ===========================================================
 
   // 修改设备名称
   Future<bool> updateDeviceName(String newName) async {
@@ -402,8 +447,6 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final success = await _deviceRepo.renameDevice(_currentDevice!.deviceId, newName);
     setLoading(false);
     if (success) {
-      // 删除了手动的 _currentDevice!.deviceName = newName; 和 notifyListeners();
-      // 因为底层的 updateBaseInfo 已经帮我们做了，并且会自动触发此 Provider 已有的监听器
       showSuccessToast("Name updated");
       return true;
     } else {
@@ -426,7 +469,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     return h * 3600 + m * 60;
   }
 
-  // 根据时区名称（如 Asia/Shanghai）计算格式化的时区偏移量字符串
+  // 根据时区名称计算格式化的时区偏移量字符串
   String _calculateOffsetStr(String tzName) {
     try {
       final location = tz.getLocation(tzName);
