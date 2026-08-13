@@ -7,6 +7,7 @@ import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/app.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:fullxpet/core/network/api_endpoints.dart';
+import 'package:fullxpet/core/utils/device_batch_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +39,7 @@ void main() async {
     }
   } catch (e) {}
   // 临时添加 end
-
+  await DeviceBatchHelper().init();
   AppRouter.setup(AppRoutes.splash);
 
   runApp(const MyApp());

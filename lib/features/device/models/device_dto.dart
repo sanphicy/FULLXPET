@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'device_thing_model.dart';
+import 'package:fullxpet/core/utils/device_batch_helper.dart';
 
 class DeviceLog {
   final DateTime time;
@@ -12,7 +13,7 @@ class DeviceDto {
   final String deviceId;
   String deviceName;
   bool isOnline;
-
+  String get displayId => DeviceBatchHelper().getDisplayBatchNo(deviceId);
   final Map<String, dynamic> _attributes = {};
   final List<DeviceLog> logs = [];
 

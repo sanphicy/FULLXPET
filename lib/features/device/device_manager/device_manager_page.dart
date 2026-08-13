@@ -43,7 +43,7 @@ class DeviceManagerPage extends StatelessWidget {
               device.deviceName,
               style: const TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            Text('ID: ${device.deviceId}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text('ID: ${device.displayId}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
         leading: IconButton(

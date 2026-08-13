@@ -163,7 +163,10 @@ class DeviceSettingPage extends StatelessWidget {
                               style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                             const SizedBox(height: 2),
-                            Text('设备序列号: $deviceId', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(
+                              '设备序列号: ${device.displayId}',
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
                           ],
                         ),
                       ),

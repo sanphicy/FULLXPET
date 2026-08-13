@@ -368,7 +368,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                             final device = provider.devices[index];
                             return DeviceCard(
                               deviceName: device.deviceName,
-                              deviceId: device.deviceId,
+                              deviceId: device.displayId,
                               isOnline: device.isOnline,
                               imageUrl: 'assets/images/product-pic.png',
                               onTap: () {
