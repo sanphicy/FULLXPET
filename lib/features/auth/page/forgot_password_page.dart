@@ -3,7 +3,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
-import 'package:fullxpet/features/auth/auth_provider.dart';
+import 'package:fullxpet/features/auth/viewmodels/forgot_password_view_model.dart';
+import 'package:fullxpet/features/auth/widgets/auth_tab_bar.dart';
+import 'package:fullxpet/features/auth/widgets/auth_underlined_field.dart';
+import 'package:fullxpet/features/auth/widgets/country_picker_sheet.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
@@ -14,7 +17,7 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  int _tabIndex = 0; // 0: 手机号, 1: 邮箱
+  int _tabIndex = 0;
   final TextEditingController _accountCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   final TextEditingController _passwordCtrl = TextEditingController();
@@ -29,15 +32,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final Color _textColor = const Color(0xFF333333);
   final Color _hintColor = const Color(0xFF9E9E9E);
   final Color _lineColor = const Color(0xFFE5E5E5);
-
-  @override
-  void initState() {
-    super.initState();
-    // 页面初始化时拉取国家/地区列表
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LoginProvider>().fetchCountries();
-    });
-  }
 
   @override
   void dispose() {
@@ -63,82 +57,28 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     });
   }
 
-  /// 弹出国家选择器
-  void _showCountryPicker(BuildContext context, LoginProvider provider) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 16.h),
-                child: Text(
-                  "选择国家或地区",
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: _textColor),
-                ),
-              ),
-              Divider(height: 1, color: _lineColor),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: provider.countryList.length,
-                  itemBuilder: (context, index) {
-                    final country = provider.countryList[index];
-                    final isSelected = provider.selectedCountry?.countryCode == country.countryCode;
-                    return ListTile(
-                      title: Text(
-                        country.name,
-                        style: TextStyle(
-                          color: isSelected ? _primaryPurple : _textColor,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      trailing: Text(country.phoneCountryCode, style: TextStyle(color: _hintColor)),
-                      onTap: () {
-                        provider.selectCountry(country);
-                        Navigator.pop(ctx);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 处理重置密码提交
-  Future<void> _handleResetPassword(LoginProvider provider, S s) async {
+  Future<void> _handleResetPassword(ForgotPasswordViewModel viewModel, S s) async {
     final account = _accountCtrl.text.trim();
     final code = _codeCtrl.text.trim();
     final pwd = _passwordCtrl.text.trim();
     final confirmPwd = _confirmPasswordCtrl.text.trim();
 
     if (account.isEmpty || code.isEmpty || pwd.isEmpty || confirmPwd.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写所有必填项')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写完整信息')));
       return;
     }
 
     final isPhoneMode = _tabIndex == 0;
-
-    // 格式校验
     if (isPhoneMode) {
       final bool isPhone = RegExp(r'^\d{5,15}$').hasMatch(account);
       if (!isPhone) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入正确的手机号码')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('手机号格式不正确')));
         return;
       }
     } else {
       final bool isEmail = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(account);
       if (!isEmail) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入正确的邮箱格式')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('邮箱格式不正确')));
         return;
       }
     }
@@ -151,29 +91,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     _isSubmitting.value = true;
 
-    final phonePrefix = provider.selectedCountry?.phoneCountryCode ?? "+86";
-
-    // 调用 provider 方法（需要确保 auth_provider 已经按之前所述更新）
-    final success = await provider.resetPassword(
+    final success = await viewModel.resetPassword(
       account: account,
       newPassword: pwd,
       code: code,
       isPhoneMode: isPhoneMode,
-      phoneCountryCode: phonePrefix,
     );
 
     if (mounted) _isSubmitting.value = false;
-
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码重置成功，请重新登录')));
       context.go(AppRoutes.login);
+    } else if (viewModel.hasError && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(viewModel.errorMsg)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final provider = context.watch<LoginProvider>();
+    final viewModel = context.watch<ForgotPasswordViewModel>();
     final isPhoneMode = _tabIndex == 0;
 
     return Scaffold(
@@ -185,6 +122,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           icon: Icon(Icons.arrow_back_ios_new, color: _textColor, size: 22.w),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          GestureDetector(
+            onTap: () => CountryPickerSheet.show(context),
+            child: Container(
+              margin: EdgeInsets.only(right: 20.w),
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+              decoration: BoxDecoration(color: const Color(0xFFF3F2F8), borderRadius: BorderRadius.circular(12.r)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    viewModel.currentCountry?.name ?? "国家/地区",
+                    style: TextStyle(fontSize: 12.sp, color: _primaryPurple, fontWeight: FontWeight.bold),
+                  ),
+                  Icon(Icons.arrow_drop_down, color: _primaryPurple, size: 18.w),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -207,119 +164,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold, color: _textColor),
               ),
               SizedBox(height: 25.h),
-              // 手机号 / 邮箱 Tab
-              Center(
-                child: Container(
-                  height: 42.h,
-                  width: 280.w,
-                  decoration: BoxDecoration(color: const Color(0xFFF3F2F8), borderRadius: BorderRadius.circular(21.r)),
-                  child: Stack(
-                    children: [
-                      AnimatedAlign(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeInOutCubic,
-                        alignment: isPhoneMode ? Alignment.centerLeft : Alignment.centerRight,
-                        child: Container(
-                          width: 136.w,
-                          height: 38.h,
-                          margin: EdgeInsets.symmetric(horizontal: 2.w),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(19.r),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                if (_tabIndex != 0) {
-                                  setState(() {
-                                    _tabIndex = 0;
-                                    _accountCtrl.clear();
-                                  });
-                                }
-                              },
-                              child: Container(
-                                alignment: Alignment.center,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.smartphone_outlined,
-                                      size: 18.w,
-                                      color: isPhoneMode ? _primaryPurple : _hintColor,
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Text(
-                                      '手机号',
-                                      style: TextStyle(
-                                        fontSize: 14.sp,
-                                        fontWeight: isPhoneMode ? FontWeight.bold : FontWeight.w500,
-                                        color: isPhoneMode ? _primaryPurple : _hintColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                if (_tabIndex != 1) {
-                                  setState(() {
-                                    _tabIndex = 1;
-                                    _accountCtrl.clear();
-                                  });
-                                }
-                              },
-                              child: Container(
-                                alignment: Alignment.center,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.email_outlined,
-                                      size: 18.w,
-                                      color: !isPhoneMode ? _primaryPurple : _hintColor,
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Text(
-                                      '邮箱',
-                                      style: TextStyle(
-                                        fontSize: 14.sp,
-                                        fontWeight: !isPhoneMode ? FontWeight.bold : FontWeight.w500,
-                                        color: !isPhoneMode ? _primaryPurple : _hintColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+
+              // 复用抽取的 Tab 切换组件
+              AuthTabBar(
+                selectedIndex: _tabIndex,
+                onTabChanged: (index) {
+                  if (_tabIndex != index) {
+                    setState(() {
+                      _tabIndex = index;
+                      _accountCtrl.clear();
+                    });
+                  }
+                },
+                primaryColor: _primaryPurple,
               ),
               SizedBox(height: 30.h),
 
-              // 国家区号选择器（仅手机号模式展示）
               if (isPhoneMode)
                 GestureDetector(
-                  onTap: () => _showCountryPicker(context, provider),
+                  onTap: () => CountryPickerSheet.show(context),
                   child: Container(
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     decoration: BoxDecoration(
@@ -329,8 +192,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          provider.selectedCountry != null
-                              ? '${provider.selectedCountry!.name} (${provider.selectedCountry!.phoneCountryCode})'
+                          viewModel.currentCountry != null
+                              ? '${viewModel.currentCountry!.name} (${viewModel.currentCountry!.phoneCountryCode})'
                               : '选择国家/地区',
                           style: TextStyle(color: _textColor, fontSize: 14.sp),
                         ),
@@ -341,180 +204,97 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
 
               // 账号输入框
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _accountCtrl,
-                        keyboardType: isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
-                        style: TextStyle(color: _textColor, fontSize: 15.sp),
-                        decoration: InputDecoration(
-                          hintText: isPhoneMode ? '请输入手机号码' : '请输入邮箱地址',
-                          hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 14.h),
-                        ),
-                      ),
-                    ),
-                    if (_accountCtrl.text.isNotEmpty)
-                      GestureDetector(
+              AuthUnderlinedField(
+                controller: _accountCtrl,
+                hintText: isPhoneMode ? '请输入手机号' : '请输入邮箱',
+                keyboardType: isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
+                trailing: _accountCtrl.text.isNotEmpty
+                    ? GestureDetector(
                         onTap: () => setState(() => _accountCtrl.clear()),
                         child: Icon(Icons.cancel, color: Colors.grey.shade400, size: 18.w),
-                      ),
-                  ],
-                ),
+                      )
+                    : null,
               ),
 
               // 验证码输入框
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.verified_user_outlined, color: _textColor, size: 20.w),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: TextField(
-                        controller: _codeCtrl,
-                        keyboardType: TextInputType.number,
-                        style: TextStyle(color: _textColor, fontSize: 15.sp),
-                        decoration: InputDecoration(
-                          hintText: '请输入验证码',
-                          hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+              AuthUnderlinedField(
+                controller: _codeCtrl,
+                hintText: '请输入验证码',
+                icon: Icons.verified_user_outlined,
+                keyboardType: TextInputType.number,
+                trailing: ValueListenableBuilder<bool>(
+                  valueListenable: _isSendingCode,
+                  builder: (context, isSending, child) {
+                    return SizedBox(
+                      height: 32.h,
+                      child: ElevatedButton(
+                        onPressed: (_countdown > 0 || isSending)
+                            ? null
+                            : () async {
+                                final target = _accountCtrl.text.trim();
+                                if (target.isEmpty) {
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(SnackBar(content: Text(isPhoneMode ? '请输入手机号' : '请输入邮箱')));
+                                  return;
+                                }
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                _isSendingCode.value = true;
+                                final cooldown = await viewModel.sendVerifyCode(target, isPhoneMode);
+                                if (mounted) _isSendingCode.value = false;
+                                if (cooldown > 0) {
+                                  _startCountdown(cooldown);
+                                } else if (viewModel.hasError && mounted) {
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(SnackBar(content: Text(viewModel.errorMsg)));
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryPurple,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                          padding: EdgeInsets.symmetric(horizontal: 14.w),
                         ),
+                        child: isSending
+                            ? SizedBox(
+                                width: 14.w,
+                                height: 14.w,
+                                child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : Text(
+                                _countdown > 0 ? '${_countdown}s' : '获取验证码',
+                                style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.bold),
+                              ),
                       ),
-                    ),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _isSendingCode,
-                      builder: (context, isSending, child) {
-                        return SizedBox(
-                          height: 32.h,
-                          child: ElevatedButton(
-                            onPressed: (_countdown > 0 || isSending)
-                                ? null
-                                : () async {
-                                    final target = _accountCtrl.text.trim();
-                                    if (target.isEmpty) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(SnackBar(content: Text(isPhoneMode ? '请输入手机号' : '请输入邮箱')));
-                                      return;
-                                    }
-                                    FocusManager.instance.primaryFocus?.unfocus();
-                                    _isSendingCode.value = true;
-                                    final cooldown = await provider.sendVerifyCode(
-                                      target,
-                                      isPhoneMode ? "Phone" : "Email",
-                                      purpose: "reset_password",
-                                    );
-                                    if (mounted) _isSendingCode.value = false;
-                                    if (cooldown > 0) {
-                                      _startCountdown(cooldown);
-                                    }
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _primaryPurple,
-                              disabledBackgroundColor: Colors.grey.shade300,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                              padding: EdgeInsets.symmetric(horizontal: 14.w),
-                            ),
-                            child: isSending
-                                ? SizedBox(
-                                    width: 14.w,
-                                    height: 14.w,
-                                    child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                : Text(
-                                    _countdown > 0 ? '${_countdown}s' : '获取验证码',
-                                    style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.bold),
-                                  ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
 
-              // 设置密码
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.lock_outline, color: _textColor, size: 20.w),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: TextField(
-                        controller: _passwordCtrl,
-                        obscureText: _obscurePassword,
-                        style: TextStyle(color: _textColor, fontSize: 15.sp),
-                        decoration: InputDecoration(
-                          hintText: '设置新密码',
-                          hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 14.h),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => setState(() => _obscurePassword = !_obscurePassword),
-                      child: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: _hintColor,
-                        size: 20.w,
-                      ),
-                    ),
-                  ],
-                ),
+              // 新密码
+              AuthUnderlinedField(
+                controller: _passwordCtrl,
+                hintText: '设置新密码',
+                icon: Icons.lock_outline,
+                isPassword: true,
+                obscureText: _obscurePassword,
+                onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
 
-              // 确认密码
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.lock_outline, color: _textColor, size: 20.w),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: TextField(
-                        controller: _confirmPasswordCtrl,
-                        obscureText: _obscureConfirmPassword,
-                        style: TextStyle(color: _textColor, fontSize: 15.sp),
-                        decoration: InputDecoration(
-                          hintText: '确认新密码',
-                          hintStyle: TextStyle(color: _hintColor, fontSize: 14.sp),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 14.h),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                      child: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: _hintColor,
-                        size: 20.w,
-                      ),
-                    ),
-                  ],
-                ),
+              // 确认新密码
+              AuthUnderlinedField(
+                controller: _confirmPasswordCtrl,
+                hintText: '确认新密码',
+                icon: Icons.lock_outline,
+                isPassword: true,
+                obscureText: _obscureConfirmPassword,
+                onToggleObscure: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
               ),
-
               SizedBox(height: 35.h),
 
-              // 提交按钮
+              // 提交修改按钮
               ValueListenableBuilder<bool>(
                 valueListenable: _isSubmitting,
                 builder: (context, isSubmitting, child) {
@@ -522,7 +302,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     width: double.infinity,
                     height: 48.h,
                     child: ElevatedButton(
-                      onPressed: isSubmitting ? null : () => _handleResetPassword(provider, s),
+                      onPressed: isSubmitting ? null : () => _handleResetPassword(viewModel, s),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primaryPurple,
                         foregroundColor: Colors.white,
@@ -536,7 +316,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
-                              '确认重置',
+                              '确认修改',
                               style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
                             ),
                     ),
@@ -544,12 +324,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 },
               ),
               SizedBox(height: 12.h),
-
               Center(
                 child: TextButton(
                   onPressed: () => context.go(AppRoutes.login),
                   child: Text(
-                    '想起来了？去登录',
+                    '想起密码？去登录',
                     style: TextStyle(color: _hintColor, fontSize: 13.sp),
                   ),
                 ),

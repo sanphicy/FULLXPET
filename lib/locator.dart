@@ -6,6 +6,7 @@ import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
 import 'package:fullxpet/features/device/active_device_provider.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
+import 'package:fullxpet/core/services/region_service.dart';
 
 final locator = GetIt.instance;
 
@@ -22,4 +23,6 @@ void setupLocator() {
   // 全局状态
   locator.registerLazySingleton<UserProvider>(() => UserProvider());
   locator.registerLazySingleton<ActiveDeviceProvider>(() => ActiveDeviceProvider());
+
+  locator.registerLazySingleton<RegionService>(() => RegionService());
 }

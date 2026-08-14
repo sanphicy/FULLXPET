@@ -1,0 +1,83 @@
+import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/services/region_service.dart';
+import 'package:fullxpet/core/result/result_model.dart';
+import 'package:fullxpet/features/auth/models/auth_request.dart';
+import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
+import 'package:fullxpet/locator.dart';
+import 'package:fullxpet/common/models/country_dto.dart';
+
+class RegisterViewModel extends BaseProvider {
+  final AuthRepository _authRepo = locator<AuthRepository>();
+  final RegionService _regionService = locator<RegionService>();
+
+  CountryDto? get currentCountry => _regionService.currentCountry;
+
+  Future<void> switchCountry(CountryDto country) async {
+    await _regionService.switchCountry(country);
+    notifyListeners();
+  }
+
+  Future<int> sendVerifyCode(String account, bool isPhoneMode) async {
+    if (account.trim().isEmpty) {
+      setError("请输入账号");
+      return 0;
+    }
+    ResultEntity<int> result;
+    if (isPhoneMode) {
+      final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
+      result = await _authRepo.sendPhoneVerifyCode(
+        SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: account, purpose: "register"),
+      );
+    } else {
+      result = await _authRepo.sendEmailVerifyCode(SendEmailCodeRequest(email: account, purpose: "register"));
+    }
+    if (result.data != null && result.data! > 0) {
+      return result.data!;
+    } else {
+      setError(result.message);
+      return 0;
+    }
+  }
+
+  Future<bool> register({
+    required String account,
+    required String password,
+    required String code,
+    required bool isPhoneMode,
+  }) async {
+    if (account.trim().isEmpty || password.trim().isEmpty || code.trim().isEmpty) {
+      setError("请填写完整注册信息");
+      return false;
+    }
+    setLoading(true);
+    clearError();
+
+    final countryCode = currentCountry?.countryCode ?? "CN";
+    final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
+
+    ResultEntity<bool> result;
+    if (isPhoneMode) {
+      result = await _authRepo.registerByPhone(
+        PhoneRegisterRequest(
+          phoneCountryCode: phonePrefix,
+          phone: account,
+          password: password,
+          verificationCode: code,
+          countryCode: countryCode,
+        ),
+      );
+    } else {
+      result = await _authRepo.registerByEmail(
+        RegisterRequest(email: account, password: password, verificationCode: code, countryCode: countryCode),
+      );
+    }
+
+    setLoading(false);
+    if (result.data == true) {
+      return true;
+    } else {
+      setError(result.message);
+      return false;
+    }
+  }
+}

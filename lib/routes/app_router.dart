@@ -11,7 +11,10 @@ import 'package:fullxpet/features/splash/splash_page.dart';
 import 'package:fullxpet/features/auth/page/login_page.dart';
 import 'package:fullxpet/features/auth/page/register_page.dart';
 import 'package:fullxpet/features/auth/page/forgot_password_page.dart';
-import 'package:fullxpet/features/auth/auth_provider.dart';
+import 'package:fullxpet/features/splash/welcome_page.dart';
+import 'package:fullxpet/features/auth/viewmodels/login_view_model.dart';
+import 'package:fullxpet/features/auth/viewmodels/register_view_model.dart';
+import 'package:fullxpet/features/auth/viewmodels/forgot_password_view_model.dart';
 
 // device
 import 'package:fullxpet/features/device/device_provider.dart';
@@ -71,19 +74,21 @@ class AppRouter {
     GoRoute(path: AppRoutes.welcome, builder: (context, state) => const WelcomePage()),
   ];
 
+  // 替换 _authRoutes 部分
   static final List<GoRoute> _authRoutes = [
     GoRoute(
       path: AppRoutes.login,
-      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginProvider(), child: const LoginPage()),
+      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginViewModel(), child: const LoginPage()),
     ),
     GoRoute(
       path: AppRoutes.register,
-      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginProvider(), child: const RegisterPage()),
+      builder: (context, state) =>
+          ChangeNotifierProvider(create: (_) => RegisterViewModel(), child: const RegisterPage()),
     ),
     GoRoute(
       path: AppRoutes.forgotPassword,
       builder: (context, state) =>
-          ChangeNotifierProvider(create: (_) => LoginProvider(), child: const ForgotPasswordPage()),
+          ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel(), child: const ForgotPasswordPage()),
     ),
   ];
 

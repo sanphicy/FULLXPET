@@ -1,46 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:fullxpet/common/config/app_config.dart';
-import 'package:fullxpet/core/utils/token_manager.dart';
 import 'package:fullxpet/core/network/http_client.dart';
+import 'package:fullxpet/core/utils/device_batch_helper.dart';
+import 'package:fullxpet/core/utils/token_manager.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/app.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
-import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/utils/device_batch_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化时区数据
   tz_data.initializeTimeZones();
+
+  // 注册 GetIt 依赖注入容器
   setupLocator();
 
+  // 本地基础配置与 Token 初始化
   final config = AppConfig.prod();
   TokenManager.init(accessKey: config.accessTokenKey);
   locator<HttpClient>().init(baseUrl: config.baseUrl);
 
-  // 临时添加 start：启动时获取动态 baseUrl
-  try {
-    final HttpClient httpClient = locator<HttpClient>();
-    final payload = {"countryCode": "CN", "clientAppId": "fullxpet"};
-
-    // 2. 发起请求
-    final response = await httpClient.get<Map<String, dynamic>>(ApiEndpoints.mqttUri, query: payload);
-
-    if (response.code == 0 || response.code == 200) {
-      final data = response.data;
-      if (data != null && data['apiBaseUrl'] != null) {
-        String apiBaseUrl = data['apiBaseUrl'].toString();
-        if (apiBaseUrl.endsWith('/app')) {
-          apiBaseUrl = apiBaseUrl.substring(0, apiBaseUrl.length - 4);
-        }
-        // 3. 动态更新 baseUrl
-        locator<HttpClient>().init(baseUrl: apiBaseUrl);
-      }
-    }
-  } catch (e) {}
-  // 临时添加 end
+  // 设备批次映射辅助初始化
   await DeviceBatchHelper().init();
+
+  // 初始化路由并默认进入 Splash 闪屏页
   AppRouter.setup(AppRoutes.splash);
 
+  // 挂载 UI 树
   runApp(const MyApp());
 }
