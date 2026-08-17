@@ -13,8 +13,15 @@ class LoginViewModel extends BaseProvider {
   CountryDto? get currentCountry => _regionService.currentCountry;
 
   Future<void> switchCountry(CountryDto country) async {
-    await _regionService.switchCountry(country);
+    // 立即通知 UI 乐观渲染新选中的国家
     notifyListeners();
+
+    // 后台异步执行 BaseURL 切换与缓存
+    final success = await _regionService.switchCountry(country);
+    if (!success) {
+      // 若失败则重绘回退
+      notifyListeners();
+    }
   }
 
   Future<bool> login(String account, String password, {required bool isEmail}) async {

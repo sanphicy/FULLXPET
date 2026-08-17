@@ -17,15 +17,16 @@ class RegionService {
   CountryDto? _currentCountry;
   String _currentApiBaseUrl = '';
 
+  // 内存缓存各国家对应的 apiBaseUrl，避免重复请求
+  final Map<String, String> _dcUrlCache = {};
+
   List<CountryDto> get countries => _countries;
   CountryDto? get currentCountry => _currentCountry;
   String get currentApiBaseUrl => _currentApiBaseUrl;
 
-  /// 引导启动核心逻辑（供 SplashPage 调用）
   Future<void> initBootstrap({required bool isLoggedIn}) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. 如果已登录：优先使用上次绑定的数据中心地址
     if (isLoggedIn) {
       final savedBaseUrl = prefs.getString(_keyCurrentBaseUrl);
       if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
@@ -35,10 +36,8 @@ class RegionService {
       }
     }
 
-    // 2. 未登录：准备国家列表
     await loadCountryList();
 
-    // 3. 确定当前选中国家（优先读记住的选择，否则读取手机系统 Locale）
     final savedCode = prefs.getString(_keySelectedCountryCode);
     if (savedCode != null && _countries.any((c) => c.countryCode == savedCode)) {
       _currentCountry = _countries.firstWhere((c) => c.countryCode == savedCode);
@@ -46,12 +45,10 @@ class RegionService {
       _currentCountry = _matchDefaultCountryBySystem();
     }
 
-    // 4. 解析并初始化该国家的 apiBaseUrl
     final countryCode = _currentCountry?.countryCode ?? 'CN';
     await switchCountryByCode(countryCode);
   }
 
-  /// 加载国家列表（优先读本地，无本地则走 Bootstrap API 并落盘）
   Future<List<CountryDto>> loadCountryList() async {
     final prefs = await SharedPreferences.getInstance();
     final cachedStr = prefs.getString(_keyCountryList);
@@ -64,7 +61,6 @@ class RegionService {
       } catch (_) {}
     }
 
-    // 本地无缓存，通过固定 Bootstrap 基地址请求
     try {
       final config = AppConfig.prod();
       final tempClient = HttpClient();
@@ -86,16 +82,35 @@ class RegionService {
     return _countries;
   }
 
-  /// 切换国家并动态更新数据中心基地址
+  /// 乐观切换国家：先改当前实体，再后台同步 BaseURL
   Future<bool> switchCountry(CountryDto country) async {
+    final previousCountry = _currentCountry;
     _currentCountry = country;
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySelectedCountryCode, country.countryCode);
-    return await switchCountryByCode(country.countryCode);
+
+    final success = await switchCountryByCode(country.countryCode);
+    if (!success) {
+      // 切换失败回退
+      _currentCountry = previousCountry;
+      return false;
+    }
+    return true;
   }
 
-  /// 根据 CountryCode 获取 apiBaseUrl 并热更新 HttpClient
+  /// 根据 CountryCode 解析并配置 BaseURL（带内存缓存加速）
   Future<bool> switchCountryByCode(String countryCode) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. 优先命中内存缓存，直接秒切
+    if (_dcUrlCache.containsKey(countryCode)) {
+      _currentApiBaseUrl = _dcUrlCache[countryCode]!;
+      locator<HttpClient>().init(baseUrl: _currentApiBaseUrl);
+      await prefs.setString(_keyCurrentBaseUrl, _currentApiBaseUrl);
+      return true;
+    }
+
     final config = AppConfig.prod();
     try {
       final tempClient = HttpClient();
@@ -113,9 +128,11 @@ class RegionService {
           }
           _currentApiBaseUrl = apiBaseUrl;
 
-          // 热更新全局网络客户端 BaseUrl 并持久化
+          // 写入内存缓存
+          _dcUrlCache[countryCode] = _currentApiBaseUrl;
+
+          // 热更新全局网络客户端 BaseUrl
           locator<HttpClient>().init(baseUrl: _currentApiBaseUrl);
-          final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_keyCurrentBaseUrl, _currentApiBaseUrl);
           return true;
         }
@@ -126,7 +143,6 @@ class RegionService {
     return false;
   }
 
-  // 根据系统 Locale 匹配默认国家
   CountryDto _matchDefaultCountryBySystem() {
     final systemLocale = ui.PlatformDispatcher.instance.locale;
     final sysCountryCode = systemLocale.countryCode?.toUpperCase() ?? 'CN';

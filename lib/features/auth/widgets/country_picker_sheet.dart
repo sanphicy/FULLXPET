@@ -49,9 +49,9 @@ class CountryPickerSheet {
                         ),
                       ),
                       trailing: Text(country.phoneCountryCode, style: const TextStyle(color: hintColor)),
-                      onTap: () async {
-                        await regionService.switchCountry(country);
-                        if (ctx.mounted) Navigator.pop(ctx, country);
+                      onTap: () {
+                        // 乐观处理：立即关闭弹窗并返回选中项，不阻塞等待网络
+                        Navigator.pop(ctx, country);
                       },
                     );
                   },
