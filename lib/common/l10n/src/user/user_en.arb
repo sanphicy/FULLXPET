@@ -1,0 +1,19 @@
+{
+  "user": "User",
+  "personalInfo": "Personal Info",
+  "avatar": "Avatar",
+  "chooseFromGallery": "Choose from Gallery",
+  "takePhoto": "Take Photo",
+  "nickname": "Nickname",
+  "editNickname": "Edit Nickname",
+  "enterNewNickname": "Enter new nickname",
+  "accountLabel": "Account",
+  "emailLabel": "Email",
+  "phoneLabel": "Phone",
+  "notBound": "Not Bound",
+  "deleteAccount": "Delete Account",
+  "logout": "Log Out",
+  "appVersion": "Version",
+  "feedback": "Feedback",
+  "aboutUs": "About Us"
+}

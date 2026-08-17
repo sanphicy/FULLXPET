@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/models/device_dto.dart';
 import 'package:fullxpet/features/device/models/device_thing_model.dart';
 
 class DeviceManagerPage extends StatelessWidget {
@@ -10,26 +13,13 @@ class DeviceManagerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<ActiveDeviceProvider>();
-    final device = provider.currentDevice;
+    final s = S.of(context)!;
+    final provider = context.read<ActiveDeviceProvider>();
 
     const Color primaryPurple = Color(0xFF917CEE);
     const Color bgColor = Color(0xFFF9F9FC);
     const Color textColor = Color(0xFF333333);
     const Color pillGray = Color(0xFFF0EFF5);
-
-    if (device == null) {
-      return const Scaffold(
-        backgroundColor: bgColor,
-        body: Center(child: CircularProgressIndicator(color: primaryPurple)),
-      );
-    }
-
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
-    final double appBarHeight = kToolbarHeight;
-    final double safeBodyHeight = screenHeight - statusBarHeight - appBarHeight;
-    final bool isLocked = provider.isLoading || device.isOperating;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -37,14 +27,19 @@ class DeviceManagerPage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: Column(
-          children: [
-            Text(
-              device.deviceName,
-              style: const TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text('ID: ${device.displayId}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          ],
+        title: Selector<ActiveDeviceProvider, (String, String)>(
+          selector: (_, vm) => (vm.currentDevice?.deviceName ?? '', vm.currentDevice?.displayId ?? ''),
+          builder: (context, data, _) {
+            return Column(
+              children: [
+                Text(
+                  data.$1.isNotEmpty ? data.$1 : 'FULLXPET',
+                  style: const TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text('ID: ${data.$2}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              ],
+            );
+          },
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 20),
@@ -53,287 +48,336 @@ class DeviceManagerPage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert_rounded, color: primaryPurple),
-            onPressed: () {
-              context.push('/device_setting/$deviceId');
-            },
+            onPressed: () => context.push('/device_setting/$deviceId'),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // ==============================
-            // 1. 顶部数据概况卡片 (今日与平均)
-            // ==============================
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: primaryPurple,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(color: primaryPurple.withOpacity(0.25), blurRadius: 10, offset: const Offset(0, 4)),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('今日如厕', style: TextStyle(fontSize: 14, color: Colors.white70)),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                device.todayTimes,
-                                style: const TextStyle(
-                                  fontSize: 42,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  height: 1,
+      body: SafeArea(
+        child: ResponsiveFormContainer(
+          maxWidth: 600,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
+              children: [
+                // 1. 顶部今日与平均时长统计卡片（局部监听）
+                Selector<ActiveDeviceProvider, (String, String)>(
+                  selector: (_, vm) => (vm.currentDevice?.todayTimes ?? '0', vm.currentDevice?.averageSeconds ?? '0'),
+                  builder: (context, stats, _) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: primaryPurple,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryPurple.withValues(alpha: 0.25),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                              ),
-                              const Text('次', style: TextStyle(fontSize: 14, color: Colors.white)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('平均时长', style: TextStyle(fontSize: 14, color: Color(0xFF666666))),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                device.averageSeconds,
-                                style: const TextStyle(
-                                  fontSize: 42,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                  height: 1,
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(s.todayToilet, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      stats.$1,
+                                      style: const TextStyle(
+                                        fontSize: 38,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        height: 1,
+                                      ),
+                                    ),
+                                    Text(s.timesUnit, style: const TextStyle(fontSize: 14, color: Colors.white)),
+                                  ],
                                 ),
-                              ),
-                              const Text('秒', style: TextStyle(fontSize: 14, color: textColor)),
-                            ],
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(s.averageDuration, style: const TextStyle(fontSize: 14, color: Color(0xFF666666))),
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      stats.$2,
+                                      style: const TextStyle(
+                                        fontSize: 38,
+                                        fontWeight: FontWeight.bold,
+                                        color: textColor,
+                                        height: 1,
+                                      ),
+                                    ),
+                                    Text(s.secondsUnit, style: const TextStyle(fontSize: 14, color: textColor)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
 
-            const SizedBox(height: 25),
+                // 2. 设备展示图与当前状态标签（局部监听）
+                Image.asset(
+                  'assets/images/product-pic.png',
+                  width: 110,
+                  height: 110,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.devices, size: 90, color: Colors.grey),
+                ),
+                const SizedBox(height: 10),
+                Selector<ActiveDeviceProvider, ExecuteAction>(
+                  selector: (_, vm) => vm.currentDevice?.executeAction ?? ExecuteAction.idle,
+                  builder: (context, action, _) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: primaryPurple.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        action.getLocalizedLabel(s),
+                        style: const TextStyle(color: primaryPurple, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
 
-            // ==============================
-            // 2. 设备图片及状态标签
-            // ==============================
-            Image.asset(
-              'assets/images/product-pic.png',
-              width: 120,
-              height: 120,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.devices, size: 100, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(color: primaryPurple.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-              child: Text(
-                device.executeAction.label,
-                style: const TextStyle(color: primaryPurple, fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ==============================
-            // 3. 控制面板与卡片容器
-            // ==============================
-            Container(
-              height: safeBodyHeight,
-              width: double.infinity,
-              padding: const EdgeInsets.only(left: 20, right: 20, top: 25, bottom: 40),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, -4)),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 模式选择药丸按钮
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildModePill(
-                        title: '自动\n模式',
-                        icon: Icons.autorenew_rounded,
-                        isActive: device.workMode == WorkMode.auto,
-                        activeColor: primaryPurple,
-                        inactiveColor: pillGray,
-                        onTap: () => provider.setMode(WorkMode.auto),
-                      ),
-                      _buildModePill(
-                        title: '勿扰\n模式',
-                        icon: Icons.nightlight_round,
-                        isActive: device.isDndEnabled,
-                        activeColor: primaryPurple,
-                        inactiveColor: pillGray,
-                        onTap: () => provider.toggleDnd(false),
-                      ),
-                      _buildModePill(
-                        title: '定时\n模式',
-                        icon: Icons.timer_rounded,
-                        isActive: device.workMode == WorkMode.timer,
-                        activeColor: primaryPurple,
-                        inactiveColor: pillGray,
-                        onTap: () => provider.setMode(WorkMode.timer),
-                      ),
-                      _buildModePill(
-                        title: '手动\n模式',
-                        icon: Icons.touch_app_rounded,
-                        isActive: device.workMode == WorkMode.manual,
-                        activeColor: primaryPurple,
-                        inactiveColor: pillGray,
-                        onTap: () => provider.setMode(WorkMode.manual),
+                // 3. 控制面板与动态日志卡片
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 15,
+                        offset: const Offset(0, -4),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 25),
-
-                  // 紫色控制操作区域卡片
-                  Container(
-                    // 修改：减小水平内边距以容纳4个按钮
-                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: primaryPurple,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(color: primaryPurple.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Row(
-                      // 修改：改为 spaceEvenly 使4个按钮分布更均匀
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildActionButton(
-                          context,
-                          '清理',
-                          Icons.cleaning_services_rounded,
-                          isLocked ? null : () => provider.executeAction(ExecuteAction.cleaning),
-                          isLocked: isLocked,
-                        ),
-                        _buildActionButton(
-                          context,
-                          '抚平',
-                          Icons.blur_on_rounded,
-                          isLocked ? null : () => provider.executeAction(ExecuteAction.smoothing),
-                          isLocked: isLocked,
-                        ),
-                        _buildActionButton(
-                          context,
-                          '除臭',
-                          device.isPlasmaEnabled ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
-                          provider.isLoading ? null : () => provider.togglePlasma(),
-                          isLocked: provider.isLoading,
-                        ),
-                        _buildActionButton(
-                          context,
-                          '童锁',
-                          device.isChildLockEnabled ? Icons.lock_rounded : Icons.lock_open_rounded,
-                          provider.isLoading ? null : () => provider.toggleChildLock(),
-                          isLocked: provider.isLoading,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  // 今日设备运行日志卡片
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9F9FC),
-                        borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 模式选择药丸按钮（局部监听）
+                      Selector<ActiveDeviceProvider, (WorkMode, bool)>(
+                        selector: (_, vm) =>
+                            (vm.currentDevice?.workMode ?? WorkMode.auto, vm.currentDevice?.isDndEnabled ?? false),
+                        builder: (context, state, _) {
+                          final workMode = state.$1;
+                          final isDnd = state.$2;
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildModePill(
+                                title: s.autoMode,
+                                icon: Icons.autorenew_rounded,
+                                isActive: workMode == WorkMode.auto,
+                                activeColor: primaryPurple,
+                                inactiveColor: pillGray,
+                                onTap: () => provider.setMode(WorkMode.auto),
+                              ),
+                              _buildModePill(
+                                title: s.dndMode,
+                                icon: Icons.nightlight_round,
+                                isActive: isDnd,
+                                activeColor: primaryPurple,
+                                inactiveColor: pillGray,
+                                onTap: () => provider.toggleDnd(false),
+                              ),
+                              _buildModePill(
+                                title: s.timerMode,
+                                icon: Icons.timer_rounded,
+                                isActive: workMode == WorkMode.timer,
+                                activeColor: primaryPurple,
+                                inactiveColor: pillGray,
+                                onTap: () => provider.setMode(WorkMode.timer),
+                              ),
+                              _buildModePill(
+                                title: s.manualMode,
+                                icon: Icons.touch_app_rounded,
+                                isActive: workMode == WorkMode.manual,
+                                activeColor: primaryPurple,
+                                inactiveColor: pillGray,
+                                onTap: () => provider.setMode(WorkMode.manual),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '今日运行动态',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: device.logs.isEmpty
-                                ? const Center(
-                                    child: Text('暂无相关动态', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                                  )
-                                : ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    itemCount: device.logs.length,
-                                    physics: const BouncingScrollPhysics(),
-                                    itemBuilder: (context, index) {
-                                      final log = device.logs[index];
-                                      final timeStr =
-                                          "${log.time.hour.toString().padLeft(2, '0')}:${log.time.minute.toString().padLeft(2, '0')}";
-                                      return Padding(
-                                        padding: const EdgeInsets.only(bottom: 10.0),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 6,
-                                              height: 6,
-                                              decoration: const BoxDecoration(
-                                                color: primaryPurple,
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '$timeStr  ${log.content}',
-                                              style: const TextStyle(fontSize: 13, color: Color(0xFF555555)),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
+                      const SizedBox(height: 20),
+
+                      // 紫色操作动作卡片（局部监听）
+                      Selector<ActiveDeviceProvider, (bool, bool, bool, bool)>(
+                        selector: (_, vm) => (
+                          vm.isLoading,
+                          vm.currentDevice?.isOperating ?? false,
+                          vm.currentDevice?.isPlasmaEnabled ?? false,
+                          vm.currentDevice?.isChildLockEnabled ?? false,
+                        ),
+                        builder: (context, state, _) {
+                          final isBusy = state.$1 || state.$2;
+                          final isPlasma = state.$3;
+                          final isLock = state.$4;
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: primaryPurple,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryPurple.withValues(alpha: 0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildActionButton(
+                                  s.actionClean,
+                                  Icons.cleaning_services_rounded,
+                                  isBusy ? null : () => provider.executeAction(ExecuteAction.cleaning),
+                                  isLocked: isBusy,
+                                ),
+                                _buildActionButton(
+                                  s.actionSmooth,
+                                  Icons.blur_on_rounded,
+                                  isBusy ? null : () => provider.executeAction(ExecuteAction.smoothing),
+                                  isLocked: isBusy,
+                                ),
+                                _buildActionButton(
+                                  s.actionDeodorize,
+                                  isPlasma ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
+                                  state.$1 ? null : () => provider.togglePlasma(),
+                                  isLocked: state.$1,
+                                ),
+                                _buildActionButton(
+                                  s.actionChildLock,
+                                  isLock ? Icons.lock_rounded : Icons.lock_open_rounded,
+                                  state.$1 ? null : () => provider.toggleChildLock(),
+                                  isLocked: state.$1,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    ),
+                      const SizedBox(height: 20),
+
+                      // 今日动态日志列表（局部监听）
+                      Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 180),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9F9FC),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.todayLogs,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                            ),
+                            const SizedBox(height: 12),
+                            Selector<ActiveDeviceProvider, List<DeviceLog>>(
+                              selector: (_, vm) => vm.currentDevice?.logs ?? [],
+                              builder: (context, logs, _) {
+                                if (logs.isEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 24),
+                                    child: Center(
+                                      child: Text(s.noLogs, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                                    ),
+                                  );
+                                }
+                                return ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  itemCount: logs.length,
+                                  itemBuilder: (context, index) {
+                                    final log = logs[index];
+                                    final timeStr =
+                                        "${log.time.hour.toString().padLeft(2, '0')}:${log.time.minute.toString().padLeft(2, '0')}";
+                                    String parsedContent = log.content;
+                                    if (int.tryParse(log.content) != null) {
+                                      parsedContent = s.catToiletLog(log.content);
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 10.0),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: const BoxDecoration(
+                                              color: primaryPurple,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '$timeStr  $parsedContent',
+                                            style: const TextStyle(fontSize: 13, color: Color(0xFF555555)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -351,19 +395,19 @@ class DeviceManagerPage extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 75,
-        height: 135,
+        width: 72,
+        height: 125,
         decoration: BoxDecoration(
           color: isActive ? activeColor : inactiveColor,
-          borderRadius: BorderRadius.circular(38),
+          borderRadius: BorderRadius.circular(36),
         ),
         child: Column(
           children: [
             Container(
-              margin: const EdgeInsets.all(6),
-              height: 60,
+              margin: const EdgeInsets.all(5),
+              height: 56,
               decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: Center(child: Icon(icon, color: isActive ? activeColor : Colors.grey, size: 28)),
+              child: Center(child: Icon(icon, color: isActive ? activeColor : Colors.grey, size: 26)),
             ),
             const Spacer(),
             Text(
@@ -376,20 +420,14 @@ class DeviceManagerPage extends StatelessWidget {
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionButton(
-    BuildContext context,
-    String title,
-    IconData icon,
-    VoidCallback? onTap, {
-    bool isLocked = false,
-  }) {
+  Widget _buildActionButton(String title, IconData icon, VoidCallback? onTap, {bool isLocked = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Opacity(
@@ -398,12 +436,12 @@ class DeviceManagerPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 48,
+              height: 48,
               decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: Icon(icon, color: const Color(0xFF917CEE), size: 26),
+              child: Icon(icon, color: const Color(0xFF917CEE), size: 24),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               title,
               style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),

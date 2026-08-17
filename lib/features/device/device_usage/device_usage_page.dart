@@ -2,8 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart';
+import 'package:fullxpet/features/device/models/device_dto.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class DeviceUsagePage extends StatefulWidget {
@@ -14,7 +17,6 @@ class DeviceUsagePage extends StatefulWidget {
 }
 
 class _DeviceUsagePageState extends State<DeviceUsagePage> {
-  // 浅紫风格配色体系
   final Color _primaryPurple = const Color(0xFF917CEE);
   final Color _bgColor = const Color(0xFFF9F9FC);
   final Color _textColor = const Color(0xFF333333);
@@ -32,8 +34,9 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context)!;
     final deviceProvider = context.watch<DeviceProvider>();
-    final usageProvider = context.watch<DeviceUsageProvider>();
+    final usageProvider = context.read<DeviceUsageProvider>();
 
     if (deviceProvider.devices.length != usageProvider.deviceList.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -41,7 +44,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
       });
     }
 
-    final selectedData = usageProvider.selectedDayData;
+    final isLargeScreen = MediaQuery.of(context).size.width > 600;
 
     return Scaffold(
       backgroundColor: _bgColor,
@@ -49,229 +52,283 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          '数据统计',
+          s.dataStatistics,
           style: TextStyle(color: _textColor, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
-      body: usageProvider.isLoading && usageProvider.weekDays.isEmpty
-          ? Center(child: CircularProgressIndicator(color: _primaryPurple))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ==============================
-                  // 1. 顶部设备切换列表卡片
-                  // ==============================
-                  Container(
-                    height: 95,
-                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: usageProvider.deviceList.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == usageProvider.deviceList.length) {
+      body: SafeArea(
+        child: ResponsiveFormContainer(
+          maxWidth: 900,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. 顶部设备切换列表卡片 (局部监听设备列表与选中索引)
+                Container(
+                  height: 95,
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Selector<DeviceUsageProvider, (List<DeviceDto>, int)>(
+                    selector: (_, vm) => (vm.deviceList, vm.selectedDeviceIndex),
+                    builder: (context, data, _) {
+                      final deviceList = data.$1;
+                      final selectedIndex = data.$2;
+
+                      return ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: deviceList.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == deviceList.length) {
+                            return GestureDetector(
+                              onTap: () => context.push(AppRoutes.deviceAddSearch),
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 15),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: _primaryPurple.withValues(alpha: 0.5), width: 1),
+                                        color: _primaryPurple.withValues(alpha: 0.05),
+                                      ),
+                                      child: Icon(Icons.add, color: _primaryPurple),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(s.addDevice, style: TextStyle(fontSize: 11, color: _subTextColor)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          final isSelected = selectedIndex == index;
+                          final device = deviceList[index];
                           return GestureDetector(
-                            onTap: () => context.push(AppRoutes.deviceAddSearch),
+                            onTap: () => usageProvider.selectDevice(index),
                             child: Padding(
                               padding: const EdgeInsets.only(right: 15),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Container(
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
                                     width: 44,
                                     height: 44,
+                                    padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: _primaryPurple.withOpacity(0.5), width: 1),
-                                      color: _primaryPurple.withOpacity(0.05),
+                                      border: Border.all(
+                                        color: isSelected ? _primaryPurple : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                      color: Colors.white,
                                     ),
-                                    child: Icon(Icons.add, color: _primaryPurple),
+                                    child: Image.asset('assets/images/product-pic.png', fit: BoxFit.contain),
                                   ),
                                   const SizedBox(height: 5),
-                                  Text('添加设备', style: TextStyle(fontSize: 11, color: _subTextColor)),
+                                  AnimatedDefaultTextStyle(
+                                    duration: const Duration(milliseconds: 200),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isSelected ? _primaryPurple : _subTextColor,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                    child: Text(device.deviceName),
+                                  ),
                                 ],
                               ),
                             ),
                           );
-                        }
-                        final isSelected = usageProvider.selectedDeviceIndex == index;
-                        final device = usageProvider.deviceList[index];
-                        return GestureDetector(
-                          onTap: () => usageProvider.selectDevice(index),
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 15),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  width: 44,
-                                  height: 44,
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected ? _primaryPurple : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                    color: Colors.white,
-                                  ),
-                                  child: Image.asset('assets/images/product-pic.png', fit: BoxFit.contain),
-                                ),
-                                const SizedBox(height: 5),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 200),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isSelected ? _primaryPurple : _subTextColor,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                                  ),
-                                  child: Text(device.deviceName),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                        },
+                      );
+                    },
                   ),
-                  const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 20),
 
-                  // ==============================
-                  // 2. 7天选择卡片 (周/日) - 平滑颜色过渡
-                  // ==============================
-                  Container(
-                    height: 64,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(usageProvider.weekDays.length, (index) {
-                        final isSelected = usageProvider.selectedDayIndex == index;
-                        final dayData = usageProvider.weekDays[index];
-                        return GestureDetector(
-                          onTap: () => usageProvider.selectDay(index),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeInOut,
-                            width: 42,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              // 明确指定纯紫与纯白，绝不使用 transparent
-                              color: isSelected ? _primaryPurple : Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 180),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isSelected ? Colors.white.withOpacity(0.8) : _subTextColor,
-                                    fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                                  ),
-                                  child: Text(dayData.weekDay),
-                                ),
-                                const SizedBox(height: 2),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 180),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isSelected ? Colors.white : _textColor,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                    fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                                  ),
-                                  child: Text(dayData.dayStr),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // ==============================
-                  // 3. 核心统计指标卡片
-                  // ==============================
-                  Row(
-                    children: [
-                      _buildStatCard('如厕次数', '${selectedData?.times ?? 0}', '次', Icons.pets_rounded),
-                      const SizedBox(width: 15),
-                      _buildStatCard('如厕时长', '${selectedData?.duration ?? 0}', '秒', Icons.timer_outlined),
+                // 2. 7天选择卡片 (局部监听 7天列表与选中索引)
+                Container(
+                  height: 64,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 25),
+                  child: Selector<DeviceUsageProvider, (List<DailyUsageData>, int)>(
+                    selector: (_, vm) => (vm.weekDays, vm.selectedDayIndex),
+                    builder: (context, data, _) {
+                      final weekDays = data.$1;
+                      final selectedDayIdx = data.$2;
 
-                  // ==============================
-                  // 4. 如厕次数趋势图表
-                  // ==============================
-                  Text(
-                    '如厕次数趋势',
-                    style: TextStyle(fontSize: 16, color: _textColor, fontWeight: FontWeight.bold),
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(weekDays.length, (index) {
+                          final isSelected = selectedDayIdx == index;
+                          final dayData = weekDays[index];
+                          return GestureDetector(
+                            onTap: () => usageProvider.selectDay(index),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeInOut,
+                              width: 42,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: isSelected ? _primaryPurple : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  AnimatedDefaultTextStyle(
+                                    duration: const Duration(milliseconds: 180),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isSelected ? Colors.white.withValues(alpha: 0.8) : _subTextColor,
+                                    ),
+                                    child: Text(dayData.getWeekdayName(s)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  AnimatedDefaultTextStyle(
+                                    duration: const Duration(milliseconds: 180),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isSelected ? Colors.white : _textColor,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    ),
+                                    child: Text(dayData.dayStr),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 210,
-                    padding: const EdgeInsets.fromLTRB(12, 20, 16, 12),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                ),
+                const SizedBox(height: 20),
+
+                // 3. 核心统计指标卡片 (局部监听选中日数据)
+                Selector<DeviceUsageProvider, DailyUsageData?>(
+                  selector: (_, vm) => vm.selectedDayData,
+                  builder: (context, selectedData, _) {
+                    return Row(
+                      children: [
+                        _buildStatCard(s.toiletTimes, '${selectedData?.times ?? 0}', s.timesUnit, Icons.pets_rounded),
+                        const SizedBox(width: 15),
+                        _buildStatCard(
+                          s.toiletDuration,
+                          '${selectedData?.duration ?? 0}',
+                          s.secondsUnit,
+                          Icons.timer_outlined,
+                        ),
                       ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 25),
+
+                // 4. 趋势图表区（平板/横屏双列，手机单列排布）
+                if (isLargeScreen)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildChartSection(
+                          title: s.timesTrend,
+                          chart: Selector<DeviceUsageProvider, List<DailyUsageData>>(
+                            selector: (_, vm) => vm.weekDays,
+                            builder: (context, weekDays, _) => _buildLineChart(weekDays, isTimes: true, s: s),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: _buildChartSection(
+                          title: s.durationTrend,
+                          chart: Selector<DeviceUsageProvider, List<DailyUsageData>>(
+                            selector: (_, vm) => vm.weekDays,
+                            builder: (context, weekDays, _) => _buildLineChart(weekDays, isTimes: false, s: s),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  _buildChartSection(
+                    title: s.timesTrend,
+                    chart: Selector<DeviceUsageProvider, List<DailyUsageData>>(
+                      selector: (_, vm) => vm.weekDays,
+                      builder: (context, weekDays, _) => _buildLineChart(weekDays, isTimes: true, s: s),
                     ),
-                    child: _buildLineChart(usageProvider, isTimes: true),
                   ),
                   const SizedBox(height: 25),
-
-                  // ==============================
-                  // 5. 如厕时长趋势图表
-                  // ==============================
-                  Text(
-                    '如厕时长趋势',
-                    style: TextStyle(fontSize: 16, color: _textColor, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 210,
-                    padding: const EdgeInsets.fromLTRB(12, 20, 16, 12),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
+                  _buildChartSection(
+                    title: s.durationTrend,
+                    chart: Selector<DeviceUsageProvider, List<DailyUsageData>>(
+                      selector: (_, vm) => vm.weekDays,
+                      builder: (context, weekDays, _) => _buildLineChart(weekDays, isTimes: false, s: s),
                     ),
-                    child: _buildLineChart(usageProvider, isTimes: false),
                   ),
-                  const SizedBox(height: 40),
                 ],
-              ),
+                const SizedBox(height: 40),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 
-  /// 数据统计卡片
+  Widget _buildChartSection({required String title, required Widget chart}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(fontSize: 16, color: _textColor, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 210,
+          padding: const EdgeInsets.fromLTRB(12, 20, 16, 12),
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: chart,
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatCard(String title, String value, String unit, IconData icon) {
     return Expanded(
       child: Container(
@@ -279,7 +336,9 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
         decoration: BoxDecoration(
           color: _cardColor,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +352,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                 ),
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: _primaryPurple.withOpacity(0.1), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: _primaryPurple.withValues(alpha: 0.1), shape: BoxShape.circle),
                   child: Icon(icon, size: 16, color: _primaryPurple),
                 ),
               ],
@@ -317,9 +376,8 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
     );
   }
 
-  /// LineChart 折线图绘制（保留全部 FlSpot 与 Provider 数据流）
-  Widget _buildLineChart(DeviceUsageProvider provider, {bool isTimes = false}) {
-    final List<FlSpot> spots = provider.weekDays.asMap().entries.map((e) {
+  Widget _buildLineChart(List<DailyUsageData> weekDays, {required bool isTimes, required S s}) {
+    final List<FlSpot> spots = weekDays.asMap().entries.map((e) {
       final val = isTimes ? e.value.times : e.value.duration;
       return FlSpot(e.key.toDouble(), val.toDouble());
     }).toList();
@@ -329,7 +387,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(color: const Color(0xFFF0EFF5), strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => const FlLine(color: Color(0xFFF0EFF5), strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           show: true,
@@ -342,10 +400,10 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
               interval: 1,
               getTitlesWidget: (value, meta) {
                 int idx = value.toInt();
-                if (idx >= 0 && idx < provider.weekDays.length) {
+                if (idx >= 0 && idx < weekDays.length) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 6.0),
-                    child: Text(provider.weekDays[idx].weekDay, style: TextStyle(fontSize: 11, color: _subTextColor)),
+                    child: Text(weekDays[idx].getWeekdayName(s), style: TextStyle(fontSize: 11, color: _subTextColor)),
                   );
                 }
                 return const Text('');
@@ -361,7 +419,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                   return const SizedBox.shrink();
                 }
                 return Text(
-                  '${value.toInt()}${isTimes ? '次' : '秒'}',
+                  '${value.toInt()}${isTimes ? s.timesUnit : s.secondsUnit}',
                   style: TextStyle(fontSize: 10, color: _subTextColor),
                 );
               },
@@ -387,7 +445,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
               getDotPainter: (spot, percent, barData, index) =>
                   FlDotCirclePainter(radius: 4, color: Colors.white, strokeWidth: 2.5, strokeColor: _primaryPurple),
             ),
-            belowBarData: BarAreaData(show: true, color: _primaryPurple.withOpacity(0.08)),
+            belowBarData: BarAreaData(show: true, color: _primaryPurple.withValues(alpha: 0.08)),
           ),
         ],
       ),

@@ -1,0 +1,19 @@
+{
+  "user": "用户",
+  "personalInfo": "个人信息",
+  "avatar": "头像",
+  "chooseFromGallery": "从相册选择",
+  "takePhoto": "拍照",
+  "nickname": "昵称",
+  "editNickname": "修改昵称",
+  "enterNewNickname": "请输入新昵称",
+  "accountLabel": "账号",
+  "emailLabel": "邮箱",
+  "phoneLabel": "手机号",
+  "notBound": "未绑定",
+  "deleteAccount": "注销账号",
+  "logout": "退出登录",
+  "appVersion": "软件版本",
+  "feedback": "意见反馈",
+  "aboutUs": "关于我们"
+}

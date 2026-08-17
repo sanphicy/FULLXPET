@@ -6,23 +6,31 @@ import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+//应用根组件
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
+      // 注册全局设备状态
       providers: [ChangeNotifierProvider(create: (_) => DeviceProvider())],
       child: ScreenUtilInit(
+        // 设计稿尺寸
         designSize: const Size(375, 812),
         minTextAdapt: true,
         splitScreenMode: true,
+        // 限制文本最大缩放
+        fontSizeResolver: (fontSize, instance) {
+          final scale = instance.scaleText;
+          final clampedScale = scale > 1.2 ? 1.2 : scale;
+          return fontSize * clampedScale;
+        },
         builder: (context, child) {
           return MaterialApp.router(
             title: 'FULLXPET',
-            debugShowCheckedModeBanner: true,
+            debugShowCheckedModeBanner: false,
             routerConfig: AppRouter.router,
-            // 国际化配置：自动适配系统当前语言，支持中文/英文等全量 S.supportedLocales
             supportedLocales: S.supportedLocales,
             localizationsDelegates: const [
               S.delegate,

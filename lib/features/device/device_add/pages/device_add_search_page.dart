@@ -67,7 +67,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     subtitle: const Text("隐藏没有名称的蓝牙设备", style: TextStyle(fontSize: 12, color: Colors.grey)),
                     value: filterUnknown,
                     onChanged: (val) => setState(() => filterUnknown = val),
-                    activeColor: _primaryPurple, // 替换颜色
+                    activeThumbColor: _primaryPurple, // 替换颜色
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -78,7 +78,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                     ),
                     value: autoFetchWifi,
                     onChanged: (val) => setState(() => autoFetchWifi = val),
-                    activeColor: _primaryPurple, // 替换颜色
+                    activeThumbColor: _primaryPurple, // 替换颜色
                   ),
                   // SizedBox(height: 15.h),
                   // SwitchListTile(
@@ -285,7 +285,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
               // }
               context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
             },
-            child: Text(s.connectBtn),
+            child: Text("连接"),
           ),
         ],
       ),

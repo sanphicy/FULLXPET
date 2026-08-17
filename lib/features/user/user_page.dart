@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:fullxpet/features/user/user_provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fullxpet/routes/app_router.dart';
+import 'package:provider/provider.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
+import 'package:fullxpet/features/user/user_provider.dart';
+import 'package:fullxpet/routes/app_router.dart';
 
 class UserPage extends StatelessWidget {
   const UserPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<UserProvider>();
+    final s = S.of(context)!;
+    final userProvider = context.read<UserProvider>();
+
     const Color primaryPurple = Color(0xFF917CEE);
     const Color textColor = Color(0xFF333333);
     const Color subTextColor = Color(0xFF666666);
@@ -19,156 +23,169 @@ class UserPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              // ==============================
-              // 1. 用户信息头部
-              // ==============================
-              Row(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      AppAvatar(avatarUrl: provider.avatarUrl, radius: 32),
-                      Positioned(
-                        bottom: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: primaryPurple, borderRadius: BorderRadius.circular(10)),
-                          child: const Text(
-                            'User',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+        child: ResponsiveFormContainer(
+          maxWidth: 600,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+
+                // 1. 用户信息头部（局部监听 UserProvider）
+                Row(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        Selector<UserProvider, String>(
+                          selector: (_, vm) => vm.avatarUrl,
+                          builder: (context, avatarUrl, _) => AppAvatar(avatarUrl: avatarUrl, radius: 32),
+                        ),
+                        Positioned(
+                          bottom: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(color: primaryPurple, borderRadius: BorderRadius.circular(10)),
+                            child: Text(
+                              s.user,
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Selector<UserProvider, String>(
+                            selector: (_, vm) => vm.userName,
+                            builder: (context, userName, _) {
+                              return Text(
+                                userName,
+                                style: const TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 4),
+                          Selector<UserProvider, String>(
+                            selector: (_, vm) => vm.userId,
+                            builder: (context, userId, _) {
+                              return Text('ID: $userId', style: const TextStyle(fontSize: 12, color: subTextColor));
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined, color: subTextColor, size: 24),
+                      onPressed: () {
+                        context.push(AppRoutes.personalInfo, extra: userProvider);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+
+                // 2. 设置列表项 第一组
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              provider.userName,
-                              style: const TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text('ID: ${provider.userId}', style: TextStyle(fontSize: 12, color: subTextColor)),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      _buildListTile(
+                        Icons.privacy_tip_outlined,
+                        const Color(0xFF917CEE),
+                        s.privacyPolicy,
+                        onTap: () {
+                          context.push(
+                            AppRoutes.webView,
+                            extra: {
+                              'title': s.privacyPolicy,
+                              'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
+                            },
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildListTile(
+                        Icons.description_outlined,
+                        const Color(0xFFEE7C8C),
+                        s.userAgreement,
+                        onTap: () {
+                          context.push(
+                            AppRoutes.webView,
+                            extra: {
+                              'title': s.userAgreement,
+                              'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
+                            },
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      Selector<UserProvider, String>(
+                        selector: (_, vm) => vm.appVersion,
+                        builder: (context, version, _) {
+                          return _buildListTile(
+                            Icons.info_outline,
+                            const Color(0xFF5C7CEE),
+                            s.appVersion,
+                            trailingText: version,
+                            onTap: () {},
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: Icon(Icons.settings_outlined, color: subTextColor, size: 24),
-                    onPressed: () {
-                      context.push(AppRoutes.personalInfo, extra: provider);
-                    },
+                ),
+                const SizedBox(height: 16),
+
+                // 3. 设置列表项 第二组
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 30),
-
-              // ==============================
-              // 2. 设置列表项 第一组
-              // ==============================
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
+                  child: Column(
+                    children: [
+                      _buildListTile(
+                        Icons.lightbulb_outline,
+                        const Color(0xFF3B9EBA),
+                        s.feedback,
+                        onTap: () => context.push(AppRoutes.feedback),
+                      ),
+                      _buildDivider(),
+                      _buildListTile(
+                        Icons.info_outline,
+                        const Color(0xFF5C7CEE),
+                        s.aboutUs,
+                        onTap: () => context.push(AppRoutes.aboutUs),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    // _buildListTile(Icons.language_outlined, const Color(0xFF7C8CEE), '语言设置'),
-                    // _buildDivider(),
-                    _buildListTile(
-                      Icons.privacy_tip_outlined,
-                      const Color(0xFF917CEE),
-                      '隐私政策',
-                      onTap: () {
-                        context.push(
-                          AppRoutes.webView,
-                          extra: {
-                            'title': '隐私政策',
-                            'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
-                          },
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildListTile(
-                      Icons.description_outlined,
-                      const Color(0xFFEE7C8C),
-                      '用户协议',
-                      onTap: () {
-                        context.push(
-                          AppRoutes.webView,
-                          extra: {
-                            'title': '用户协议',
-                            'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
-                          },
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildListTile(
-                      Icons.info_outline,
-                      const Color(0xFF5C7CEE),
-                      '软件版本',
-                      trailingText: provider.appVersion,
-                      onTap: () {},
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // ==============================
-              // 3. 设置列表项 第二组
-              // ==============================
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    _buildListTile(
-                      Icons.lightbulb_outline,
-                      const Color(0xFF3B9EBA),
-                      '意见反馈',
-                      onTap: () {
-                        context.push(AppRoutes.feedback);
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildListTile(
-                      Icons.info_outline,
-                      const Color(0xFF5C7CEE),
-                      '关于我们',
-                      onTap: () {
-                        context.push(AppRoutes.aboutUs);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-            ],
+                const Spacer(),
+              ],
+            ),
           ),
         ),
       ),
@@ -185,7 +202,7 @@ class UserPage extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), shape: BoxShape.circle),
               child: Icon(icon, color: iconColor, size: 18),
             ),
             const SizedBox(width: 12),

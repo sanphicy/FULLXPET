@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/models/country_dto.dart';
 import 'package:fullxpet/core/services/region_service.dart';
 import 'package:fullxpet/locator.dart';
 
 class CountryPickerSheet {
   static Future<CountryDto?> show(BuildContext context) async {
+    final s = S.of(context)!;
     final regionService = locator<RegionService>();
-    final countries = regionService.countries;
+
+    // 核心保护：若内存中为空，立即异步加载（本地缓存 0ms 读取）
+    List<CountryDto> countries = regionService.countries;
+    if (countries.isEmpty) {
+      countries = await regionService.loadCountryList();
+    }
     final selectedCountry = regionService.currentCountry;
 
     const Color primaryPurple = Color(0xFF917CEE);
@@ -18,17 +24,17 @@ class CountryPickerSheet {
     return showModalBottomSheet<CountryDto>(
       context: context,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: EdgeInsets.symmetric(vertical: 16.h),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  "选择国家/地区",
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: textColor),
+                  s.selectCountry,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textColor),
                 ),
               ),
               const Divider(height: 1, color: lineColor),
@@ -49,10 +55,7 @@ class CountryPickerSheet {
                         ),
                       ),
                       trailing: Text(country.phoneCountryCode, style: const TextStyle(color: hintColor)),
-                      onTap: () {
-                        // 乐观处理：立即关闭弹窗并返回选中项，不阻塞等待网络
-                        Navigator.pop(ctx, country);
-                      },
+                      onTap: () => Navigator.pop(ctx, country),
                     );
                   },
                 ),

@@ -48,9 +48,9 @@ class FeedbackPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: primaryPurple.withOpacity(0.15)),
+                border: Border.all(color: primaryPurple.withValues(alpha: 0.15)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
               child: Column(

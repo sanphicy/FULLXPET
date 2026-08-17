@@ -104,7 +104,7 @@ class _FactoryDebugViewState extends State<_FactoryDebugView> {
                           textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold)),
                           backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
                             if (states.contains(WidgetState.selected)) {
-                              return _primaryPurple.withOpacity(0.12);
+                              return _primaryPurple.withValues(alpha: 0.12);
                             }
                             return Colors.white;
                           }),

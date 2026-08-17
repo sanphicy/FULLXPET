@@ -1,13 +1,15 @@
 import 'package:dio/dio.dart';
-import 'package:fullxpet/locator.dart';
-import 'package:fullxpet/routes/app_router.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
 import 'package:fullxpet/core/utils/token_manager.dart';
-import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
-import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:fullxpet/features/device/repositories/device_repository.dart';
+import 'package:fullxpet/locator.dart';
+import 'package:fullxpet/routes/app_router.dart';
 
 class UserProvider extends BaseProvider {
   String _userName = 'Unknown User';
@@ -15,10 +17,9 @@ class UserProvider extends BaseProvider {
   String _avatarUrl = '';
   String _countryCode = '';
   String _timezone = '';
-  String _account = ''; // 专门用于存储 邮箱 或 手机号
+  String _account = '';
   String _appVersion = '1.0.0';
 
-  // Getters
   String get userName => _userName;
   String get userId => _userId;
   String get avatarUrl => _avatarUrl;
@@ -27,7 +28,6 @@ class UserProvider extends BaseProvider {
   String get account => _account;
   String get appVersion => _appVersion;
 
-  /// 获取用户信息
   Future<void> fetchUserInfo({bool isSilent = false}) async {
     fetchAppVersion();
     final isLoggedIn = await TokenManager.isLoggedIn();
@@ -77,24 +77,21 @@ class UserProvider extends BaseProvider {
     }
   }
 
-  // 读取应用版本号
   Future<void> fetchAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
       notifyListeners();
-    } catch (e) {
+    } catch (_) {
       _appVersion = '-';
       notifyListeners();
     }
   }
 
-  /// 修改昵称
   Future<bool> updateNickname(String newName) async {
     final trimmedName = newName.trim();
-    if (trimmedName.isEmpty || trimmedName == _userName) {
-      return false;
-    }
+    if (trimmedName.isEmpty || trimmedName == _userName) return false;
+
     setLoading(true);
     try {
       final payload = {
@@ -118,7 +115,6 @@ class UserProvider extends BaseProvider {
     return false;
   }
 
-  /// 上传头像
   Future<bool> uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
@@ -147,12 +143,13 @@ class UserProvider extends BaseProvider {
     return false;
   }
 
-  /// 退出登录
   Future<void> logout() async {
     try {
       await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.logout);
     } catch (_) {
     } finally {
+      // 彻底清理设备池与本地 Token，断绝数据污染
+      locator<DeviceRepository>().clearPool();
       await TokenManager.clearToken();
       _userName = 'Unknown User';
       _userId = '-';

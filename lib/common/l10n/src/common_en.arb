@@ -1,0 +1,20 @@
+{
+  "confirm": "Confirm",
+  "cancel": "Cancel",
+  "save": "Save",
+  "selectCountry": "Select Country/Region",
+  "agreePrefix": "I have read and agree to ",
+  "userAgreement": "User Agreement",
+  "andText": " and ",
+  "privacyPolicy": "Privacy Policy",
+  "timesUnit": "times",
+  "secondsUnit": "s",
+  "minutesUnit": "mins",
+  "tabDevice": "Devices",
+  "tabUsage": "Statistics",
+  "tabUser": "User",
+  "actionIdle": "Idle",
+  "actionAddLitter": "Add Litter",
+  "actionEmptyLitter": "Empty Litter",
+  "actionResetting": "Resetting"
+}

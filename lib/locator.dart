@@ -17,12 +17,13 @@ void setupLocator() {
   // mqtt
   locator.registerLazySingleton<MqttManager>(() => MqttManager());
 
-  // ---------- 仓库 ----------
+  // 仓库
   locator.registerLazySingleton<AuthRepository>(() => AuthRepository());
   locator.registerLazySingleton<DeviceRepository>(() => DeviceRepository());
   // 全局状态
   locator.registerLazySingleton<UserProvider>(() => UserProvider());
   locator.registerLazySingleton<ActiveDeviceProvider>(() => ActiveDeviceProvider());
 
+  // 请求信息
   locator.registerLazySingleton<RegionService>(() => RegionService());
 }

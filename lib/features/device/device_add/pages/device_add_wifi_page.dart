@@ -197,17 +197,18 @@ class _DeviceAddWifiPageState extends State<DeviceAddWifiPage> {
                           minimumSize: Size(double.infinity, Dimens.buttonLarge),
                           backgroundColor: _primaryPurple, // 替换为紫色
                         ),
-                        onPressed: () {
+                        // 在 Wi-Fi 提交与异常捕获后校验 context
+                        onPressed: () async {
                           final targetSsid = _ssidCtrl.text.trim();
                           final pwd = _pwdCtrl.text.trim();
                           if (targetSsid.isEmpty || pwd.isEmpty) {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(const SnackBar(content: Text('请填写完整的 Wi-Fi 信息')));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.wifiPasswordHint)));
+                            }
                             return;
                           }
                           FocusManager.instance.primaryFocus?.unfocus();
-                          provider.startWifiProvisioning(targetSsid, pwd, widget.targetDevice);
+                          await provider.startWifiProvisioning(targetSsid, pwd, widget.targetDevice);
                         },
                         child: Text(
                           provider.hasError ? "重新配置" : s.startConfig,
@@ -321,11 +322,8 @@ class _AnimatedDotsState extends State<_AnimatedDots> {
           width: 8.w,
           height: 8.w,
           transformAlignment: Alignment.center,
-          transform: Matrix4.identity()..scale(isActive ? 1.4 : 1.0),
-          decoration: BoxDecoration(
-            color: isActive ? _primaryPurple : Colors.grey.shade300, // 替换为紫色
-            shape: BoxShape.circle,
-          ),
+          transform: Matrix4.diagonal3Values(isActive ? 1.4 : 1.0, isActive ? 1.4 : 1.0, 1.0),
+          decoration: BoxDecoration(color: isActive ? _primaryPurple : Colors.grey.shade300, shape: BoxShape.circle),
         );
       }),
     );

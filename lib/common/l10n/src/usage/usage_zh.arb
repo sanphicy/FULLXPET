@@ -1,0 +1,14 @@
+{
+  "dataStatistics": "数据统计",
+  "toiletTimes": "如厕次数",
+  "toiletDuration": "如厕时长",
+  "timesTrend": "如厕次数趋势",
+  "durationTrend": "如厕时长趋势",
+  "mon": "周一",
+  "tue": "周二",
+  "wed": "周三",
+  "thu": "周四",
+  "fri": "周五",
+  "sat": "周六",
+  "sun": "周日"
+}

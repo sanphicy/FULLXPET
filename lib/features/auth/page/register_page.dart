@@ -1,10 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/models/country_dto.dart';
 import 'package:fullxpet/common/widgets/privacy_bottom_sheet.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/auth/viewmodels/register_view_model.dart';
 import 'package:fullxpet/features/auth/widgets/auth_tab_bar.dart';
 import 'package:fullxpet/features/auth/widgets/auth_underlined_field.dart';
@@ -67,7 +68,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final confirmPwd = _confirmPasswordCtrl.text.trim();
 
     if (account.isEmpty || code.isEmpty || pwd.isEmpty || confirmPwd.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写完整信息')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.emptyAccountOrPassword)));
       return;
     }
 
@@ -75,19 +76,19 @@ class _RegisterPageState extends State<RegisterPage> {
     if (isPhoneMode) {
       final bool isPhone = RegExp(r'^\d{5,15}$').hasMatch(account);
       if (!isPhone) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('手机号格式不正确')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.invalidAccountFormat)));
         return;
       }
     } else {
       final bool isEmail = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(account);
       if (!isEmail) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('邮箱格式不正确')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.invalidAccountFormat)));
         return;
       }
     }
 
     if (pwd != confirmPwd) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('两次输入的密码不一致')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.passwordMismatch)));
       return;
     }
 
@@ -116,7 +117,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final viewModel = context.watch<RegisterViewModel>();
+    final viewModel = context.read<RegisterViewModel>();
     final isPhoneMode = _tabIndex == 0;
 
     return Scaffold(
@@ -125,286 +126,277 @@ class _RegisterPageState extends State<RegisterPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: _textColor, size: 22.w),
+          icon: Icon(Icons.arrow_back_ios_new, color: _textColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          GestureDetector(
-            onTap: () => CountryPickerSheet.show(context),
-            child: Container(
-              margin: EdgeInsets.only(right: 20.w),
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-              decoration: BoxDecoration(color: const Color(0xFFF3F2F8), borderRadius: BorderRadius.circular(12.r)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    viewModel.currentCountry?.name ?? "国家/地区",
-                    style: TextStyle(fontSize: 12.sp, color: _primaryPurple, fontWeight: FontWeight.bold),
-                  ),
-                  Icon(Icons.arrow_drop_down, color: _primaryPurple, size: 18.w),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 28.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 10.h),
-              Center(
-                child: SizedBox(
-                  width: 80.w,
-                  height: 80.w,
-                  child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
-                ),
-              ),
-              SizedBox(height: 20.h),
-              Text(
-                '创建账号',
-                style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold, color: _textColor),
-              ),
-              SizedBox(height: 25.h),
-
-              // 复用抽取的 Tab 切换组件
-              AuthTabBar(
-                selectedIndex: _tabIndex,
-                onTabChanged: (index) {
-                  if (_tabIndex != index) {
-                    setState(() {
-                      _tabIndex = index;
-                      _accountCtrl.clear();
-                    });
-                  }
-                },
-                primaryColor: _primaryPurple,
-              ),
-              SizedBox(height: 30.h),
-
-              if (isPhoneMode)
-                GestureDetector(
-                  onTap: () => CountryPickerSheet.show(context),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          viewModel.currentCountry != null
-                              ? '${viewModel.currentCountry!.name} (${viewModel.currentCountry!.phoneCountryCode})'
-                              : '选择国家/地区',
-                          style: TextStyle(color: _textColor, fontSize: 14.sp),
-                        ),
-                        Icon(Icons.arrow_forward_ios, color: _hintColor, size: 14.w),
-                      ],
-                    ),
+        child: ResponsiveFormContainer(
+          maxWidth: 420,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Center(
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    s.createAccount,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textColor),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-              // 账号输入框
-              AuthUnderlinedField(
-                controller: _accountCtrl,
-                hintText: isPhoneMode ? '请输入手机号' : '请输入邮箱',
-                keyboardType: isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
-                trailing: _accountCtrl.text.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () => setState(() => _accountCtrl.clear()),
-                        child: Icon(Icons.cancel, color: Colors.grey.shade400, size: 18.w),
-                      )
-                    : null,
-              ),
+                AuthTabBar(
+                  selectedIndex: _tabIndex,
+                  onTabChanged: (index) {
+                    if (_tabIndex != index) {
+                      setState(() {
+                        _tabIndex = index;
+                        _accountCtrl.clear();
+                      });
+                    }
+                  },
+                  primaryColor: _primaryPurple,
+                ),
+                const SizedBox(height: 24),
 
-              // 验证码输入框
-              AuthUnderlinedField(
-                controller: _codeCtrl,
-                hintText: '请输入验证码',
-                icon: Icons.verified_user_outlined,
-                keyboardType: TextInputType.number,
-                trailing: ValueListenableBuilder<bool>(
-                  valueListenable: _isSendingCode,
-                  builder: (context, isSending, child) {
-                    return SizedBox(
-                      height: 32.h,
-                      child: ElevatedButton(
-                        onPressed: (_countdown > 0 || isSending)
-                            ? null
-                            : () async {
-                                final target = _accountCtrl.text.trim();
-                                if (target.isEmpty) {
-                                  ScaffoldMessenger.of(
-                                    context,
-                                  ).showSnackBar(SnackBar(content: Text(isPhoneMode ? '请输入手机号' : '请输入邮箱')));
-                                  return;
-                                }
-                                FocusManager.instance.primaryFocus?.unfocus();
-                                _isSendingCode.value = true;
-                                final cooldown = await viewModel.sendVerifyCode(target, isPhoneMode);
-                                if (mounted) _isSendingCode.value = false;
-                                if (cooldown > 0) {
-                                  _startCountdown(cooldown);
-                                } else if (viewModel.hasError && mounted) {
-                                  ScaffoldMessenger.of(
-                                    context,
-                                  ).showSnackBar(SnackBar(content: Text(viewModel.errorMsg)));
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryPurple,
-                          disabledBackgroundColor: Colors.grey.shade300,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                          padding: EdgeInsets.symmetric(horizontal: 14.w),
+                Selector<RegisterViewModel, CountryDto?>(
+                  selector: (_, vm) => vm.currentCountry,
+                  builder: (context, currentCountry, _) {
+                    final String displayLabel = currentCountry != null
+                        ? (isPhoneMode
+                              ? '${currentCountry.name} (${currentCountry.phoneCountryCode})'
+                              : currentCountry.name)
+                        : s.selectCountry;
+
+                    return GestureDetector(
+                      onTap: () async {
+                        final country = await CountryPickerSheet.show(context);
+                        if (country != null && mounted) {
+                          viewModel.switchCountry(country);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: _lineColor, width: 1)),
                         ),
-                        child: isSending
-                            ? SizedBox(
-                                width: 14.w,
-                                height: 14.w,
-                                child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : Text(
-                                _countdown > 0 ? '${_countdown}s' : '获取验证码',
-                                style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.bold),
-                              ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.public_outlined, color: _textColor, size: 20),
+                                const SizedBox(width: 10),
+                                Text(displayLabel, style: TextStyle(color: _textColor, fontSize: 15)),
+                              ],
+                            ),
+                            Icon(Icons.arrow_forward_ios, color: _hintColor, size: 14),
+                          ],
+                        ),
                       ),
                     );
                   },
                 ),
-              ),
 
-              // 设置密码
-              AuthUnderlinedField(
-                controller: _passwordCtrl,
-                hintText: '设置密码',
-                icon: Icons.lock_outline,
-                isPassword: true,
-                obscureText: _obscurePassword,
-                onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-              ),
+                AuthUnderlinedField(
+                  controller: _accountCtrl,
+                  hintText: isPhoneMode ? s.phoneLogin : s.emailLogin,
+                  keyboardType: isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
+                  trailing: _accountCtrl.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () => setState(() => _accountCtrl.clear()),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Icon(Icons.cancel, color: Colors.grey.shade400, size: 18),
+                          ),
+                        )
+                      : null,
+                ),
 
-              // 确认密码
-              AuthUnderlinedField(
-                controller: _confirmPasswordCtrl,
-                hintText: '确认密码',
-                icon: Icons.lock_outline,
-                isPassword: true,
-                obscureText: _obscureConfirmPassword,
-                onToggleObscure: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                '密码长度 8-16 位，包含字母和数字',
-                style: TextStyle(fontSize: 11.sp, color: _hintColor),
-              ),
-              SizedBox(height: 35.h),
-
-              // 提交注册按钮
-              ValueListenableBuilder<bool>(
-                valueListenable: _isSubmitting,
-                builder: (context, isSubmitting, child) {
-                  return SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: ElevatedButton(
-                      onPressed: isSubmitting ? null : () => _handleRegister(viewModel, s),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primaryPurple,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
-                        elevation: 0,
-                      ),
-                      child: isSubmitting
-                          ? SizedBox(
-                              width: 20.w,
-                              height: 20.w,
-                              child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : Text(
-                              '注册',
-                              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
-                            ),
-                    ),
-                  );
-                },
-              ),
-              SizedBox(height: 12.h),
-              Center(
-                child: TextButton(
-                  onPressed: () => context.go(AppRoutes.login),
-                  child: Text(
-                    '已有账号？去登录',
-                    style: TextStyle(color: _hintColor, fontSize: 13.sp),
+                AuthUnderlinedField(
+                  controller: _codeCtrl,
+                  hintText: s.enterCode,
+                  icon: Icons.verified_user_outlined,
+                  keyboardType: TextInputType.number,
+                  trailing: ValueListenableBuilder<bool>(
+                    valueListenable: _isSendingCode,
+                    builder: (context, isSending, child) {
+                      return SizedBox(
+                        height: 32,
+                        child: ElevatedButton(
+                          onPressed: (_countdown > 0 || isSending)
+                              ? null
+                              : () async {
+                                  final target = _accountCtrl.text.trim();
+                                  if (target.isEmpty) {
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(SnackBar(content: Text(isPhoneMode ? s.phoneLogin : s.emailLogin)));
+                                    return;
+                                  }
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  _isSendingCode.value = true;
+                                  final cooldown = await viewModel.sendVerifyCode(target, isPhoneMode);
+                                  if (mounted) _isSendingCode.value = false;
+                                  if (cooldown > 0) {
+                                    _startCountdown(cooldown);
+                                  } else if (viewModel.hasError && mounted) {
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(SnackBar(content: Text(viewModel.errorMsg)));
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryPurple,
+                            disabledBackgroundColor: Colors.grey.shade300,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          child: isSending
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : Text(
+                                  _countdown > 0 ? '${_countdown}s' : s.sendCode,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-              SizedBox(height: 30.h),
 
-              // 协议
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _agreedToTerms = !_agreedToTerms),
-                    child: Container(
-                      margin: EdgeInsets.only(right: 8.w),
-                      width: 18.w,
-                      height: 18.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _agreedToTerms ? _primaryPurple : _hintColor, width: 1.w),
-                        color: _agreedToTerms ? _primaryPurple : Colors.transparent,
+                AuthUnderlinedField(
+                  controller: _passwordCtrl,
+                  hintText: s.passwordHint,
+                  icon: Icons.lock_outline,
+                  isPassword: true,
+                  obscureText: _obscurePassword,
+                  onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+
+                AuthUnderlinedField(
+                  controller: _confirmPasswordCtrl,
+                  hintText: s.confirmPasswordHint,
+                  icon: Icons.lock_outline,
+                  isPassword: true,
+                  obscureText: _obscureConfirmPassword,
+                  onToggleObscure: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                ),
+                const SizedBox(height: 32),
+
+                ValueListenableBuilder<bool>(
+                  valueListenable: _isSubmitting,
+                  builder: (context, isSubmitting, child) {
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: isSubmitting ? null : () => _handleRegister(viewModel, s),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryPurple,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          elevation: 0,
+                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : Text(s.register, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
-                      child: _agreedToTerms ? Icon(Icons.check, size: 12.w, color: Colors.white) : null,
-                    ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                Center(
+                  child: TextButton(
+                    onPressed: () => context.go(AppRoutes.login),
+                    child: Text(s.hasAccountGoLogin, style: TextStyle(color: _hintColor, fontSize: 13)),
                   ),
-                  RichText(
-                    text: TextSpan(
-                      style: TextStyle(color: _hintColor, fontSize: 12.sp),
-                      children: [
-                        TextSpan(text: s.agreePrefix),
-                        TextSpan(
-                          text: s.userAgreement,
-                          style: TextStyle(color: _primaryPurple),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () {
-                              context.push(
-                                AppRoutes.webView,
-                                extra: {
-                                  'title': s.userAgreement,
-                                  'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
-                                },
-                              );
-                            },
+                ),
+                const SizedBox(height: 24),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _agreedToTerms = !_agreedToTerms),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _agreedToTerms ? _primaryPurple : _hintColor, width: 1),
+                          color: _agreedToTerms ? _primaryPurple : Colors.transparent,
                         ),
-                        TextSpan(text: s.andText),
-                        TextSpan(
-                          text: s.privacyPolicy,
-                          style: TextStyle(color: _primaryPurple),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () {
-                              context.push(
-                                AppRoutes.webView,
-                                extra: {
-                                  'title': s.privacyPolicy,
-                                  'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
-                                },
-                              );
-                            },
-                        ),
-                      ],
+                        child: _agreedToTerms ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20.h),
-            ],
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(color: _hintColor, fontSize: 12),
+                        children: [
+                          TextSpan(text: s.agreePrefix),
+                          TextSpan(
+                            text: s.userAgreement,
+                            style: TextStyle(color: _primaryPurple),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                context.push(
+                                  AppRoutes.webView,
+                                  extra: {
+                                    'title': s.userAgreement,
+                                    'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
+                                  },
+                                );
+                              },
+                          ),
+                          TextSpan(text: s.andText),
+                          TextSpan(
+                            text: s.privacyPolicy,
+                            style: TextStyle(color: _primaryPurple),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                context.push(
+                                  AppRoutes.webView,
+                                  extra: {
+                                    'title': s.privacyPolicy,
+                                    'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
+                                  },
+                                );
+                              },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),

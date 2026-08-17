@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 
 class AppWheelPickerSheet extends StatefulWidget {
   final String title;
@@ -15,7 +16,7 @@ class AppWheelPickerSheet extends StatefulWidget {
     required this.onConfirm,
   });
 
-  /// 快捷呼出静态方法
+  /// 静态弹出方法：保持原本贴底的 BottomSheet
   static void show(
     BuildContext context, {
     required String title,
@@ -40,11 +41,13 @@ class _AppWheelPickerSheetState extends State<AppWheelPickerSheet> {
   late FixedExtentScrollController _scrollController;
   late int _selectedIndex;
 
+  // 统一的品牌紫色
+  static const Color _primaryPurple = Color(0xFF917CEE);
+
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    // 自动滚动到当前选中的位置
     _scrollController = FixedExtentScrollController(initialItem: _selectedIndex);
   }
 
@@ -56,12 +59,14 @@ class _AppWheelPickerSheetState extends State<AppWheelPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context)!;
+
     return SafeArea(
       child: SizedBox(
-        height: 330.0, // 稍微调低整体高度
+        height: 330.0,
         child: Column(
           children: [
-            // 1. 顶部标题区域
+            // 1. 标题栏
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Text(
@@ -72,7 +77,7 @@ class _AppWheelPickerSheetState extends State<AppWheelPickerSheet> {
             ),
             const Divider(height: 1, color: Color(0xFFEEEEEE)),
 
-            // 2. 中间选择区域 (Expanded 自动占满剩余空间)
+            // 2. 滚轮区域
             Expanded(
               child: CupertinoPicker(
                 scrollController: _scrollController,
@@ -88,39 +93,40 @@ class _AppWheelPickerSheetState extends State<AppWheelPickerSheet> {
               ),
             ),
 
-            // 3. 底部按钮区域
+            // 3. 底部操作按钮栏
             Padding(
-              padding: const EdgeInsets.only(left: 30.0, right: 30.0, bottom: 20.0, top: 10.0), // 增加左右边距，让按钮看起来更紧凑
+              padding: const EdgeInsets.only(left: 30.0, right: 30.0, bottom: 20.0, top: 10.0),
               child: Row(
                 children: [
-                  // 取消按钮 - 纯文字，无边框
+                  // 取消按钮
                   Expanded(
                     child: TextButton(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12), // 调小内边距
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontSize: 15)), // 调小字体
+                      child: Text(s.cancel, style: const TextStyle(color: Colors.grey, fontSize: 15)),
                     ),
                   ),
                   const SizedBox(width: 15),
-                  // 确认按钮 - 填充色，无边框
+
+                  // 确认按钮（替换为统一紫色）
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12), // 调小内边距
-                        backgroundColor: const Color(0xFFDBAB3F),
-                        elevation: 0, // 去除阴影，更扁平
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: _primaryPurple,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () {
                         widget.onConfirm(_selectedIndex);
                         Navigator.pop(context);
                       },
-                      child: const Text(
-                        'Confirm',
-                        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold), // 调小字体
+                      child: Text(
+                        s.confirm,
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),

@@ -158,7 +158,7 @@ class _FactoryDebugJsonViewState extends State<FactoryDebugJsonView> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8.r),
         border: Border.all(color: log.isTx ? const Color(0xFFFFD8A8) : const Color(0xFFD0EBFF)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.015), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

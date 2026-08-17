@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AuthUnderlinedField extends StatelessWidget {
   final TextEditingController controller;
@@ -30,33 +29,50 @@ class AuthUnderlinedField extends StatelessWidget {
     const Color lineColor = Color(0xFFE5E5E5);
 
     return Container(
+      height: 54,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: lineColor, width: 1)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (icon != null) ...[Icon(icon, color: textColor, size: 20.w), SizedBox(width: 8.w)],
+          if (icon != null) ...[
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Center(child: Icon(icon, color: textColor, size: 20)),
+            ),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: TextField(
               controller: controller,
               keyboardType: keyboardType,
               obscureText: isPassword ? obscureText : false,
-              style: TextStyle(color: textColor, fontSize: 15.sp),
+              style: const TextStyle(color: textColor, fontSize: 15),
               decoration: InputDecoration(
                 hintText: hintText,
-                hintStyle: TextStyle(color: hintColor, fontSize: 14.sp),
+                hintStyle: const TextStyle(color: hintColor, fontSize: 14),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
           if (isPassword)
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: onToggleObscure,
-              child: Icon(
-                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: hintColor,
-                size: 20.w,
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: Center(
+                  child: Icon(
+                    obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    color: hintColor,
+                    size: 20,
+                  ),
+                ),
               ),
             ),
           if (trailing != null) trailing!,

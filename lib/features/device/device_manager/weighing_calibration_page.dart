@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/active_device_provider.dart';
 
 class WeighingCalibrationPage extends StatefulWidget {
@@ -14,12 +16,16 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
   int _currentStep = 0;
   final PageController _pageController = PageController();
   late TextEditingController _weightCtrl;
+  final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
+
+  final Color _primaryPurple = const Color(0xFF917CEE);
+  final Color _textColor = const Color(0xFF333333);
+  final Color _hintColor = const Color(0xFF9E9E9E);
 
   @override
   void initState() {
     super.initState();
     _weightCtrl = TextEditingController();
-    // 初始化时从 Provider 中读取持久化的重量
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ActiveDeviceProvider>();
       _weightCtrl.text = provider.savedCalibrationWeight.toString();
@@ -30,29 +36,44 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
   void dispose() {
     _pageController.dispose();
     _weightCtrl.dispose();
+    _isProcessing.dispose();
     super.dispose();
   }
 
-  void _nextStep(ActiveDeviceProvider provider) async {
+  Future<void> _nextStep(ActiveDeviceProvider provider, S s) async {
     if (_currentStep == 0) {
-      // 第一步：点击下一步前，验证在线和空闲，并发送 DPID 27
+      _isProcessing.value = true;
       final success = await provider.startCalibrationStep1();
-      if (!success) return;
+      if (mounted) _isProcessing.value = false;
+      if (!success) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(provider.errorMsg.isNotEmpty ? provider.errorMsg : s.operationFailed)));
+        }
+        return;
+      }
     } else if (_currentStep == 1) {
-      // 第二步：验证重量输入是否合法（先不发请求，只是拦截）
       final weight = int.tryParse(_weightCtrl.text.trim());
       if (weight == null || weight <= 0) {
-        provider.setError("Please enter a valid weight");
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.invalidWeightError)));
         return;
       }
       FocusManager.instance.primaryFocus?.unfocus();
     } else if (_currentStep == 2) {
-      // 第三步：点击下一步，保存重量并发送 DPID 30 & 28
       final weight = int.parse(_weightCtrl.text.trim());
+      _isProcessing.value = true;
       final success = await provider.submitCalibrationStep3(weight);
-      if (!success) return;
+      if (mounted) _isProcessing.value = false;
+      if (!success) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(provider.errorMsg.isNotEmpty ? provider.errorMsg : s.operationFailed)));
+        }
+        return;
+      }
     } else if (_currentStep == 3) {
-      // 第四步：完成，退出页面
       context.pop();
       return;
     }
@@ -65,8 +86,8 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<ActiveDeviceProvider>();
-    const Color primaryColor = Color(0xFF917CEE); // 替换为紫色
+    final s = S.of(context)!;
+    final provider = context.read<ActiveDeviceProvider>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -74,214 +95,222 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+          icon: Icon(Icons.arrow_back_ios_new, color: _textColor, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // 禁用手势滑动，只能通过按钮控制
-                children: [_buildStep1(), _buildStep2(), _buildStep3(), _buildStep4()],
+        child: ResponsiveFormContainer(
+          maxWidth: 540,
+          child: Column(
+            children: [
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [_buildStep1(s), _buildStep2(s), _buildStep3(s), _buildStep4(s)],
+                ),
               ),
-            ),
-
-            // 底部指示器与按钮
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-              child: Column(
-                children: [
-                  // 圆点指示器
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(4, (index) {
-                      final isActive = _currentStep == index;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 6),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: isActive ? const Color(0xFF917CEE) : Colors.grey.shade300, // 替换为紫色
-                          shape: BoxShape.circle,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 25),
-
-                  // 底部操作按钮
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 0,
-                    ),
-                    onPressed: provider.isLoading ? null : () => _nextStep(provider),
-                    child: provider.isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            _currentStep == 3 ? 'Done' : 'Next Step',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ), // 白色字体适配紫背景
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(4, (index) {
+                        final isActive = _currentStep == index;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: isActive ? 20 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isActive ? _primaryPurple : const Color(0xFFE5E5E5),
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                  ),
-                ],
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 24),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _isProcessing,
+                      builder: (context, isProcessing, _) {
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryPurple,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              elevation: 0,
+                            ),
+                            onPressed: isProcessing ? null : () => _nextStep(provider, s),
+                            child: isProcessing
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  )
+                                : Text(
+                                    _currentStep == 3 ? s.done : s.nextStep,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ================= 步骤 1：确保平地无遮挡 =================
-  Widget _buildStep1() {
+  Widget _buildStep1(S s) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Weighing calibration', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          const Text(
-            '· Ensure that there are no obstacles around the litter box\n'
-            '· Ensure that the litter box is placed on a flat and hard floor',
-            style: TextStyle(fontSize: 14, color: Color(0xFF917CEE), height: 1.5), // 替换为紫色
+          Text(
+            s.scaleStep1Title,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textColor),
           ),
-          const SizedBox(height: 80),
+          const SizedBox(height: 16),
+          Text(s.scaleStep1Desc, style: TextStyle(fontSize: 14, color: _primaryPurple, height: 1.6)),
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 正确示例图标
               Column(
                 children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF917CEE), size: 24), // 替换为紫色
-                  const SizedBox(height: 10),
-                  Icon(Icons.crop_square, size: 80, color: Colors.grey.shade400), // 用正方形图标替代正确放置
+                  Icon(Icons.check_circle, color: _primaryPurple, size: 28),
+                  const SizedBox(height: 12),
+                  Icon(Icons.crop_square_rounded, size: 84, color: Colors.grey.shade300),
                 ],
               ),
-              // 错误示例图标
               Column(
                 children: [
-                  const Icon(Icons.cancel, color: Color(0xFFF37474), size: 24),
-                  const SizedBox(height: 10),
-                  Icon(Icons.dashboard_customize, size: 80, color: Colors.grey.shade400), // 用堆叠图标替代错误放置
+                  const Icon(Icons.cancel, color: Color(0xFFF37474), size: 28),
+                  const SizedBox(height: 12),
+                  Icon(Icons.dashboard_customize_outlined, size: 84, color: Colors.grey.shade300),
                 ],
               ),
             ],
           ),
+          const Spacer(),
         ],
       ),
     );
   }
 
-  // ================= 步骤 2：输入砝码重量 =================
-  Widget _buildStep2() {
+  Widget _buildStep2(S s) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Choose object of reference', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          const Text(
-            '· Ensure that the reference object is between 1000g-5000g',
-            style: TextStyle(fontSize: 14, color: Color(0xFF917CEE), height: 1.5), // 替换为紫色
+          Text(
+            s.scaleStep2Title,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textColor),
           ),
-          const SizedBox(height: 60),
+          const SizedBox(height: 16),
+          Text(s.scaleStep2Desc, style: TextStyle(fontSize: 14, color: _primaryPurple, height: 1.6)),
+          const SizedBox(height: 48),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-            decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(15)),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(16)),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _weightCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: 'Enter weight in grams', border: InputBorder.none),
+                    style: TextStyle(fontSize: 18, color: _textColor, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      hintText: s.enterWeightInGrams,
+                      hintStyle: TextStyle(color: _hintColor, fontSize: 14),
+                      border: InputBorder.none,
+                    ),
                   ),
                 ),
-                const Text('g', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  'g',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textColor),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 40),
-          const Center(
-            child: Text(
-              'Select the objectfrom the list',
-              style: TextStyle(fontSize: 14, color: Color(0xFF917CEE)),
-            ), // 替换为紫色
+          const SizedBox(height: 24),
+          Center(
+            child: Text(s.selectObjectFromList, style: TextStyle(fontSize: 13, color: _hintColor)),
           ),
         ],
       ),
     );
   }
 
-  // ================= 步骤 3：放入参考物 =================
-  Widget _buildStep3() {
+  Widget _buildStep3(S s) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Put the reference object into the device',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.2),
+          Text(
+            s.scaleStep3Title,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textColor),
           ),
-          const SizedBox(height: 80),
+          const SizedBox(height: 16),
+          Text(s.scaleStep3Desc, style: TextStyle(fontSize: 14, color: _primaryPurple, height: 1.6)),
+          const Spacer(),
           Center(
             child: Column(
               children: [
-                Icon(Icons.local_drink, size: 100, color: Color(0xFF917CEE)), // 替换为紫色
-                const SizedBox(height: 30),
-                const Text(
-                  'Put the reference object into the device',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF917CEE)), // 替换为紫色
-                ),
+                Icon(Icons.local_drink_rounded, size: 96, color: _primaryPurple),
+                const SizedBox(height: 20),
+                Text(s.scaleStep3Desc, style: TextStyle(fontSize: 14, color: _hintColor)),
               ],
             ),
           ),
+          const Spacer(),
         ],
       ),
     );
   }
 
-  // ================= 步骤 4：校准完成 =================
-  Widget _buildStep4() {
+  Widget _buildStep4(S s) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          const Text('Calibration completed', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 80),
+          Text(
+            s.scaleStep4Title,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _textColor),
+          ),
+          const SizedBox(height: 12),
+          Text(s.scaleStep4Desc, style: TextStyle(fontSize: 14, color: _hintColor)),
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.album_outlined, size: 100, color: Colors.grey.shade400), // 设备Icon
-              const SizedBox(width: 20),
-              const Column(
+              Icon(Icons.album_outlined, size: 90, color: Colors.grey.shade400),
+              const SizedBox(width: 24),
+              Column(
                 children: [
-                  Icon(Icons.check_circle, color: Color(0xFF917CEE), size: 30), // 替换为紫色
-                  SizedBox(height: 20),
-                  Icon(Icons.pets, size: 60, color: Colors.grey), // 猫咪Icon
+                  Icon(Icons.check_circle, color: _primaryPurple, size: 36),
+                  const SizedBox(height: 16),
+                  const Icon(Icons.pets, size: 50, color: Colors.grey),
                 ],
               ),
             ],
           ),
+          const Spacer(),
         ],
       ),
     );

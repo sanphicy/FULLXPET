@@ -139,7 +139,7 @@ class FactoryDebugUiView extends StatelessWidget {
                     width: isAlert ? 1.5 : 1,
                   ),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 6, offset: const Offset(0, 2)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.015), blurRadius: 6, offset: const Offset(0, 2)),
                   ],
                 ),
                 child: Column(
@@ -193,7 +193,7 @@ class FactoryDebugUiView extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: const Color(0xFFE9ECEF)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.015), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         children: [

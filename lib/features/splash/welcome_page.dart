@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class WelcomePage extends StatelessWidget {
@@ -8,32 +9,22 @@ class WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryPurple = Color(0xFF917CEE);
+    const Color primaryPurple = Color(0xFF917CEE);
     final s = S.of(context)!;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Positioned(
-            right: -60,
-            bottom: -60,
-            child: Opacity(
-              opacity: 0.08,
-              child: SizedBox(
-                width: 360,
-                height: 360,
-                child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
+      body: SafeArea(
+        child: ResponsiveFormContainer(
+          maxWidth: 420,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 24),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Spacer(flex: 3),
-                  SizedBox(width: 100, height: 100, child: Image.asset('assets/images/logo.png', fit: BoxFit.contain)),
+                  const SizedBox(height: 40),
+                  SizedBox(width: 96, height: 96, child: Image.asset('assets/images/logo.png', fit: BoxFit.contain)),
                   const SizedBox(height: 16),
                   const Text(
                     'FULLX PET',
@@ -44,7 +35,7 @@ class WelcomePage extends StatelessWidget {
                       color: Colors.black,
                     ),
                   ),
-                  const Spacer(flex: 4),
+                  const SizedBox(height: 80),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -77,12 +68,12 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

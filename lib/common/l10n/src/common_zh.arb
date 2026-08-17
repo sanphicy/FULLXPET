@@ -1,6 +1,20 @@
 {
+  "confirm": "确认",
   "cancel": "取消",
-  "confirm": "确定",
-  "connectBtn": "连接",
-  "andText": " 和"
+  "save": "保存",
+  "selectCountry": "选择国家/地区",
+  "agreePrefix": "我已阅读并同意",
+  "userAgreement": "《用户协议》",
+  "andText": "和",
+  "privacyPolicy": "《隐私政策》",
+  "timesUnit": "次",
+  "secondsUnit": "秒",
+  "minutesUnit": "分钟",
+  "tabDevice": "设备",
+  "tabUsage": "概况",
+  "tabUser": "用户",
+  "actionIdle": "空闲中",
+  "actionAddLitter": "加砂",
+  "actionEmptyLitter": "清砂",
+  "actionResetting": "复位中"
 }
