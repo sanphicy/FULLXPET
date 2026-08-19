@@ -1,51 +1,49 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fullxpet/core/services/region_service.dart';
-import 'package:fullxpet/core/utils/token_manager.dart';
-import 'package:fullxpet/locator.dart';
+import 'package:provider/provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
+import 'splash_view_model.dart';
 
-class SplashPage extends StatefulWidget {
+class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 
   @override
-  State<SplashPage> createState() => _SplashPageState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => SplashViewModel(),
+      child: const _SplashView(),
+    );
+  }
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashView extends StatefulWidget {
+  const _SplashView();
+
+  @override
+  State<_SplashView> createState() => _SplashViewState();
+}
+
+class _SplashViewState extends State<_SplashView> {
   @override
   void initState() {
     super.initState();
-    _bootstrapAndNavigate();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initAndNavigate());
   }
 
-  Future<void> _bootstrapAndNavigate() async {
-    final startTime = DateTime.now();
-
-    // 1. 判断是否已登录
-    final bool loggedIn = await TokenManager.isLoggedIn();
-
-    // 2. 执行 Bootstrap 引导（拉取/读取国家缓存、解析并初始化当前数据中心 apiBaseUrl）
-    try {
-      await locator<RegionService>().initBootstrap(isLoggedIn: loggedIn);
-    } catch (e) {
-      debugPrint("Bootstrap Error: $e");
-    }
-
-    // 3. 保证至少展示 1 秒 Logo 闪屏，防止界面跳闪
-    final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-    if (elapsed < 1000) {
-      await Future.delayed(Duration(milliseconds: 1000 - elapsed));
-    }
+  Future<void> _initAndNavigate() async {
+    final vm = context.read<SplashViewModel>();
+    final result = await vm.bootstrapApp();
 
     if (!mounted) return;
 
-    // 4. 根据登录态执行路由分发
-    if (loggedIn) {
-      context.go(AppRoutes.home);
-    } else {
-      context.go(AppRoutes.welcome);
+    switch (result) {
+      case BootstrapResult.authenticated:
+        context.go(AppRoutes.home);
+        break;
+      case BootstrapResult.unauthenticated:
+      case BootstrapResult.error:
+        context.go(AppRoutes.welcome);
+        break;
     }
   }
 
@@ -57,11 +55,20 @@ class _SplashPageState extends State<SplashPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(width: 100, height: 100, child: Image.asset('assets/images/logo.png', fit: BoxFit.contain)),
+            SizedBox(
+              width: 100,
+              height: 100,
+              child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+            ),
             const SizedBox(height: 16),
             const Text(
               'FULLX PET',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: Colors.black,
+              ),
             ),
           ],
         ),
