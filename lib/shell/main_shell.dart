@@ -1,20 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
-import 'package:fullxpet/features/device/device_list/device_list_page.dart';
-import 'package:fullxpet/features/device/device_usage/device_usage_page.dart';
-import 'package:fullxpet/features/user/user_page.dart';
 
-class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+class MainShell extends StatelessWidget {
+  final StatefulNavigationShell navigationShell;
 
-  @override
-  State<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
-  final List<Widget> _pages = [const DeviceListPage(), const DeviceUsagePage(), const UserPage()];
+  const MainShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +14,7 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: navigationShell,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -32,13 +23,11 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+          currentIndex: navigationShell.currentIndex,
           backgroundColor: Colors.white,
           elevation: 0,
           onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
+            navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
           },
           type: BottomNavigationBarType.fixed,
           selectedItemColor: const Color(0xFF9886E3),

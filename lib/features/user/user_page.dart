@@ -83,7 +83,7 @@ class UserPage extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.settings_outlined, color: subTextColor, size: 24),
                       onPressed: () {
-                        context.push(AppRoutes.personalInfo, extra: userProvider);
+                        context.push(AppRoutes.personalInfo);
                       },
                     ),
                   ],

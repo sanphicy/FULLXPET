@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:fullxpet/locator.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
+import 'package:fullxpet/features/user/user_provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
@@ -13,8 +15,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      // 注册全局设备状态
-      providers: [ChangeNotifierProvider(create: (_) => DeviceProvider())],
+      // 注册全局状态
+      providers: [
+        ChangeNotifierProvider.value(value: locator<UserProvider>()),
+        ChangeNotifierProvider.value(value: locator<DeviceProvider>()),
+      ],
       child: ScreenUtilInit(
         // 设计稿尺寸
         designSize: const Size(375, 812),
