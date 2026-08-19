@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fullxpet/locator.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/features/user/user_provider.dart';
@@ -44,9 +45,19 @@ class MyApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF917CEE)),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF917CEE),
+              ),
               useMaterial3: true,
               scaffoldBackgroundColor: Colors.white,
+              appBarTheme: const AppBarTheme(
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness:
+                      Brightness.dark, // Android: 状态栏黑色图标/文字
+                  statusBarBrightness: Brightness.light, // iOS: 状态栏黑色图标/文字
+                ),
+              ),
             ),
           );
         },
