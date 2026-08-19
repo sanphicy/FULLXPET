@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/region_service.dart';
 import 'package:fullxpet/core/utils/token_manager.dart';
@@ -29,7 +28,6 @@ class SplashViewModel extends BaseProvider {
           ? BootstrapResult.authenticated
           : BootstrapResult.unauthenticated;
     } catch (e) {
-      debugPrint("Bootstrap Error: $e");
       setError(e.toString());
       return BootstrapResult.error;
     }
