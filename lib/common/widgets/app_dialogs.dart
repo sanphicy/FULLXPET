@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 
 enum AppToastType { success, error, warning, info }
@@ -21,19 +21,33 @@ extension AppDialogExtension on BuildContext {
       context: this,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: Text(content, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            content,
+            style: const TextStyle(fontSize: 15, color: Colors.black87),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(actualCancelText, style: const TextStyle(color: Colors.grey)),
+              child: Text(
+                actualCancelText,
+                style: const TextStyle(color: Colors.grey),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               child: Text(
                 actualConfirmText,
-                style: const TextStyle(color: Color(0xFFD3B543), fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Color(0xFFD3B543),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -78,7 +92,9 @@ extension AppDialogExtension on BuildContext {
     Alignment alignment = Alignment.center;
     EdgeInsets margin = EdgeInsets.zero;
 
-    final overlayState = Overlay.maybeOf(this) ?? NavService.rootNavigatorKey.currentState?.overlay;
+    final overlayState =
+        Overlay.maybeOf(this) ??
+        NavService.rootNavigatorKey.currentState?.overlay;
     if (overlayState == null) return;
 
     if (_currentToastEntry != null && _currentToastEntry!.mounted) {
@@ -96,7 +112,10 @@ extension AppDialogExtension on BuildContext {
                 color: Colors.transparent,
                 child: Container(
                   margin: margin,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: bgColor,
                     borderRadius: BorderRadius.circular(10),
@@ -117,7 +136,11 @@ extension AppDialogExtension on BuildContext {
                       Flexible(
                         child: Text(
                           message,
-                          style: TextStyle(color: iconColor, fontSize: 15, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: iconColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

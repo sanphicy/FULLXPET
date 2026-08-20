@@ -5,8 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/common/widgets/app_dialogs.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
@@ -57,7 +55,8 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
   ActiveDeviceProvider() {
     _repoSubscription = _deviceRepo.onDeviceUpdated.listen((updatedDeviceId) {
-      if (_currentDevice != null && _currentDevice!.deviceId == updatedDeviceId) {
+      if (_currentDevice != null &&
+          _currentDevice!.deviceId == updatedDeviceId) {
         notifyListeners();
       }
     });
@@ -166,16 +165,25 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
     final previousMode = _currentDevice!.workMode;
     final attrs = <Map<String, dynamic>>[
-      {'dpid': DeviceThingModel.deviceMode.dpid, 'value': mode.value.toString()},
+      {
+        'dpid': DeviceThingModel.deviceMode.dpid,
+        'value': mode.value.toString(),
+      },
     ];
     if (mode == WorkMode.timer) {
-      attrs.add({'dpid': DeviceThingModel.timerModeSchedule.dpid, 'value': '["0","28800"]'});
+      attrs.add({
+        'dpid': DeviceThingModel.timerModeSchedule.dpid,
+        'value': '["0","28800"]',
+      });
     }
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.deviceMode.dpid: mode.value.toString()},
-      oldAttrs: {DeviceThingModel.deviceMode.dpid: previousMode.value.toString()},
-      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, attrs),
+      oldAttrs: {
+        DeviceThingModel.deviceMode.dpid: previousMode.value.toString(),
+      },
+      apiCall: () =>
+          _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, attrs),
       errorMsg: 'Failed to set mode',
     );
   }
@@ -194,7 +202,10 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       newAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: targetState},
       oldAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: previousState},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {'dpid': DeviceThingModel.notdisturbModeStatus.dpid, 'value': targetState},
+        {
+          'dpid': DeviceThingModel.notdisturbModeStatus.dpid,
+          'value': targetState,
+        },
       ]),
       errorMsg: 'Failed to toggle DND',
     );
@@ -214,7 +225,9 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final previousAction = _currentDevice!.executeAction;
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.deviceExecute.dpid: action.value.toString()},
-      oldAttrs: {DeviceThingModel.deviceExecute.dpid: previousAction.value.toString()},
+      oldAttrs: {
+        DeviceThingModel.deviceExecute.dpid: previousAction.value.toString(),
+      },
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': targetDpid!, 'value': true},
       ]),
@@ -263,9 +276,14 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.autoModeDelay.dpid: seconds.toString()},
-      oldAttrs: {DeviceThingModel.autoModeDelay.dpid: previousSeconds.toString()},
+      oldAttrs: {
+        DeviceThingModel.autoModeDelay.dpid: previousSeconds.toString(),
+      },
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {'dpid': DeviceThingModel.autoModeDelay.dpid, 'value': seconds.toString()},
+        {
+          'dpid': DeviceThingModel.autoModeDelay.dpid,
+          'value': seconds.toString(),
+        },
       ]),
       errorMsg: 'Failed to update auto mode',
     );
@@ -281,14 +299,23 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final oldStartSec = _timeToSeconds(previousRange['start']!);
     final oldEndSec = _timeToSeconds(previousRange['end']!);
 
-    final newJsonStr = jsonEncode({'TimerStart': startSec.toString(), 'TimerEnd': endSec.toString()});
-    final oldJsonStr = jsonEncode({'TimerStart': oldStartSec.toString(), 'TimerEnd': oldEndSec.toString()});
+    final newJsonStr = jsonEncode({
+      'TimerStart': startSec.toString(),
+      'TimerEnd': endSec.toString(),
+    });
+    final oldJsonStr = jsonEncode({
+      'TimerStart': oldStartSec.toString(),
+      'TimerEnd': oldEndSec.toString(),
+    });
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: newJsonStr},
       oldAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: oldJsonStr},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {'dpid': DeviceThingModel.notdisturbModeSchedule.dpid, 'value': newJsonStr},
+        {
+          'dpid': DeviceThingModel.notdisturbModeSchedule.dpid,
+          'value': newJsonStr,
+        },
       ]),
       errorMsg: 'Failed to set DND time',
     );
@@ -314,11 +341,18 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   Future<void> submitTimers() async {
     if (!_checkOffline()) return;
     setLoading(true);
-    final secondsArray = _localTimerList.map((time) => _timeToSeconds(time)).toList();
-    final timersJsonString = jsonEncode(secondsArray.map((e) => e.toString()).toList());
+    final secondsArray = _localTimerList
+        .map((time) => _timeToSeconds(time))
+        .toList();
+    final timersJsonString = jsonEncode(
+      secondsArray.map((e) => e.toString()).toList(),
+    );
     final success = await _executeWithTimeout(
       () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {'dpid': DeviceThingModel.timerModeSchedule.dpid, 'value': timersJsonString},
+        {
+          'dpid': DeviceThingModel.timerModeSchedule.dpid,
+          'value': timersJsonString,
+        },
       ]),
     );
     setLoading(false);
@@ -343,7 +377,10 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     setLoading(true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('calibration_weight_${_currentDevice!.deviceId}', weightGrams);
+      await prefs.setInt(
+        'calibration_weight_${_currentDevice!.deviceId}',
+        weightGrams,
+      );
       _savedCalibrationWeight = weightGrams;
     } catch (_) {}
 
@@ -379,7 +416,10 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
     setLoading(true);
     final targetVersion = _newFirmwareVersion;
-    final success = await _deviceRepo.dispatchFirmwareUpgrade(_currentDevice!.deviceId, _pendingOtaRecordId);
+    final success = await _deviceRepo.dispatchFirmwareUpgrade(
+      _currentDevice!.deviceId,
+      _pendingOtaRecordId,
+    );
     setLoading(false);
 
     if (success) {
@@ -394,11 +434,17 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
-  void _startOtaPolling(String deviceId, String targetVersion, int timeoutSeconds) {
+  void _startOtaPolling(
+    String deviceId,
+    String targetVersion,
+    int timeoutSeconds,
+  ) {
     _otaPollingTimer?.cancel();
     final startTime = DateTime.now();
 
-    _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (
+      timer,
+    ) async {
       if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
         stopOtaPolling();
         setError('OTA timeout');
@@ -408,7 +454,8 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
       try {
         await _deviceRepo.fetchDeviceProperties(deviceId);
-        if (_currentDevice != null && _currentDevice!.firmwareVersion == targetVersion) {
+        if (_currentDevice != null &&
+            _currentDevice!.firmwareVersion == targetVersion) {
           stopOtaPolling();
           notifyListeners();
         }
@@ -427,7 +474,10 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   Future<bool> updateDeviceName(String newName) async {
     if (_currentDevice == null) return false;
     setLoading(true);
-    final success = await _deviceRepo.renameDevice(_currentDevice!.deviceId, newName);
+    final success = await _deviceRepo.renameDevice(
+      _currentDevice!.deviceId,
+      newName,
+    );
     setLoading(false);
     if (!success) setError('Failed to rename');
     return success;

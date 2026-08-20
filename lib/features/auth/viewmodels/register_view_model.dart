@@ -1,6 +1,6 @@
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/region_service.dart';
-import 'package:fullxpet/core/result/result_model.dart';
+import 'package:fullxpet/core/network/result_model.dart';
 import 'package:fullxpet/features/auth/models/auth_request.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 import 'package:fullxpet/locator.dart';
@@ -33,10 +33,16 @@ class RegisterViewModel extends BaseProvider {
     if (isPhoneMode) {
       final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
       result = await _authRepo.sendPhoneVerifyCode(
-        SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: account, purpose: "register"),
+        SendPhoneCodeRequest(
+          phoneCountryCode: phonePrefix,
+          phone: account,
+          purpose: "register",
+        ),
       );
     } else {
-      result = await _authRepo.sendEmailVerifyCode(SendEmailCodeRequest(email: account, purpose: "register"));
+      result = await _authRepo.sendEmailVerifyCode(
+        SendEmailCodeRequest(email: account, purpose: "register"),
+      );
     }
     if (result.data != null && result.data! > 0) {
       return result.data!;
@@ -52,7 +58,9 @@ class RegisterViewModel extends BaseProvider {
     required String code,
     required bool isPhoneMode,
   }) async {
-    if (account.trim().isEmpty || password.trim().isEmpty || code.trim().isEmpty) {
+    if (account.trim().isEmpty ||
+        password.trim().isEmpty ||
+        code.trim().isEmpty) {
       setError("请填写完整注册信息");
       return false;
     }
@@ -75,7 +83,12 @@ class RegisterViewModel extends BaseProvider {
       );
     } else {
       result = await _authRepo.registerByEmail(
-        RegisterRequest(email: account, password: password, verificationCode: code, countryCode: countryCode),
+        RegisterRequest(
+          email: account,
+          password: password,
+          verificationCode: code,
+          countryCode: countryCode,
+        ),
       );
     }
 

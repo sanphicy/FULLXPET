@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:fullxpet/core/result/result_model.dart';
+import 'package:fullxpet/core/network/result_model.dart';
 import 'package:fullxpet/core/network/auth_interceptor.dart';
 import 'package:fullxpet/core/network/api_exception.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/routes/app_router.dart';
-import 'package:fullxpet/core/utils/token_manager.dart';
+import 'package:fullxpet/core/storage/token_manager.dart';
 
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
@@ -44,7 +44,12 @@ class HttpClient {
       if (data != null) print('BODY   : $data');
       print('=================================================\n');
 
-      final response = await dio.request(path, data: data, queryParameters: queryParameters, options: options);
+      final response = await dio.request(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
       final resData = response.data;
 
       // 打印成功的响应数据
@@ -56,13 +61,21 @@ class HttpClient {
 
       if (resData is Map<String, dynamic>) {
         final dynamic rawCode = resData['code'];
-        final int? code = rawCode is int ? rawCode : int.tryParse(rawCode?.toString() ?? '');
+        final int? code = rawCode is int
+            ? rawCode
+            : int.tryParse(rawCode?.toString() ?? '');
         if (code == 200 || code == 0) {
           final rawData = resData['data'];
-          final T? finalData = (fromJson != null && rawData != null) ? fromJson(rawData) : rawData as T?;
-          return ResultEntity.success(finalData, msg: resData['message'] ?? '请求成功');
+          final T? finalData = (fromJson != null && rawData != null)
+              ? fromJson(rawData)
+              : rawData as T?;
+          return ResultEntity.success(
+            finalData,
+            msg: resData['message'] ?? '请求成功',
+          );
         }
-        if (code == 401 || (code != null && code.toString().startsWith('401'))) {
+        if (code == 401 ||
+            (code != null && code.toString().startsWith('401'))) {
           _handleUnauthorized();
           return ResultEntity.error(resData['message'] ?? '登录已失效', code: code);
         }
@@ -110,20 +123,46 @@ class HttpClient {
     dynamic data,
     Map<String, dynamic>? headers,
     T Function(dynamic)? fromJson,
-  }) => request<T>(path, method: 'PATCH', data: data, headers: headers, fromJson: fromJson);
-  Future<ResultEntity<T>> get<T>(String path, {Map<String, dynamic>? query, T Function(dynamic)? fromJson}) =>
-      request<T>(path, method: 'GET', queryParameters: query, fromJson: fromJson);
+  }) => request<T>(
+    path,
+    method: 'PATCH',
+    data: data,
+    headers: headers,
+    fromJson: fromJson,
+  );
+  Future<ResultEntity<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    T Function(dynamic)? fromJson,
+  }) => request<T>(
+    path,
+    method: 'GET',
+    queryParameters: query,
+    fromJson: fromJson,
+  );
 
   Future<ResultEntity<T>> post<T>(
     String path, {
     dynamic data,
     Map<String, dynamic>? headers,
     T Function(dynamic)? fromJson,
-  }) => request<T>(path, method: 'POST', data: data, headers: headers, fromJson: fromJson);
+  }) => request<T>(
+    path,
+    method: 'POST',
+    data: data,
+    headers: headers,
+    fromJson: fromJson,
+  );
 
-  Future<ResultEntity<T>> put<T>(String path, {dynamic data, T Function(dynamic)? fromJson}) =>
-      request<T>(path, method: 'PUT', data: data, fromJson: fromJson);
+  Future<ResultEntity<T>> put<T>(
+    String path, {
+    dynamic data,
+    T Function(dynamic)? fromJson,
+  }) => request<T>(path, method: 'PUT', data: data, fromJson: fromJson);
 
-  Future<ResultEntity<T>> delete<T>(String path, {dynamic data, T Function(dynamic)? fromJson}) =>
-      request<T>(path, method: 'DELETE', data: data, fromJson: fromJson);
+  Future<ResultEntity<T>> delete<T>(
+    String path, {
+    dynamic data,
+    T Function(dynamic)? fromJson,
+  }) => request<T>(path, method: 'DELETE', data: data, fromJson: fromJson);
 }

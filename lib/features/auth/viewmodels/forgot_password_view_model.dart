@@ -1,6 +1,6 @@
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/region_service.dart';
-import 'package:fullxpet/core/result/result_model.dart';
+import 'package:fullxpet/core/network/result_model.dart';
 import 'package:fullxpet/features/auth/models/auth_request.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 import 'package:fullxpet/locator.dart';
@@ -33,10 +33,16 @@ class ForgotPasswordViewModel extends BaseProvider {
     if (isPhoneMode) {
       final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
       result = await _authRepo.sendPhoneVerifyCode(
-        SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: account, purpose: "reset_password"),
+        SendPhoneCodeRequest(
+          phoneCountryCode: phonePrefix,
+          phone: account,
+          purpose: "reset_password",
+        ),
       );
     } else {
-      result = await _authRepo.sendEmailVerifyCode(SendEmailCodeRequest(email: account, purpose: "reset_password"));
+      result = await _authRepo.sendEmailVerifyCode(
+        SendEmailCodeRequest(email: account, purpose: "reset_password"),
+      );
     }
     if (result.data != null && result.data! > 0) {
       return result.data!;
@@ -52,7 +58,9 @@ class ForgotPasswordViewModel extends BaseProvider {
     required String code,
     required bool isPhoneMode,
   }) async {
-    if (account.trim().isEmpty || newPassword.trim().isEmpty || code.trim().isEmpty) {
+    if (account.trim().isEmpty ||
+        newPassword.trim().isEmpty ||
+        code.trim().isEmpty) {
       setError("请填写完整信息");
       return false;
     }
@@ -72,7 +80,11 @@ class ForgotPasswordViewModel extends BaseProvider {
       );
     } else {
       result = await _authRepo.resetPassword(
-        ResetPasswordRequest(email: account, newPassword: newPassword, verificationCode: code),
+        ResetPasswordRequest(
+          email: account,
+          newPassword: newPassword,
+          verificationCode: code,
+        ),
       );
     }
 

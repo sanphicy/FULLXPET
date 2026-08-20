@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/core/mqtt/mqtt_manager.dart';
+import 'package:fullxpet/core/hardware/mqtt_manager.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
@@ -65,7 +65,9 @@ class DeviceProvider extends BaseProvider {
       return;
     }
 
-    final credResult = await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.mqttCredentials);
+    final credResult = await locator<HttpClient>().post<Map<String, dynamic>>(
+      ApiEndpoints.mqttCredentials,
+    );
     if (credResult.code != 0 && credResult.code != 200) {
       debugPrint('获取 MQTT 凭证失败: ${credResult.message}');
       return;
@@ -90,7 +92,9 @@ class DeviceProvider extends BaseProvider {
   }
 
   Future<void> _subscribeAllDevices() async {
-    final subResult = await locator<HttpClient>().post(ApiEndpoints.mqttSubscribeSync);
+    final subResult = await locator<HttpClient>().post(
+      ApiEndpoints.mqttSubscribeSync,
+    );
     if (subResult.code == 0 || subResult.code == 200) {
       debugPrint('一键同步订阅所有设备成功');
     } else {

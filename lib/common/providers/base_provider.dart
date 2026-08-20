@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fullxpet/common/widgets/app_dialogs.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 
 abstract class BaseProvider extends ChangeNotifier {
   bool _isLoading = false;

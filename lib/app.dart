@@ -3,7 +3,7 @@ import 'package:fullxpet/locator.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
-import 'package:fullxpet/features/user/user_provider.dart';
+import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/features/device/device_provider.dart';

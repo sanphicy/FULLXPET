@@ -1,6 +1,6 @@
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/region_service.dart';
-import 'package:fullxpet/core/utils/token_manager.dart';
+import 'package:fullxpet/core/storage/token_manager.dart';
 import 'package:fullxpet/locator.dart';
 
 enum BootstrapResult { authenticated, unauthenticated, error }

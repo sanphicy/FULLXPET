@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/features/home/home_shell_page.dart';
 import 'package:fullxpet/locator.dart';
 
@@ -21,7 +21,7 @@ import 'package:fullxpet/features/auth/viewmodels/forgot_password_view_model.dar
 import 'package:fullxpet/features/device/device_list/device_list_page.dart';
 import 'package:fullxpet/features/device/device_usage/device_usage_page.dart';
 import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart';
-import 'package:fullxpet/features/user/user_page.dart';
+import 'package:fullxpet/features/user/pages/user_page.dart';
 
 // device
 import 'package:fullxpet/features/device/device_manager/device_manager_page.dart';
@@ -38,9 +38,9 @@ import 'package:fullxpet/features/device/device_add/models/discovered_device.dar
 import 'package:fullxpet/features/device/active_device_provider.dart';
 
 // user
-import 'package:fullxpet/features/user/personal_info_page.dart';
-import 'package:fullxpet/features/user/about_us_page.dart';
-import 'package:fullxpet/features/user/feedback_page.dart';
+import 'package:fullxpet/features/user/pages/personal_info_page.dart';
+import 'package:fullxpet/features/user/pages/about_us_page.dart';
+import 'package:fullxpet/features/user/pages/feedback_page.dart';
 
 // other
 import 'package:fullxpet/common/widgets/web_view_page.dart';

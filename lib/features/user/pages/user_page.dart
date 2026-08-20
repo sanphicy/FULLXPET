@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/user/user_provider.dart';
+import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class UserPage extends StatelessWidget {
@@ -13,7 +13,6 @@ class UserPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final userProvider = context.read<UserProvider>();
 
     const Color primaryPurple = Color(0xFF917CEE);
     const Color textColor = Color(0xFF333333);
@@ -41,16 +40,27 @@ class UserPage extends StatelessWidget {
                       children: [
                         Selector<UserProvider, String>(
                           selector: (_, vm) => vm.avatarUrl,
-                          builder: (context, avatarUrl, _) => AppAvatar(avatarUrl: avatarUrl, radius: 32),
+                          builder: (context, avatarUrl, _) =>
+                              AppAvatar(avatarUrl: avatarUrl, radius: 32),
                         ),
                         Positioned(
                           bottom: -4,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: primaryPurple, borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: primaryPurple,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                             child: Text(
                               s.user,
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -66,7 +76,11 @@ class UserPage extends StatelessWidget {
                             builder: (context, userName, _) {
                               return Text(
                                 userName,
-                                style: const TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  color: textColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               );
                             },
                           ),
@@ -74,14 +88,24 @@ class UserPage extends StatelessWidget {
                           Selector<UserProvider, String>(
                             selector: (_, vm) => vm.userId,
                             builder: (context, userId, _) {
-                              return Text('ID: $userId', style: const TextStyle(fontSize: 12, color: subTextColor));
+                              return Text(
+                                'ID: $userId',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: subTextColor,
+                                ),
+                              );
                             },
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.settings_outlined, color: subTextColor, size: 24),
+                      icon: const Icon(
+                        Icons.settings_outlined,
+                        color: subTextColor,
+                        size: 24,
+                      ),
                       onPressed: () {
                         context.push(AppRoutes.personalInfo);
                       },
@@ -114,7 +138,8 @@ class UserPage extends StatelessWidget {
                             AppRoutes.webView,
                             extra: {
                               'title': s.privacyPolicy,
-                              'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
+                              'url':
+                                  'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
                             },
                           );
                         },
@@ -129,7 +154,8 @@ class UserPage extends StatelessWidget {
                             AppRoutes.webView,
                             extra: {
                               'title': s.userAgreement,
-                              'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
+                              'url':
+                                  'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
                             },
                           );
                         },
@@ -192,7 +218,13 @@ class UserPage extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(IconData icon, Color iconColor, String title, {String? trailingText, VoidCallback? onTap}) {
+  Widget _buildListTile(
+    IconData icon,
+    Color iconColor,
+    String title, {
+    String? trailingText,
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -202,19 +234,33 @@ class UserPage extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, color: iconColor, size: 18),
             ),
             const SizedBox(width: 12),
             Text(
               title,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF333333), fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF333333),
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const Spacer(),
             if (trailingText != null && trailingText.isNotEmpty)
-              Text(trailingText, style: const TextStyle(fontSize: 13, color: Color(0xFF999999))),
+              Text(
+                trailingText,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
+              ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.grey,
+              size: 14,
+            ),
           ],
         ),
       ),
@@ -222,6 +268,11 @@ class UserPage extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return const Divider(height: 1, thickness: 0.5, indent: 52, color: Color(0xFFF0EFF5));
+    return const Divider(
+      height: 1,
+      thickness: 0.5,
+      indent: 52,
+      color: Color(0xFFF0EFF5),
+    );
   }
 }

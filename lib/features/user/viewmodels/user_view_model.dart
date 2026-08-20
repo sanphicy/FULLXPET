@@ -1,24 +1,23 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
-import 'package:fullxpet/core/utils/token_manager.dart';
+import 'package:fullxpet/core/storage/token_manager.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class UserProvider extends BaseProvider {
-  String _userName = 'Unknown User';
+  String _userName = '';
   String _userId = '-';
   String _avatarUrl = '';
   String _countryCode = '';
   String _timezone = '';
   String _account = '';
-  String _appVersion = '1.0.0';
+  String _appVersion = '';
 
   String get userName => _userName;
   String get userId => _userId;
@@ -28,6 +27,7 @@ class UserProvider extends BaseProvider {
   String get account => _account;
   String get appVersion => _appVersion;
 
+  // 获取用户信息
   Future<void> fetchUserInfo({bool isSilent = false}) async {
     fetchAppVersion();
     final isLoggedIn = await TokenManager.isLoggedIn();
@@ -40,10 +40,12 @@ class UserProvider extends BaseProvider {
       setLoading(true);
     }
     try {
-      final result = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.userInfo);
+      final result = await locator<HttpClient>().get<Map<String, dynamic>>(
+        ApiEndpoints.userInfo,
+      );
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
-        final newName = data['nickname']?.toString() ?? 'Unknown User';
+        final newName = data['nickname']?.toString() ?? '';
         final newId = data['userId']?.toString() ?? '-';
         final newAvatar = data['avatarDisplay']?.toString() ?? _avatarUrl;
         final newCountryCode = data['countryCode']?.toString() ?? 'CN';
@@ -51,10 +53,13 @@ class UserProvider extends BaseProvider {
         String newAccount = '';
         if (data['email'] != null && data['email'].toString().isNotEmpty) {
           newAccount = data['email'].toString();
-        } else if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
+        } else if (data['phone'] != null &&
+            data['phone'].toString().isNotEmpty) {
           newAccount = data['phone'].toString();
         }
-        if (_userName != newName || _userId != newId || _account != newAccount) {
+        if (_userName != newName ||
+            _userId != newId ||
+            _account != newAccount) {
           _userName = newName;
           _userId = newId;
           _avatarUrl = newAvatar;
@@ -63,7 +68,8 @@ class UserProvider extends BaseProvider {
           _account = newAccount;
           notifyListeners();
         }
-      } else if (result.code == 401 || (result.code != null && result.code.toString().startsWith('401'))) {
+      } else if (result.code == 401 ||
+          (result.code != null && result.code.toString().startsWith('401'))) {
         await logout();
       } else if (!isSilent) {
         setError(result.message);
@@ -99,7 +105,10 @@ class UserProvider extends BaseProvider {
         "countryCode": _countryCode.isNotEmpty ? _countryCode : "CN",
         "timezone": _timezone.isNotEmpty ? _timezone : "Asia/Shanghai",
       };
-      final result = await locator<HttpClient>().patch<Map<String, dynamic>>(ApiEndpoints.userInfo, data: payload);
+      final result = await locator<HttpClient>().patch<Map<String, dynamic>>(
+        ApiEndpoints.userInfo,
+        data: payload,
+      );
       if (result.code == 0 || result.code == 200) {
         _userName = trimmedName;
         notifyListeners();
@@ -118,15 +127,25 @@ class UserProvider extends BaseProvider {
   Future<bool> uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 800);
+      final XFile? image = await picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 800,
+      );
       if (image == null) return false;
 
       setLoading(true);
-      final formData = FormData.fromMap({'file': await MultipartFile.fromFile(image.path, filename: image.name)});
-      final result = await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.uploadAvatar, data: formData);
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(image.path, filename: image.name),
+      });
+      final result = await locator<HttpClient>().post<Map<String, dynamic>>(
+        ApiEndpoints.uploadAvatar,
+        data: formData,
+      );
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
-        final newAvatar = data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
+        final newAvatar =
+            data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
         if (newAvatar != null && newAvatar.isNotEmpty) {
           _avatarUrl = newAvatar;
           notifyListeners();
@@ -145,7 +164,9 @@ class UserProvider extends BaseProvider {
 
   Future<void> logout() async {
     try {
-      await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.logout);
+      await locator<HttpClient>().post<Map<String, dynamic>>(
+        ApiEndpoints.logout,
+      );
     } catch (_) {
     } finally {
       // 彻底清理设备池与本地 Token，断绝数据污染
