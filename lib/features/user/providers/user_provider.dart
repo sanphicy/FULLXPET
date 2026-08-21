@@ -40,9 +40,7 @@ class UserProvider extends BaseProvider {
       setLoading(true);
     }
     try {
-      final result = await locator<HttpClient>().get<Map<String, dynamic>>(
-        ApiEndpoints.userInfo,
-      );
+      final result = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.userInfo);
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
         final newName = data['nickname']?.toString() ?? '';
@@ -53,8 +51,7 @@ class UserProvider extends BaseProvider {
         String newAccount = '';
         if (data['email'] != null && data['email'].toString().isNotEmpty) {
           newAccount = data['email'].toString();
-        } else if (data['phone'] != null &&
-            data['phone'].toString().isNotEmpty) {
+        } else if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
           newAccount = data['phone'].toString();
         }
         if (_userName != newName ||
@@ -71,8 +68,7 @@ class UserProvider extends BaseProvider {
           _account = newAccount;
           notifyListeners();
         }
-      } else if (result.code == 401 ||
-          (result.code != null && result.code.toString().startsWith('401'))) {
+      } else if (result.code == 401 || (result.code != null && result.code.toString().startsWith('401'))) {
         await logout();
       } else if (!isSilent) {
         setError(result.message);
@@ -90,7 +86,7 @@ class UserProvider extends BaseProvider {
   Future<void> fetchAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      _appVersion = packageInfo.version;
       notifyListeners();
     } catch (_) {
       _appVersion = '-';
@@ -110,10 +106,7 @@ class UserProvider extends BaseProvider {
         "countryCode": _countryCode.isNotEmpty ? _countryCode : "CN",
         "timezone": _timezone.isNotEmpty ? _timezone : "Asia/Shanghai",
       };
-      final result = await locator<HttpClient>().patch<Map<String, dynamic>>(
-        ApiEndpoints.userInfo,
-        data: payload,
-      );
+      final result = await locator<HttpClient>().patch<Map<String, dynamic>>(ApiEndpoints.userInfo, data: payload);
       if (result.code == 0 || result.code == 200) {
         _userName = trimmedName;
         notifyListeners();
@@ -133,25 +126,15 @@ class UserProvider extends BaseProvider {
   Future<bool> uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 800,
-      );
+      final XFile? image = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 800);
       if (image == null) return false;
 
       setLoading(true);
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(image.path, filename: image.name),
-      });
-      final result = await locator<HttpClient>().post<Map<String, dynamic>>(
-        ApiEndpoints.uploadAvatar,
-        data: formData,
-      );
+      final formData = FormData.fromMap({'file': await MultipartFile.fromFile(image.path, filename: image.name)});
+      final result = await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.uploadAvatar, data: formData);
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
-        final newAvatar =
-            data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
+        final newAvatar = data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
         if (newAvatar != null && newAvatar.isNotEmpty) {
           _avatarUrl = newAvatar;
           notifyListeners();
@@ -171,9 +154,7 @@ class UserProvider extends BaseProvider {
   // 退出登录
   Future<void> logout() async {
     try {
-      await locator<HttpClient>().post<Map<String, dynamic>>(
-        ApiEndpoints.logout,
-      );
+      await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.logout);
     } catch (_) {
     } finally {
       locator<DeviceRepository>().clearPool();
@@ -198,18 +179,12 @@ class UserProvider extends BaseProvider {
     ResultEntity<int> result;
 
     if (isEmail) {
-      result = await _authRepo.sendEmailVerifyCode(
-        SendEmailCodeRequest(email: _account, purpose: "delete_account"),
-      );
+      result = await _authRepo.sendEmailVerifyCode(SendEmailCodeRequest(email: _account, purpose: "delete_account"));
     } else {
       final phonePrefix = "+86";
       // final phonePrefix = _countryCode.isNotEmpty ? "+$_countryCode" : "+86";
       result = await _authRepo.sendPhoneVerifyCode(
-        SendPhoneCodeRequest(
-          phoneCountryCode: phonePrefix,
-          phone: _account,
-          purpose: "delete_account",
-        ),
+        SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: _account, purpose: "delete_account"),
       );
     }
 
@@ -233,9 +208,7 @@ class UserProvider extends BaseProvider {
       final bool isEmail = _account.contains('@');
       final channel = isEmail ? "email" : "sms";
 
-      final result = await _authRepo.deleteAccount(
-        DeleteAccountRequest(channel: channel, verificationCode: code),
-      );
+      final result = await _authRepo.deleteAccount(DeleteAccountRequest(channel: channel, verificationCode: code));
 
       if (result.data == true) {
         await logout();
