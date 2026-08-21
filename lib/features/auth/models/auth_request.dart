@@ -117,7 +117,7 @@ class SendCodeRequest {
   Map<String, dynamic> toJson() => {"email": email.trim(), "type": type};
 }
 
-// 新增：手机验证码请求模型
+// 手机验证码请求模型
 class SendPhoneCodeRequest {
   final String phoneCountryCode;
   final String phone;
@@ -128,7 +128,7 @@ class SendPhoneCodeRequest {
   Map<String, dynamic> toJson() => {"phoneCountryCode": phoneCountryCode, "phone": phone.trim(), "purpose": purpose};
 }
 
-// 新增：邮箱验证码请求模型
+// 邮箱验证码请求模型
 class SendEmailCodeRequest {
   final String email;
   final String purpose;

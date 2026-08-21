@@ -166,4 +166,45 @@ class UserProvider extends BaseProvider {
       NavService.go(AppRoutes.login);
     }
   }
+
+  // 发送注销验证码（自动判断邮箱/手机号）
+  Future<int> sendDeleteAccountCode() async {
+    if (_account.isEmpty) {
+      setError("未获取到当前账号");
+      return 0;
+    }
+    final bool isEmail = _account.contains('@');
+    if (isEmail) {
+    } else {}
+  }
+
+  /// 执行注销账号
+  Future<bool> deleteAccount(String code) async {
+    if (code.trim().isEmpty) {
+      setError("请输入验证码");
+      return false;
+    }
+    setLoading(true);
+    clearError();
+    try {
+      final bool isEmail = _account.contains('@');
+      final channel = isEmail ? "email" : "sms";
+
+      final result = await _authRepo.deleteAccount(channel: channel, verificationCode: code);
+
+      if (result.data == true) {
+        // 注销成功后清除 Token、设备缓存并返回登录页
+        await logout();
+        return true;
+      } else {
+        setError(result.message);
+        return false;
+      }
+    } catch (_) {
+      setError("注销失败，请稍后重试");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
 }

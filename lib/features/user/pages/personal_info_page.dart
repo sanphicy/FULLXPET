@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -91,6 +92,144 @@ class PersonalInfoPage extends StatelessWidget {
     );
   }
 
+  /// 注销安全验证弹窗
+  void _showDeleteAccountDialog(BuildContext context, UserProvider provider, S s) {
+    final TextEditingController codeController = TextEditingController();
+    int countdown = 0;
+    Timer? timer;
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            void startCountdown(int seconds) {
+              setState(() => countdown = seconds);
+              timer?.cancel();
+              timer = Timer.periodic(const Duration(seconds: 1), (t) {
+                if (countdown > 0) {
+                  setState(() => countdown--);
+                } else {
+                  t.cancel();
+                }
+              });
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFF37474), size: 24),
+                  const SizedBox(width: 8),
+                  Text(s.deleteAccount, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '注销后账号数据将永久删除且无法恢复。我们将向 ${provider.account} 发送验证码以确认操作。',
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF666666), height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: codeController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              hintText: s.enterCode,
+                              hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: (countdown > 0 || isSending)
+                              ? null
+                              : () async {
+                                  setState(() => isSending = true);
+                                  final cd = await provider.sendDeleteAccountCode();
+                                  setState(() => isSending = false);
+                                  if (cd > 0) {
+                                    startCountdown(cd);
+                                  } else if (provider.hasError && context.mounted) {
+                                    context.showAppToast(message: provider.errorMsg, type: AppToastType.error);
+                                  }
+                                },
+                          child: isSending
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF917CEE)),
+                                )
+                              : Text(
+                                  countdown > 0 ? '${countdown}s' : s.sendCode,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: countdown > 0 ? Colors.grey : const Color(0xFF917CEE),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    timer?.cancel();
+                    Navigator.pop(ctx);
+                  },
+                  child: Text(s.cancel, style: const TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF37474),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () async {
+                    final code = codeController.text.trim();
+                    if (code.isEmpty) {
+                      context.showAppToast(message: s.enterCode, type: AppToastType.warning);
+                      return;
+                    }
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    timer?.cancel();
+                    Navigator.pop(ctx);
+
+                    final success = await provider.deleteAccount(code);
+                    if (!success && context.mounted) {
+                      context.showAppToast(
+                        message: provider.errorMsg.isNotEmpty ? provider.errorMsg : "注销失败",
+                        type: AppToastType.error,
+                      );
+                    }
+                  },
+                  child: const Text(
+                    "确认注销",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
@@ -176,9 +315,7 @@ class PersonalInfoPage extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           elevation: 0,
                         ),
-                        onPressed: () {
-                          // 接入注销账号 API
-                        },
+                        onPressed: () => _showDeleteAccountDialog(context, provider, s),
                         child: Text(
                           s.deleteAccount,
                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
