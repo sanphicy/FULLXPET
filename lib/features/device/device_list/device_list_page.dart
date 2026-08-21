@@ -7,7 +7,7 @@ import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/device_list/device_card.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
+import 'package:fullxpet/features/user/providers/user_provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class DeviceListPage extends StatefulWidget {
@@ -36,9 +36,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           backgroundColor: const Color(0xFFF4F5F0),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -49,11 +47,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 Center(
                   child: Text(
                     s.useGuide,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -68,22 +62,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     height: 40,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: Color(0xFF999999),
-                          width: 1,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                        side: const BorderSide(color: Color(0xFF999999), width: 1),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
                       onPressed: () => Navigator.pop(ctx),
                       child: Text(
                         s.iUnderstand,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF333333),
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF333333), fontWeight: FontWeight.w500),
                       ),
                     ),
                   ),
@@ -99,45 +84,24 @@ class _DeviceListPageState extends State<DeviceListPage> {
   Widget _buildGuideItem(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          color: Color(0xFF666666),
-          height: 1.4,
-        ),
-      ),
+      child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF666666), height: 1.4)),
     );
   }
 
-  void _showRenameDialog(
-    BuildContext context,
-    String deviceId,
-    String currentName,
-    S s,
-  ) {
-    final TextEditingController controller = TextEditingController(
-      text: currentName,
-    );
+  void _showRenameDialog(BuildContext context, String deviceId, String currentName, S s) {
+    final TextEditingController controller = TextEditingController(text: currentName);
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            s.renameDevice,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(s.renameDevice, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             autofocus: true,
             decoration: InputDecoration(
               hintText: s.enterNewDeviceName,
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: _primaryPurple),
-              ),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _primaryPurple)),
             ),
           ),
           actions: [
@@ -151,18 +115,12 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 final newName = controller.text.trim();
                 Navigator.pop(ctx);
                 if (newName.isNotEmpty && newName != currentName) {
-                  await context.read<DeviceProvider>().renameDevice(
-                    deviceId,
-                    newName,
-                  );
+                  await context.read<DeviceProvider>().renameDevice(deviceId, newName);
                 }
               },
               child: Text(
                 s.confirm,
-                style: TextStyle(
-                  color: _primaryPurple,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: _primaryPurple, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -171,26 +129,15 @@ class _DeviceListPageState extends State<DeviceListPage> {
     );
   }
 
-  void _showDeleteConfirmDialog(
-    BuildContext context,
-    String deviceId,
-    String deviceName,
-    S s,
-  ) {
+  void _showDeleteConfirmDialog(BuildContext context, String deviceId, String deviceName, S s) {
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             s.deleteDevice,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _textColor,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textColor),
           ),
           content: Text(
             s.deleteDeviceConfirm(deviceName),
@@ -210,10 +157,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   builder: (_) => Center(
                     child: Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -221,11 +165,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                           const SizedBox(height: 12),
                           Text(
                             s.deleting,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _textColor,
-                              decoration: TextDecoration.none,
-                            ),
+                            style: TextStyle(fontSize: 13, color: _textColor, decoration: TextDecoration.none),
                           ),
                         ],
                       ),
@@ -234,27 +174,18 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 );
 
                 // _showDeleteConfirmDialog 异步弹出与关闭
-                final success = await context
-                    .read<DeviceProvider>()
-                    .deleteDevice(deviceId);
+                final success = await context.read<DeviceProvider>().deleteDevice(deviceId);
                 if (!context.mounted) return;
                 Navigator.pop(context); // 关闭 loading 弹窗
                 if (success) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(s.deleteSuccess)));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteSuccess)));
                 } else {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(s.deleteFailed)));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteFailed)));
                 }
               },
               child: Text(
                 s.delete,
-                style: const TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -287,10 +218,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                         SizedBox(
                           width: 36,
                           height: 36,
-                          child: Image.asset(
-                            'assets/images/logo.png',
-                            fit: BoxFit.contain,
-                          ),
+                          child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -305,11 +233,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(
-                        Icons.help_outline_rounded,
-                        size: 24,
-                        color: Color(0xFF555555),
-                      ),
+                      icon: const Icon(Icons.help_outline_rounded, size: 24, color: Color(0xFF555555)),
                       onPressed: () => _showHelpDialog(context, s),
                     ),
                   ],
@@ -320,17 +244,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 Selector<UserProvider, String>(
                   selector: (_, userVm) => userVm.userName,
                   builder: (context, userName, _) {
-                    final displayName =
-                        (userName.isNotEmpty && userName != 'Unknown User')
-                        ? userName
-                        : '';
+                    final displayName = (userName.isNotEmpty && userName != 'Unknown User') ? userName : '';
                     return Text(
                       displayName.isNotEmpty ? 'Hello, $displayName' : 'Hello,',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: _primaryPurple,
-                      ),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryPurple),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     );
@@ -357,21 +274,14 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       top: 10,
                       left: 0,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: const ShapeDecoration(
-                          color: Color(0xFFFCE21B),
-                          shape: StadiumBorder(),
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: const ShapeDecoration(color: Color(0xFFFCE21B), shape: StadiumBorder()),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Selector<UserProvider, String>(
                               selector: (_, userVm) => userVm.avatarUrl,
-                              builder: (context, avatarUrl, _) =>
-                                  AppAvatar(avatarUrl: avatarUrl, radius: 16),
+                              builder: (context, avatarUrl, _) => AppAvatar(avatarUrl: avatarUrl, radius: 16),
                             ),
                             const SizedBox(width: 8),
                             Column(
@@ -382,11 +292,9 @@ class _DeviceListPageState extends State<DeviceListPage> {
                                   selector: (_, userVm) => userVm.userName,
                                   builder: (context, userName, _) {
                                     return ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 100,
-                                      ),
+                                      constraints: const BoxConstraints(maxWidth: 100),
                                       child: Text(
-                                        userName.isNotEmpty ? userName : 'CHEN',
+                                        userName.isNotEmpty ? userName : '',
                                         style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
@@ -400,9 +308,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                                 ),
                                 const SizedBox(height: 1),
                                 Selector<DeviceProvider, int>(
-                                  selector: (_, devVm) => devVm.devices
-                                      .where((d) => d.isOnline)
-                                      .length,
+                                  selector: (_, devVm) => devVm.devices.where((d) => d.isOnline).length,
                                   builder: (context, onlineCount, _) {
                                     return Text(
                                       '${s.online}: $onlineCount',
@@ -431,18 +337,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   children: [
                     Text(
                       s.myDevices,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: _textColor,
-                      ),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textColor),
                     ),
                     IconButton(
-                      icon: const Icon(
-                        Icons.add_circle_rounded,
-                        size: 26,
-                        color: Color(0xFF555555),
-                      ),
+                      icon: const Icon(Icons.add_circle_rounded, size: 26, color: Color(0xFF555555)),
                       onPressed: () => context.push(AppRoutes.deviceAddSearch),
                     ),
                   ],
@@ -467,19 +365,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
                           return ListView(
                             children: [
                               const SizedBox(height: 60),
-                              Center(
-                                child: CircularProgressIndicator(
-                                  color: _primaryPurple,
-                                ),
-                              ),
+                              Center(child: CircularProgressIndicator(color: _primaryPurple)),
                             ],
                           );
                         }
 
                         return ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
+                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                           itemCount: devices.length,
                           itemBuilder: (context, index) {
                             final device = devices[index];
@@ -489,22 +381,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
                               isOnline: device.isOnline,
                               imageUrl: 'assets/images/product-pic.png',
                               onTap: () {
-                                context.push(
-                                  '/device_manager/${device.deviceId}',
-                                );
+                                context.push('/device_manager/${device.deviceId}');
                               },
-                              onRename: () => _showRenameDialog(
-                                context,
-                                device.deviceId,
-                                device.deviceName,
-                                s,
-                              ),
-                              onDelete: () => _showDeleteConfirmDialog(
-                                context,
-                                device.deviceId,
-                                device.deviceName,
-                                s,
-                              ),
+                              onRename: () => _showRenameDialog(context, device.deviceId, device.deviceName, s),
+                              onDelete: () => _showDeleteConfirmDialog(context, device.deviceId, device.deviceName, s),
                             );
                           },
                         );

@@ -302,7 +302,7 @@ class DeviceSettingPage extends StatelessWidget {
                     const Color(0xFF3B9EBA),
                     s.helpAndSupport,
                     onTap: () async {
-                      final Uri url = Uri.parse('https://jooyopet.com/support');
+                      final Uri url = Uri.parse('https://petlux.nl/help');
                       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
                         debugPrint('Error launching URL');
                       }

@@ -6,8 +6,8 @@ import 'package:fullxpet/features/home/home_shell_page.dart';
 import 'package:fullxpet/locator.dart';
 
 // splash
-import 'package:fullxpet/features/splash/splash_page.dart';
-import 'package:fullxpet/features/splash/welcome_page.dart';
+import 'package:fullxpet/features/splash/pages/splash_page.dart';
+import 'package:fullxpet/features/splash/pages/welcome_page.dart';
 
 // auth
 import 'package:fullxpet/features/auth/page/login_page.dart';
@@ -80,83 +80,58 @@ class AppRouter {
   static late final GoRouter router;
 
   static final List<GoRoute> _splashRoutes = [
-    GoRoute(
-      path: AppRoutes.splash,
-      builder: (context, state) => const SplashPage(),
-    ),
-    GoRoute(
-      path: AppRoutes.welcome,
-      builder: (context, state) => const WelcomePage(),
-    ),
+    GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashPage()),
+    GoRoute(path: AppRoutes.welcome, builder: (context, state) => const WelcomePage()),
   ];
 
   static final List<GoRoute> _authRoutes = [
     GoRoute(
       path: AppRoutes.login,
-      builder: (context, state) => ChangeNotifierProvider(
-        create: (_) => LoginViewModel(),
-        child: const LoginPage(),
-      ),
+      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginViewModel(), child: const LoginPage()),
     ),
     GoRoute(
       path: AppRoutes.register,
-      builder: (context, state) => ChangeNotifierProvider(
-        create: (_) => RegisterViewModel(),
-        child: const RegisterPage(),
-      ),
+      builder: (context, state) =>
+          ChangeNotifierProvider(create: (_) => RegisterViewModel(), child: const RegisterPage()),
     ),
     GoRoute(
       path: AppRoutes.forgotPassword,
-      builder: (context, state) => ChangeNotifierProvider(
-        create: (_) => ForgotPasswordViewModel(),
-        child: const ForgotPasswordPage(),
-      ),
+      builder: (context, state) =>
+          ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel(), child: const ForgotPasswordPage()),
     ),
   ];
 
   // 使用 StatefulShellRoute 管理底部三大 Tab
-  static final StatefulShellRoute _homeShellRoute =
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return HomeShellPage(navigationShell: navigationShell);
-        },
-        branches: [
-          // Branch 1: 设备列表
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.home,
-                redirect: (_, __) => AppRoutes.tabDevice,
-              ),
-              GoRoute(
-                path: AppRoutes.tabDevice,
-                builder: (context, state) => const DeviceListPage(),
-              ),
-            ],
-          ),
-          // Branch 2: 使用数据统计
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.tabUsage,
-                builder: (context, state) => ChangeNotifierProvider(
-                  create: (_) => DeviceUsageProvider()..selectDevice(0),
-                  child: const DeviceUsagePage(),
-                ),
-              ),
-            ],
-          ),
-          // Branch 3: 我的个人中心
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.tabUser,
-                builder: (context, state) => const UserPage(),
-              ),
-            ],
+  static final StatefulShellRoute _homeShellRoute = StatefulShellRoute.indexedStack(
+    builder: (context, state, navigationShell) {
+      return HomeShellPage(navigationShell: navigationShell);
+    },
+    branches: [
+      // Branch 1: 设备列表
+      StatefulShellBranch(
+        routes: [
+          GoRoute(path: AppRoutes.home, redirect: (_, __) => AppRoutes.tabDevice),
+          GoRoute(path: AppRoutes.tabDevice, builder: (context, state) => const DeviceListPage()),
+        ],
+      ),
+      // Branch 2: 使用数据统计
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.tabUsage,
+            builder: (context, state) => ChangeNotifierProvider(
+              create: (_) => DeviceUsageProvider()..selectDevice(0),
+              child: const DeviceUsagePage(),
+            ),
           ),
         ],
-      );
+      ),
+      // Branch 3: 我的个人中心
+      StatefulShellBranch(
+        routes: [GoRoute(path: AppRoutes.tabUser, builder: (context, state) => const UserPage())],
+      ),
+    ],
+  );
 
   static final List<GoRoute> _deviceRoutes = [
     GoRoute(
@@ -182,42 +157,36 @@ class AppRouter {
     ),
     GoRoute(
       path: AppRoutes.timezone,
-      builder: (context, state) =>
-          ChangeNotifierProvider<ActiveDeviceProvider>.value(
-            value: locator<ActiveDeviceProvider>(),
-            child: const TimeZoneSearchPage(),
-          ),
+      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
+        value: locator<ActiveDeviceProvider>(),
+        child: const TimeZoneSearchPage(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.deviceTimer,
-      builder: (context, state) =>
-          ChangeNotifierProvider<ActiveDeviceProvider>.value(
-            value: locator<ActiveDeviceProvider>(),
-            child: const TimerModePage(),
-          ),
+      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
+        value: locator<ActiveDeviceProvider>(),
+        child: const TimerModePage(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.deviceWifi,
-      builder: (context, state) =>
-          ChangeNotifierProvider<ActiveDeviceProvider>.value(
-            value: locator<ActiveDeviceProvider>(),
-            child: const WifiInfoPage(),
-          ),
+      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
+        value: locator<ActiveDeviceProvider>(),
+        child: const WifiInfoPage(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.deviceWeighing,
-      builder: (context, state) =>
-          ChangeNotifierProvider<ActiveDeviceProvider>.value(
-            value: locator<ActiveDeviceProvider>(),
-            child: const WeighingCalibrationPage(),
-          ),
+      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
+        value: locator<ActiveDeviceProvider>(),
+        child: const WeighingCalibrationPage(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.deviceAddSearch,
-      builder: (context, state) => ChangeNotifierProvider(
-        create: (_) => DeviceAddProvider(),
-        child: const DeviceAddSearchPage(),
-      ),
+      builder: (context, state) =>
+          ChangeNotifierProvider(create: (_) => DeviceAddProvider(), child: const DeviceAddSearchPage()),
     ),
     GoRoute(
       path: AppRoutes.deviceAddWifi,
@@ -249,14 +218,8 @@ class AppRouter {
       // 这里的 UserProvider 已在全局根树挂载，直接进入页面消费即可，无需再从 extra 强转
       builder: (context, state) => const PersonalInfoPage(),
     ),
-    GoRoute(
-      path: AppRoutes.aboutUs,
-      builder: (context, state) => const AboutUsPage(),
-    ),
-    GoRoute(
-      path: AppRoutes.feedback,
-      builder: (context, state) => const FeedbackPage(),
-    ),
+    GoRoute(path: AppRoutes.aboutUs, builder: (context, state) => const AboutUsPage()),
+    GoRoute(path: AppRoutes.feedback, builder: (context, state) => const FeedbackPage()),
   ];
 
   static final List<GoRoute> _commonRoutes = [
@@ -275,14 +238,7 @@ class AppRouter {
     router = GoRouter(
       navigatorKey: NavService.rootNavigatorKey,
       initialLocation: initialRoute,
-      routes: [
-        ..._splashRoutes,
-        ..._authRoutes,
-        _homeShellRoute,
-        ..._deviceRoutes,
-        ..._userRoutes,
-        ..._commonRoutes,
-      ],
+      routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
     );
   }
 }

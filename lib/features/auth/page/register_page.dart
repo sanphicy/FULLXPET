@@ -11,6 +11,7 @@ import 'package:fullxpet/features/auth/widgets/auth_tab_bar.dart';
 import 'package:fullxpet/features/auth/widgets/auth_underlined_field.dart';
 import 'package:fullxpet/features/auth/widgets/country_picker_sheet.dart';
 import 'package:fullxpet/routes/app_router.dart';
+import 'package:fullxpet/common/config/app_constants.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -367,10 +368,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               ..onTap = () {
                                 context.push(
                                   AppRoutes.webView,
-                                  extra: {
-                                    'title': s.userAgreement,
-                                    'url': 'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
-                                  },
+                                  extra: {'title': s.userAgreement, 'url': AppConstants.userAgreementUrl},
                                 );
                               },
                           ),
@@ -382,10 +380,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               ..onTap = () {
                                 context.push(
                                   AppRoutes.webView,
-                                  extra: {
-                                    'title': s.privacyPolicy,
-                                    'url': 'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
-                                  },
+                                  extra: {'title': s.privacyPolicy, 'url': AppConstants.privacyPolicyUrl},
                                 );
                               },
                           ),

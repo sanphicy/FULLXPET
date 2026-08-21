@@ -9,6 +9,7 @@ import 'package:fullxpet/core/storage/token_manager.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/routes/app_router.dart';
+import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 
 class UserProvider extends BaseProvider {
   String _userName = '';
@@ -27,22 +28,17 @@ class UserProvider extends BaseProvider {
   String get account => _account;
   String get appVersion => _appVersion;
 
+  final AuthRepository _authRepo = locator<AuthRepository>();
+
   // 获取用户信息
   Future<void> fetchUserInfo({bool isSilent = false}) async {
     fetchAppVersion();
-    final isLoggedIn = await TokenManager.isLoggedIn();
-    if (!isLoggedIn) {
-      await logout();
-      return;
-    }
 
     if (!isSilent && _userId == '-') {
       setLoading(true);
     }
     try {
-      final result = await locator<HttpClient>().get<Map<String, dynamic>>(
-        ApiEndpoints.userInfo,
-      );
+      final result = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.userInfo);
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
         final newName = data['nickname']?.toString() ?? '';
@@ -53,13 +49,15 @@ class UserProvider extends BaseProvider {
         String newAccount = '';
         if (data['email'] != null && data['email'].toString().isNotEmpty) {
           newAccount = data['email'].toString();
-        } else if (data['phone'] != null &&
-            data['phone'].toString().isNotEmpty) {
+        } else if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
           newAccount = data['phone'].toString();
         }
         if (_userName != newName ||
             _userId != newId ||
-            _account != newAccount) {
+            _account != newAccount ||
+            _avatarUrl != newAvatar ||
+            _countryCode != newCountryCode ||
+            _timezone != newTimezone) {
           _userName = newName;
           _userId = newId;
           _avatarUrl = newAvatar;
@@ -68,21 +66,21 @@ class UserProvider extends BaseProvider {
           _account = newAccount;
           notifyListeners();
         }
-      } else if (result.code == 401 ||
-          (result.code != null && result.code.toString().startsWith('401'))) {
+      } else if (result.code == 401 || (result.code != null && result.code.toString().startsWith('401'))) {
         await logout();
       } else if (!isSilent) {
         setError(result.message);
       }
     } catch (e) {
       if (!isSilent) {
-        setError("Failed to fetch user data: $e");
+        setError("获取用户信息失败: $e");
       }
     } finally {
       if (isLoading) setLoading(false);
     }
   }
 
+  // 获取应用版本号
   Future<void> fetchAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
@@ -94,6 +92,7 @@ class UserProvider extends BaseProvider {
     }
   }
 
+  // 更新用户昵称
   Future<bool> updateNickname(String newName) async {
     final trimmedName = newName.trim();
     if (trimmedName.isEmpty || trimmedName == _userName) return false;
@@ -105,10 +104,7 @@ class UserProvider extends BaseProvider {
         "countryCode": _countryCode.isNotEmpty ? _countryCode : "CN",
         "timezone": _timezone.isNotEmpty ? _timezone : "Asia/Shanghai",
       };
-      final result = await locator<HttpClient>().patch<Map<String, dynamic>>(
-        ApiEndpoints.userInfo,
-        data: payload,
-      );
+      final result = await locator<HttpClient>().patch<Map<String, dynamic>>(ApiEndpoints.userInfo, data: payload);
       if (result.code == 0 || result.code == 200) {
         _userName = trimmedName;
         notifyListeners();
@@ -117,35 +113,26 @@ class UserProvider extends BaseProvider {
         setError(result.message);
       }
     } catch (e) {
-      setError("Failed to update nickname: $e");
+      setError("修改昵称失败:$e");
     } finally {
       setLoading(false);
     }
     return false;
   }
 
+  // 上传用户头像
   Future<bool> uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 800,
-      );
+      final XFile? image = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 800);
       if (image == null) return false;
 
       setLoading(true);
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(image.path, filename: image.name),
-      });
-      final result = await locator<HttpClient>().post<Map<String, dynamic>>(
-        ApiEndpoints.uploadAvatar,
-        data: formData,
-      );
+      final formData = FormData.fromMap({'file': await MultipartFile.fromFile(image.path, filename: image.name)});
+      final result = await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.uploadAvatar, data: formData);
       if (result.data != null && (result.code == 0 || result.code == 200)) {
         final data = result.data!;
-        final newAvatar =
-            data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
+        final newAvatar = data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
         if (newAvatar != null && newAvatar.isNotEmpty) {
           _avatarUrl = newAvatar;
           notifyListeners();
@@ -155,25 +142,26 @@ class UserProvider extends BaseProvider {
         setError(result.message);
       }
     } catch (e) {
-      setError("Avatar upload failed: $e");
+      setError("头像上传失败，请检查相机/相册权限及网络连接");
     } finally {
       setLoading(false);
     }
     return false;
   }
 
+  // 退出登录
   Future<void> logout() async {
     try {
-      await locator<HttpClient>().post<Map<String, dynamic>>(
-        ApiEndpoints.logout,
-      );
+      await locator<HttpClient>().post<Map<String, dynamic>>(ApiEndpoints.logout);
     } catch (_) {
     } finally {
-      // 彻底清理设备池与本地 Token，断绝数据污染
       locator<DeviceRepository>().clearPool();
       await TokenManager.clearToken();
-      _userName = 'Unknown User';
+      _userName = '';
       _userId = '-';
+      _avatarUrl = '';
+      _countryCode = '';
+      _timezone = '';
       _account = '';
       NavService.go(AppRoutes.login);
     }

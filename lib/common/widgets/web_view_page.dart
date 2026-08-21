@@ -12,27 +12,43 @@ class WebViewPage extends StatefulWidget {
   State<WebViewPage> createState() => _WebViewPageState();
 }
 
+// lib/common/widgets/web_view_page.dart
 class _WebViewPageState extends State<WebViewPage> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
+    _initController();
+  }
+
+  void _initController() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageFinished: (String url) {
-            if (mounted) {
+          onPageStarted: (_) {
+            if (mounted)
+              setState(() {
+                _isLoading = true;
+                _hasError = false;
+              });
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onWebResourceError: (error) {
+            if (mounted)
               setState(() {
                 _isLoading = false;
+                _hasError = true;
               });
-            }
           },
         ),
       )
-      ..loadRequest(Uri.parse(widget.url)); // 加载你传入的 URL
+      ..loadRequest(Uri.parse(widget.url));
   }
 
   @override
@@ -56,9 +72,25 @@ class _WebViewPageState extends State<WebViewPage> {
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
-          // 加载动画
+          if (!_hasError) WebViewWidget(controller: _controller),
           if (_isLoading) const Center(child: CircularProgressIndicator(color: primaryPurple)),
+          if (_hasError)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey),
+                  const SizedBox(height: 12),
+                  const Text("页面加载失败，请检查网络", style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: primaryPurple, foregroundColor: Colors.white),
+                    onPressed: () => _controller.reload(),
+                    child: const Text("重新加载"),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

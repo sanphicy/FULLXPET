@@ -158,6 +158,7 @@
   "nickname": "昵称",
   "editNickname": "修改昵称",
   "enterNewNickname": "请输入新昵称",
+  "nicknameUpdated": "昵称已修改",
   "accountLabel": "账号",
   "emailLabel": "邮箱",
   "phoneLabel": "手机号",

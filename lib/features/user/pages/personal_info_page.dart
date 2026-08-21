@@ -2,41 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
+import 'package:fullxpet/common/widgets/app_dialogs.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
+import 'package:fullxpet/features/user/providers/user_provider.dart';
 
 class PersonalInfoPage extends StatelessWidget {
   const PersonalInfoPage({super.key});
 
-  void _showEditNicknameDialog(
-    BuildContext context,
-    UserProvider provider,
-    S s,
-  ) {
-    final TextEditingController controller = TextEditingController(
-      text: provider.userName,
-    );
+  void _showEditNicknameDialog(BuildContext context, UserProvider provider, S s) {
+    final TextEditingController controller = TextEditingController(text: provider.userName);
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: Text(
-            s.editNickname,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text(s.editNickname, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             autofocus: true,
             decoration: InputDecoration(
               hintText: s.enterNewNickname,
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF917CEE)),
-              ),
+              focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF917CEE))),
             ),
           ),
           actions: [
@@ -50,15 +38,15 @@ class PersonalInfoPage extends StatelessWidget {
                 final newName = controller.text.trim();
                 Navigator.pop(ctx);
                 if (newName.isNotEmpty && newName != provider.userName) {
-                  await provider.updateNickname(newName);
+                  final success = await provider.updateNickname(newName);
+                  if (success && context.mounted) {
+                    context.showAppToast(message: s.nicknameUpdated, type: AppToastType.success);
+                  }
                 }
               },
               child: Text(
                 s.confirm,
-                style: const TextStyle(
-                  color: Color(0xFF917CEE),
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -71,9 +59,7 @@ class PersonalInfoPage extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -84,7 +70,10 @@ class PersonalInfoPage extends StatelessWidget {
                 title: Text(s.chooseFromGallery),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  await provider.uploadAvatar(ImageSource.gallery);
+                  final success = await provider.uploadAvatar(ImageSource.gallery);
+                  if (success && context.mounted) {
+                    context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
+                  }
                 },
               ),
               ListTile(
@@ -111,9 +100,7 @@ class PersonalInfoPage extends StatelessWidget {
     const Color valueColor = Color(0xFF888888);
     const Color dividerColor = Color(0xFFEEEEEE);
 
-    final String displayAccount = provider.account.isNotEmpty
-        ? provider.account
-        : s.notBound;
+    final String displayAccount = provider.account.isNotEmpty ? provider.account : s.notBound;
 
     String accountLabel = s.accountLabel;
     if (displayAccount.contains('@')) {
@@ -130,18 +117,10 @@ class PersonalInfoPage extends StatelessWidget {
         centerTitle: true,
         title: Text(
           s.personalInfo,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.black,
-            size: 20,
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
@@ -151,10 +130,7 @@ class PersonalInfoPage extends StatelessWidget {
           child: Stack(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Column(
                   children: [
                     // 1. 头像项
@@ -163,10 +139,7 @@ class PersonalInfoPage extends StatelessWidget {
                       textColor: textColor,
                       showArrow: true,
                       onTap: () => _showImagePicker(context, provider, s),
-                      trailing: AppAvatar(
-                        avatarUrl: provider.avatarUrl,
-                        radius: 22,
-                      ),
+                      trailing: AppAvatar(avatarUrl: provider.avatarUrl, radius: 22),
                     ),
                     const Divider(height: 1, color: dividerColor),
 
@@ -177,8 +150,7 @@ class PersonalInfoPage extends StatelessWidget {
                       trailingText: provider.userName,
                       valueColor: valueColor,
                       showArrow: true,
-                      onTap: () =>
-                          _showEditNicknameDialog(context, provider, s),
+                      onTap: () => _showEditNicknameDialog(context, provider, s),
                     ),
                     const Divider(height: 1, color: dividerColor),
 
@@ -201,9 +173,7 @@ class PersonalInfoPage extends StatelessWidget {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF37474),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           elevation: 0,
                         ),
                         onPressed: () {
@@ -211,11 +181,7 @@ class PersonalInfoPage extends StatelessWidget {
                         },
                         child: Text(
                           s.deleteAccount,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -228,19 +194,23 @@ class PersonalInfoPage extends StatelessWidget {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF917CEE),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           elevation: 0,
                         ),
-                        onPressed: () => provider.logout(),
+                        onPressed: () async {
+                          final bool? confirm = await context.showAppDialog(
+                            title: s.logout,
+                            content: '确定要退出当前账号吗？',
+                            confirmText: s.confirm,
+                            cancelText: s.cancel,
+                          );
+                          if (confirm == true) {
+                            await provider.logout();
+                          }
+                        },
                         child: Text(
                           s.logout,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -252,9 +222,7 @@ class PersonalInfoPage extends StatelessWidget {
               if (provider.isLoading)
                 Container(
                   color: Colors.black.withValues(alpha: 0.2),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF917CEE)),
-                  ),
+                  child: const Center(child: CircularProgressIndicator(color: Color(0xFF917CEE))),
                 ),
             ],
           ),
@@ -280,26 +248,23 @@ class PersonalInfoPage extends StatelessWidget {
           children: [
             Text(
               title,
-              style: TextStyle(
-                fontSize: 16,
-                color: textColor,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w500),
             ),
             const Spacer(),
             if (trailing != null) trailing,
             if (trailingText != null)
-              Text(
-                trailingText,
-                style: TextStyle(fontSize: 15, color: valueColor),
+              Expanded(
+                child: Text(
+                  trailingText,
+                  style: TextStyle(fontSize: 15, color: valueColor),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             if (showArrow) ...[
               const SizedBox(width: 8),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: Colors.grey,
-                size: 14,
-              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
             ],
           ],
         ),

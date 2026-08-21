@@ -13,6 +13,7 @@ class ApiEndpoints {
   static const String logout = "$_apiV1/auth/logout";
   static const String emailCode = "$_apiV1/auth/verification-codes/email";
   static const String phoneCode = "$_apiV1/auth/verification-codes/phone";
+  static const String deleteAccount = "$_apiV1/auth/me/account/delete";
 
   // --- 用户相关 ---
   static const String homeList = "$_apiV1/me/homes";

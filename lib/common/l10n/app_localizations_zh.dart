@@ -491,6 +491,9 @@ class SZh extends S {
   String get enterNewNickname => '请输入新昵称';
 
   @override
+  String get nicknameUpdated => '昵称已修改';
+
+  @override
   String get accountLabel => '账号';
 
   @override

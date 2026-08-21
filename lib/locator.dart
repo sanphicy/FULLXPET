@@ -9,16 +9,14 @@ import 'package:fullxpet/features/device/active_device_provider.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
+import 'package:fullxpet/features/user/providers/user_provider.dart';
 
 final locator = GetIt.instance;
 
 void setupLocator() {
   locator.registerLazySingleton<HttpClient>(() => HttpClient());
   // 注册蓝牙管理器并执行自初始化
-  locator.registerLazySingleton<BluetoothManager>(
-    () => BluetoothManager()..init(),
-  );
+  locator.registerLazySingleton<BluetoothManager>(() => BluetoothManager()..init());
   // mqtt
   locator.registerLazySingleton<MqttManager>(() => MqttManager());
 
@@ -29,9 +27,7 @@ void setupLocator() {
   // 全局状态
   locator.registerLazySingleton<UserProvider>(() => UserProvider());
   locator.registerLazySingleton<DeviceProvider>(() => DeviceProvider());
-  locator.registerLazySingleton<ActiveDeviceProvider>(
-    () => ActiveDeviceProvider(),
-  );
+  locator.registerLazySingleton<ActiveDeviceProvider>(() => ActiveDeviceProvider());
 
   // 请求信息
   locator.registerLazySingleton<RegionService>(() => RegionService());

@@ -196,6 +196,7 @@ class DeviceManagerPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 模式选择药丸按钮（局部监听）
+                      // 1. 模式选择药丸按钮区域：在每个 _buildModePill 之间增加间距或直接等分
                       Selector<ActiveDeviceProvider, (WorkMode, bool)>(
                         selector: (_, vm) =>
                             (vm.currentDevice?.workMode ?? WorkMode.auto, vm.currentDevice?.isDndEnabled ?? false),
@@ -203,7 +204,6 @@ class DeviceManagerPage extends StatelessWidget {
                           final workMode = state.$1;
                           final isDnd = state.$2;
                           return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               _buildModePill(
                                 title: s.autoMode,
@@ -213,6 +213,7 @@ class DeviceManagerPage extends StatelessWidget {
                                 inactiveColor: pillGray,
                                 onTap: () => provider.setMode(WorkMode.auto),
                               ),
+                              const SizedBox(width: 8),
                               _buildModePill(
                                 title: s.dndMode,
                                 icon: Icons.nightlight_round,
@@ -221,6 +222,7 @@ class DeviceManagerPage extends StatelessWidget {
                                 inactiveColor: pillGray,
                                 onTap: () => provider.toggleDnd(false),
                               ),
+                              const SizedBox(width: 8),
                               _buildModePill(
                                 title: s.timerMode,
                                 icon: Icons.timer_rounded,
@@ -229,6 +231,7 @@ class DeviceManagerPage extends StatelessWidget {
                                 inactiveColor: pillGray,
                                 onTap: () => provider.setMode(WorkMode.timer),
                               ),
+                              const SizedBox(width: 8),
                               _buildModePill(
                                 title: s.manualMode,
                                 icon: Icons.touch_app_rounded,
@@ -321,7 +324,7 @@ class DeviceManagerPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                             Selector<ActiveDeviceProvider, List<DeviceLog>>(
-                              selector: (_, vm) => vm.currentDevice?.logs ?? [],
+                              selector: (_, vm) => List<DeviceLog>.from(vm.currentDevice?.logs ?? []),
                               builder: (context, logs, _) {
                                 if (logs.isEmpty) {
                                   return Padding(
@@ -391,37 +394,40 @@ class DeviceManagerPage extends StatelessWidget {
     required Color inactiveColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 72,
-        height: 125,
-        decoration: BoxDecoration(
-          color: isActive ? activeColor : inactiveColor,
-          borderRadius: BorderRadius.circular(36),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(5),
-              height: 56,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: Center(child: Icon(icon, color: isActive ? activeColor : Colors.grey, size: 26)),
-            ),
-            const Spacer(),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isActive ? Colors.white : const Color(0xFF666666),
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                height: 1.2,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 120, // 保持舒适高度
+          decoration: BoxDecoration(
+            color: isActive ? activeColor : inactiveColor,
+            borderRadius: BorderRadius.circular(34),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.all(5),
+                height: 50,
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: Center(child: Icon(icon, color: isActive ? activeColor : Colors.grey, size: 24)),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
+              const Spacer(),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isActive ? Colors.white : const Color(0xFF666666),
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         ),
       ),
     );

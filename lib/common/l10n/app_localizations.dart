@@ -1045,6 +1045,12 @@ abstract class S {
   /// **'请输入新昵称'**
   String get enterNewNickname;
 
+  /// No description provided for @nicknameUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称已修改'**
+  String get nicknameUpdated;
+
   /// No description provided for @accountLabel.
   ///
   /// In zh, this message translates to:

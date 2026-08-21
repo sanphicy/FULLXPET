@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fullxpet/common/config/app_constants.dart';
 
 class AboutUsPage extends StatefulWidget {
   const AboutUsPage({super.key});
@@ -126,7 +127,7 @@ class _AboutUsPageState extends State<AboutUsPage> {
                                 text: "电子邮箱: ",
                                 style: TextStyle(fontWeight: FontWeight.w500),
                               ),
-                              TextSpan(text: "thinogie@163.com"),
+                              TextSpan(text: AppConstants.officialEmail),
                             ],
                           ),
                         ),
@@ -148,7 +149,7 @@ class _AboutUsPageState extends State<AboutUsPage> {
                                 text: "官方网站: ",
                                 style: TextStyle(fontWeight: FontWeight.w500),
                               ),
-                              TextSpan(text: "http://www.hooget.com"),
+                              TextSpan(text: AppConstants.officialWebsite),
                             ],
                           ),
                         ),

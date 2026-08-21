@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:fullxpet/common/config/app_constants.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
+import 'package:fullxpet/features/user/providers/user_provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class UserPage extends StatelessWidget {
@@ -31,86 +32,71 @@ class UserPage extends StatelessWidget {
               children: [
                 const SizedBox(height: 10),
 
-                // 1. 用户信息头部（局部监听 UserProvider）
-                Row(
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.bottomCenter,
+                // 1. 用户信息头部（外层单个 Selector 一次性读取头像、昵称与 ID）
+                Selector<UserProvider, (String, String, String)>(
+                  selector: (_, vm) => (vm.avatarUrl, vm.userName, vm.userId),
+                  builder: (context, data, _) {
+                    final avatarUrl = data.$1;
+                    final userName = data.$2;
+                    final userId = data.$3;
+
+                    return Row(
                       children: [
-                        Selector<UserProvider, String>(
-                          selector: (_, vm) => vm.avatarUrl,
-                          builder: (context, avatarUrl, _) =>
-                              AppAvatar(avatarUrl: avatarUrl, radius: 32),
-                        ),
-                        Positioned(
-                          bottom: -4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: primaryPurple,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              s.user,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                        Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            AppAvatar(avatarUrl: avatarUrl, radius: 32),
+                            Positioned(
+                              bottom: -4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: primaryPurple,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  s.user,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userName.isNotEmpty ? userName : 'User',
+                                style: const TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'ID: $userId',
+                                style: const TextStyle(fontSize: 12, color: subTextColor),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.settings_outlined, color: subTextColor, size: 24),
+                          onPressed: () {
+                            context.push(AppRoutes.personalInfo);
+                          },
+                        ),
                       ],
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Selector<UserProvider, String>(
-                            selector: (_, vm) => vm.userName,
-                            builder: (context, userName, _) {
-                              return Text(
-                                userName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  color: textColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 4),
-                          Selector<UserProvider, String>(
-                            selector: (_, vm) => vm.userId,
-                            builder: (context, userId, _) {
-                              return Text(
-                                'ID: $userId',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: subTextColor,
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.settings_outlined,
-                        color: subTextColor,
-                        size: 24,
-                      ),
-                      onPressed: () {
-                        context.push(AppRoutes.personalInfo);
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 30),
 
@@ -136,11 +122,7 @@ class UserPage extends StatelessWidget {
                         onTap: () {
                           context.push(
                             AppRoutes.webView,
-                            extra: {
-                              'title': s.privacyPolicy,
-                              'url':
-                                  'https://chen-2001.github.io/ljzn/FULLXPET_Privacy_Policy.html',
-                            },
+                            extra: {'title': s.privacyPolicy, 'url': AppConstants.privacyPolicyUrl},
                           );
                         },
                       ),
@@ -152,11 +134,7 @@ class UserPage extends StatelessWidget {
                         onTap: () {
                           context.push(
                             AppRoutes.webView,
-                            extra: {
-                              'title': s.userAgreement,
-                              'url':
-                                  'https://chen-2001.github.io/ljzn/FULLXPET-User_Agreement.html',
-                            },
+                            extra: {'title': s.userAgreement, 'url': AppConstants.userAgreementUrl},
                           );
                         },
                       ),
@@ -218,13 +196,7 @@ class UserPage extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(
-    IconData icon,
-    Color iconColor,
-    String title, {
-    String? trailingText,
-    VoidCallback? onTap,
-  }) {
+  Widget _buildListTile(IconData icon, Color iconColor, String title, {String? trailingText, VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -234,33 +206,19 @@ class UserPage extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), shape: BoxShape.circle),
               child: Icon(icon, color: iconColor, size: 18),
             ),
             const SizedBox(width: 12),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF333333),
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF333333), fontWeight: FontWeight.w500),
             ),
             const Spacer(),
             if (trailingText != null && trailingText.isNotEmpty)
-              Text(
-                trailingText,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
-              ),
+              Text(trailingText, style: const TextStyle(fontSize: 13, color: Color(0xFF999999))),
             const SizedBox(width: 4),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Colors.grey,
-              size: 14,
-            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
           ],
         ),
       ),
@@ -268,11 +226,6 @@ class UserPage extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return const Divider(
-      height: 1,
-      thickness: 0.5,
-      indent: 52,
-      color: Color(0xFFF0EFF5),
-    );
+    return const Divider(height: 1, thickness: 0.5, indent: 52, color: Color(0xFFF0EFF5));
   }
 }

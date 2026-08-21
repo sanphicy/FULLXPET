@@ -497,6 +497,9 @@ class SEn extends S {
   String get enterNewNickname => 'Enter new nickname';
 
   @override
+  String get nicknameUpdated => 'Nickname updated successfully';
+
+  @override
   String get accountLabel => 'Account';
 
   @override

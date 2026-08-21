@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:fullxpet/core/hardware/mqtt_manager.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
@@ -15,18 +14,18 @@ class DeviceRepository {
   final Map<String, DeviceDto> _devicePool = {};
   StreamSubscription<Map<String, dynamic>>? _mqttSub;
 
-  final StreamController<String> _deviceUpdateController =
-      StreamController<String>.broadcast();
+  final StreamController<String> _deviceUpdateController = StreamController<String>.broadcast();
   Stream<String> get onDeviceUpdated => _deviceUpdateController.stream;
 
   DeviceRepository() {
     _startListeningMqtt();
   }
-
+  // 清空设备池
   void clearPool() {
     _devicePool.clear();
   }
 
+  // 获取指定设备对象
   DeviceDto getDevice(String deviceId) {
     if (!_devicePool.containsKey(deviceId)) {
       _devicePool[deviceId] = DeviceDto(deviceId: deviceId);
@@ -34,10 +33,9 @@ class DeviceRepository {
     return _devicePool[deviceId]!;
   }
 
+  // 获取设备列表
   Future<ResultEntity<List<DeviceDto>>> getDeviceList() async {
-    final result = await _httpClient.get<Map<String, dynamic>>(
-      ApiEndpoints.devices,
-    );
+    final result = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.devices);
     if (result.data != null && (result.code == 0 || result.code == 200)) {
       final List<dynamic> listData = result.data!['items'] ?? [];
       List<DeviceDto> devices = [];
@@ -46,11 +44,7 @@ class DeviceRepository {
         final deviceId = json['deviceId']?.toString() ?? '';
         if (deviceId.isEmpty) continue;
 
-        updateBaseInfo(
-          deviceId,
-          name: json['nickname']?.toString(),
-          isOnline: json['online'] ?? false,
-        );
+        updateBaseInfo(deviceId, name: json['nickname']?.toString(), isOnline: json['online'] ?? false);
         devices.add(getDevice(deviceId));
       }
       return ResultEntity.success(devices);
@@ -58,12 +52,10 @@ class DeviceRepository {
     return ResultEntity.error(result.message);
   }
 
+  // 重命名设备
   Future<bool> renameDevice(String deviceId, String newName) async {
     try {
-      final result = await _httpClient.patch(
-        ApiEndpoints.deviceName(deviceId),
-        data: {'nickname': newName},
-      );
+      final result = await _httpClient.patch(ApiEndpoints.deviceName(deviceId), data: {'nickname': newName});
       if (result.code == 0 || result.code == 200) {
         updateBaseInfo(deviceId, name: newName);
         return true;
@@ -75,18 +67,13 @@ class DeviceRepository {
     }
   }
 
+  // 删除设备
   Future<bool> deleteDevice(String deviceId) async {
     try {
-      final homeList = await _httpClient.get<Map<String, dynamic>>(
-        ApiEndpoints.homeList,
-      );
-      if (homeList.data != null &&
-          homeList.data!['items'] != null &&
-          (homeList.data!['items'] as List).isNotEmpty) {
+      final homeList = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.homeList);
+      if (homeList.data != null && homeList.data!['items'] != null && (homeList.data!['items'] as List).isNotEmpty) {
         final homeId = homeList.data!['items'][0]['id']?.toString() ?? '';
-        final res = await _httpClient.delete(
-          ApiEndpoints.deviceUnBind(homeId, deviceId),
-        );
+        final res = await _httpClient.delete(ApiEndpoints.deviceUnBind(homeId, deviceId));
         if (res.code == 0 || res.code == 200) {
           _devicePool.remove(deviceId);
           return true;
@@ -98,15 +85,10 @@ class DeviceRepository {
     return false;
   }
 
-  Future<bool> sendDeviceCommand(
-    String deviceId,
-    List<Map<String, dynamic>> attributes,
-  ) async {
+  // 向设备发送控制命令
+  Future<bool> sendDeviceCommand(String deviceId, List<Map<String, dynamic>> attributes) async {
     try {
-      final result = await _httpClient.post(
-        ApiEndpoints.deviceInvoke(deviceId),
-        data: {'attributes': attributes},
-      );
+      final result = await _httpClient.post(ApiEndpoints.deviceInvoke(deviceId), data: {'attributes': attributes});
       return result.code == 0 || result.code == 200;
     } catch (e) {
       debugPrint('Command Error [$deviceId]: $e');
@@ -114,11 +96,10 @@ class DeviceRepository {
     }
   }
 
+  // 检查设备是否有待升级的固件
   Future<Map<String, dynamic>?> checkPendingFirmware(String deviceId) async {
     try {
-      final res = await _httpClient.get<dynamic>(
-        ApiEndpoints.checkFirmware(deviceId),
-      );
+      final res = await _httpClient.get<dynamic>(ApiEndpoints.checkFirmware(deviceId));
       if ((res.code == 0 || res.code == 200) && res.data != null) {
         final rawData = res.data;
         if (rawData is List && rawData.isNotEmpty) {
@@ -131,11 +112,10 @@ class DeviceRepository {
     return null;
   }
 
+  // 下发固件升级指令
   Future<bool> dispatchFirmwareUpgrade(String deviceId, String recordId) async {
     try {
-      final result = await _httpClient.post<Map<String, dynamic>>(
-        ApiEndpoints.upgradeFirmware(deviceId, recordId),
-      );
+      final result = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.upgradeFirmware(deviceId, recordId));
       return result.code == 0 || result.code == 200;
     } catch (e) {
       debugPrint('Dispatch Firmware Upgrade Error [$deviceId]: $e');
@@ -143,18 +123,13 @@ class DeviceRepository {
     }
   }
 
+  // 拉取设备最新属性
   Future<void> fetchDeviceProperties(String deviceId) async {
     try {
-      final result = await _httpClient.get<Map<String, dynamic>>(
-        ApiEndpoints.deviceProperties(deviceId),
-      );
+      final result = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.deviceProperties(deviceId));
       if (result.data != null) {
         final data = result.data!;
-        updateBaseInfo(
-          deviceId,
-          name: data['deviceName']?.toString(),
-          isOnline: data['online'] ?? false,
-        );
+        updateBaseInfo(deviceId, name: data['deviceName']?.toString(), isOnline: data['online'] ?? false);
         if (data.containsKey('attributes') && data['attributes'] is List) {
           updateDeviceAttributes(deviceId, data['attributes']);
         }
@@ -164,10 +139,8 @@ class DeviceRepository {
     }
   }
 
-  Future<void> fetchDeviceLogs(
-    String deviceId, {
-    bool isLoadMore = false,
-  }) async {
+  // 分页拉取设备操作日志
+  Future<void> fetchDeviceLogs(String deviceId, {bool isLoadMore = false}) async {
     final device = getDevice(deviceId);
     if (isLoadMore && !device.hasMoreLogs) return;
     if (!isLoadMore) {
@@ -180,24 +153,12 @@ class DeviceRepository {
       final todayStartUtc = DateTime(now.year, now.month, now.day).toUtc();
       final fromStr = "${todayStartUtc.toIso8601String().split('.').first}Z";
       final toStr = "${now.toUtc().toIso8601String().split('.').first}Z";
-      final targetDpids = [
-        DeviceThingModel.deviceExecute.dpid,
-        DeviceThingModel.excretionTimeDay.dpid,
-      ].join(',');
-      final query = {
-        'from': fromStr,
-        'to': toStr,
-        'dpid': targetDpids,
-        'pageSize': '20',
-        'sort': 'desc',
-      };
+      final targetDpids = [DeviceThingModel.deviceExecute.dpid, DeviceThingModel.excretionTimeDay.dpid].join(',');
+      final query = {'from': fromStr, 'to': toStr, 'dpid': targetDpids, 'pageSize': '20', 'sort': 'desc'};
       if (device.logNextPageToken != null) {
         query['pageToken'] = device.logNextPageToken!;
       }
-      final result = await _httpClient.get<Map<String, dynamic>>(
-        ApiEndpoints.deviceLogs(deviceId),
-        query: query,
-      );
+      final result = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.deviceLogs(deviceId), query: query);
       if (result.data != null) {
         final data = result.data!;
         final List<dynamic> items = data['items'] ?? [];
@@ -224,23 +185,20 @@ class DeviceRepository {
     }
   }
 
+  // 开始监听 MQTT 消息
   void _startListeningMqtt() {
     _mqttSub = _mqttManager.messageStream.listen((data) {
+      debugPrint('🔔 [MQTT 原始消息]: $data');
       final deviceId = data['deviceId']?.toString() ?? '';
       if (deviceId.isEmpty) return;
       final type = data['type']?.toString();
       if (type == 'attr_report') {
-        if (data.containsKey('changedAttributes') &&
-            data['changedAttributes'] is Map) {
-          final Map<String, dynamic> changedAttrs = Map<String, dynamic>.from(
-            data['changedAttributes'],
-          );
+        if (data.containsKey('changedAttributes') && data['changedAttributes'] is Map) {
+          final Map<String, dynamic> changedAttrs = Map<String, dynamic>.from(data['changedAttributes']);
           updateDeviceAttributesFromMap(deviceId, changedAttrs);
           _appendMqttLog(deviceId, changedAttrs, data['at']);
-        } else if (data.containsKey('functionalAttributes') &&
-            data['functionalAttributes'] is Map) {
-          final Map<String, dynamic> functionalAttrs =
-              Map<String, dynamic>.from(data['functionalAttributes']);
+        } else if (data.containsKey('functionalAttributes') && data['functionalAttributes'] is Map) {
+          final Map<String, dynamic> functionalAttrs = Map<String, dynamic>.from(data['functionalAttributes']);
           updateDeviceAttributesFromMap(deviceId, functionalAttrs);
           _appendMqttLog(deviceId, functionalAttrs, data['at']);
         }
@@ -248,18 +206,13 @@ class DeviceRepository {
     });
   }
 
-  void _appendMqttLog(
-    String deviceId,
-    Map<String, dynamic> changedAttrs,
-    dynamic atTimestamp,
-  ) {
+  // 将 MQTT 上报的属性变化转换为日志并插入设备日志列表
+  void _appendMqttLog(String deviceId, Map<String, dynamic> changedAttrs, dynamic atTimestamp) {
     final device = getDevice(deviceId);
     bool hasNewLog = false;
     DateTime time;
     if (atTimestamp != null) {
-      time = DateTime.fromMillisecondsSinceEpoch(
-        int.parse(atTimestamp.toString()),
-      ).toLocal();
+      time = DateTime.fromMillisecondsSinceEpoch(int.parse(atTimestamp.toString())).toLocal();
     } else {
       time = DateTime.now();
     }
@@ -273,15 +226,11 @@ class DeviceRepository {
     if (hasNewLog) _notifyDeviceChanged(deviceId);
   }
 
+  // 解析 dpId 和值，生成可读的日志内容
   String? _parseLogAction(String? dpid, dynamic value) {
     if (dpid == DeviceThingModel.deviceExecute.dpid) {
       final valStr = value.toString();
-      const actionMap = {
-        '1': 'Clean',
-        '2': 'Smooth',
-        '3': 'Add Litter',
-        '4': 'Empty Litter',
-      };
+      const actionMap = {'1': 'Clean', '2': 'Smooth', '3': 'Add Litter', '4': 'Empty Litter'};
       return actionMap[valStr];
     }
     if (dpid == DeviceThingModel.excretionTimeDay.dpid) {
@@ -290,15 +239,14 @@ class DeviceRepository {
     return null;
   }
 
-  void updateDeviceAttributesFromMap(
-    String deviceId,
-    Map<String, dynamic> attributes,
-  ) {
+  // 从 Map 更新设备属性
+  void updateDeviceAttributesFromMap(String deviceId, Map<String, dynamic> attributes) {
     final device = getDevice(deviceId);
     device.updateAttributesFromMap(attributes);
     _notifyDeviceChanged(deviceId);
   }
 
+  // 更新设备基础信息
   void updateBaseInfo(String deviceId, {String? name, bool? isOnline}) {
     final device = getDevice(deviceId);
     bool hasChanged = false;
@@ -315,16 +263,19 @@ class DeviceRepository {
     }
   }
 
+  // 从 API 返回的 attributes 列表更新设备属性
   void updateDeviceAttributes(String deviceId, List<dynamic> attributes) {
     final device = getDevice(deviceId);
     device.updateAttributes(attributes);
     _notifyDeviceChanged(deviceId);
   }
 
+  // 通知设备变更
   void _notifyDeviceChanged(String deviceId) {
     _deviceUpdateController.add(deviceId);
   }
 
+  // 释放资源
   void dispose() {
     _mqttSub?.cancel();
     _deviceUpdateController.close();
