@@ -1,98 +1,100 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<!-- FULLXPET IOS所需权限声明 start-->
-	<key>NSBluetoothAlwaysUsageDescription</key>
-    <string>App需要您的同意，才能始终访问蓝牙，以便扫描、连接和管理设备。</string>
-    <key>NSBluetoothPeripheralUsageDescription</key>
-    <string>App需要您的同意，才能访问蓝牙外设，以便连接和管理设备。</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>App需要您的同意，才能在使用期间访问位置信息，以便在配网时为您自动获取当前连接的Wi-Fi名称。</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称。</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>App需要您的同意，才能访问本地网络，以便发现、连接和控制局域网内的设备。</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称并配网。</string>
-	<!-- 相册访问权限 -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photo library to allow you to select a profile avatar.</string>
-	<!-- 相机访问权限 -->
-	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera to allow you to take a photo for your avatar.</string>
-	<!-- 允许非https请求 -->
- 	<key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <true/>
-    </dict>
-	<key>NSMicrophoneUsageDescription</key>
-    <string>We need access to your microphone if you choose to record a video for your profile.</string>
-	<!-- FULLXPET IOS所需权限声明 end-->
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>CFBundleDisplayName</key>
-	<string>Fullxpet</string>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>fullxpet</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(FLUTTER_BUILD_NAME)</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>UIApplicationSceneManifest</key>
 	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<false/>
-		<key>UISceneConfigurations</key>
+		<!-- FULLXPET IOS所需权限声明 start-->
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>App需要您的同意，才能始终访问蓝牙，以便扫描、连接和管理设备。</string>
+		<key>NSBluetoothPeripheralUsageDescription</key>
+		<string>App需要您的同意，才能访问蓝牙外设，以便连接和管理设备。</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>App需要您的同意，才能在使用期间访问位置信息，以便在配网时为您自动获取当前连接的Wi-Fi名称。</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称。</string>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>App需要您的同意，才能访问本地网络，以便发现、连接和控制局域网内的设备。</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称并配网。</string>
+		<!-- 相册访问权限 -->
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>We need access to your photo library to allow you to select a profile avatar.</string>
+		<!-- 相机访问权限 -->
+		<key>NSCameraUsageDescription</key>
+		<string>We need access to your camera to allow you to take a photo for your avatar.</string>
+		<!-- 允许非https请求 -->
+		<key>NSAppTransportSecurity</key>
 		<dict>
-			<key>UIWindowSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneClassName</key>
-					<string>UIWindowScene</string>
-					<key>UISceneConfigurationName</key>
-					<string>flutter</string>
-					<key>UISceneDelegateClassName</key>
-					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
-				</dict>
-			</array>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
 		</dict>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>We need access to your microphone if you choose to record a video for your profile.</string>
+		<!-- FULLXPET IOS所需权限声明 end-->
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>Fullxpet</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>fullxpet</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>UIApplicationSceneManifest</key>
+		<dict>
+			<key>UIApplicationSupportsMultipleScenes</key>
+			<false/>
+			<key>UISceneConfigurations</key>
+			<dict>
+				<key>UIWindowSceneSessionRoleApplication</key>
+				<array>
+					<dict>
+						<key>UISceneClassName</key>
+						<string>UIWindowScene</string>
+						<key>UISceneConfigurationName</key>
+						<string>flutter</string>
+						<key>UISceneDelegateClassName</key>
+						<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+						<key>UISceneStoryboardFile</key>
+						<string>Main</string>
+					</dict>
+				</array>
+			</dict>
+		</dict>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UIStatusBarHidden</key>
+		<false/>
 	</dict>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-</dict>
 </plist>

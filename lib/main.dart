@@ -7,10 +7,14 @@ import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/app.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  //确保引擎已绑定
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
 
+  // 保持原生启动图
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   // 初始化时区数据
   tz_data.initializeTimeZones();
 

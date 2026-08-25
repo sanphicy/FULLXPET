@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
@@ -31,8 +32,10 @@ class _SplashViewState extends State<_SplashView> {
     final vm = context.read<SplashViewModel>();
     final result = await vm.bootstrapApp();
 
-    if (!mounted) return;
+    // 业务初始化完成，移除原生闪屏，露出 Flutter 界面
+    FlutterNativeSplash.remove();
 
+    if (!mounted) return;
     switch (result) {
       case BootstrapResult.authenticated:
         context.go(AppRoutes.home);
@@ -49,16 +52,10 @@ class _SplashViewState extends State<_SplashView> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(width: 100, height: 100, child: Image.asset('assets/images/logo.png', fit: BoxFit.contain)),
-            const SizedBox(height: 16),
-            const Text(
-              'FULLX PET',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black),
-            ),
-          ],
+        child: SizedBox(
+          width: 100,
+          height: 100,
+          child: Image.asset('assets/images/splash_brand.png', fit: BoxFit.contain),
         ),
       ),
     );
