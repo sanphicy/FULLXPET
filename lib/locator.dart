@@ -10,11 +10,19 @@ import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 
 import 'package:fullxpet/features/user/providers/user_provider.dart';
+import 'package:fullxpet/common/config/app_config.dart';
+import 'package:fullxpet/core/storage/token_manager.dart';
 
 final locator = GetIt.instance;
 
-void setupLocator() {
-  locator.registerLazySingleton<HttpClient>(() => HttpClient());
+void setupLocator({AppConfig? config}) {
+  final appConfig = config ?? AppConfig.prod();
+  TokenManager.init(accessKey: appConfig.accessTokenKey);
+  //注册app配置
+  locator.registerSingleton<AppConfig>(appConfig);
+  // 注册时直接配置 BaseUrl，随用随有
+  locator.registerLazySingleton<HttpClient>(() => HttpClient()..init(baseUrl: appConfig.baseUrl));
+
   // 注册蓝牙管理器并执行自初始化
   locator.registerLazySingleton<BluetoothManager>(() => BluetoothManager()..init());
   // mqtt

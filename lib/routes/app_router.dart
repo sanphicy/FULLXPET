@@ -77,8 +77,11 @@ class AppRoutes {
 }
 
 class AppRouter {
-  static late final GoRouter router;
-
+  static final GoRouter router = GoRouter(
+    navigatorKey: NavService.rootNavigatorKey,
+    initialLocation: AppRoutes.splash,
+    routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
+  );
   static final List<GoRoute> _splashRoutes = [
     GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashPage()),
     GoRoute(path: AppRoutes.welcome, builder: (context, state) => const WelcomePage()),
@@ -107,14 +110,14 @@ class AppRouter {
       return HomeShellPage(navigationShell: navigationShell);
     },
     branches: [
-      // Branch 1: 设备列表
+      //  设备列表
       StatefulShellBranch(
         routes: [
           GoRoute(path: AppRoutes.home, redirect: (_, __) => AppRoutes.tabDevice),
           GoRoute(path: AppRoutes.tabDevice, builder: (context, state) => const DeviceListPage()),
         ],
       ),
-      // Branch 2: 使用数据统计
+      // 使用数据统计
       StatefulShellBranch(
         routes: [
           GoRoute(
@@ -126,7 +129,7 @@ class AppRouter {
           ),
         ],
       ),
-      // Branch 3: 我的个人中心
+      //  我的个人中心
       StatefulShellBranch(
         routes: [GoRoute(path: AppRoutes.tabUser, builder: (context, state) => const UserPage())],
       ),
@@ -233,12 +236,4 @@ class AppRouter {
       },
     ),
   ];
-
-  static void setup(String initialRoute) {
-    router = GoRouter(
-      navigatorKey: NavService.rootNavigatorKey,
-      initialLocation: initialRoute,
-      routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
-    );
-  }
 }

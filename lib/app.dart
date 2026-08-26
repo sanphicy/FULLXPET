@@ -1,61 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:fullxpet/locator.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:fullxpet/routes/app_router.dart';
-import 'package:fullxpet/features/user/providers/user_provider.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:fullxpet/common/l10n/app_localizations.dart';
-import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 
-//应用根组件
+import 'package:fullxpet/common/config/app_config.dart'; // 1. 导入配置类[cite: 2]
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/theme/app_theme.dart';
+import 'package:fullxpet/features/device/device_provider.dart';
+import 'package:fullxpet/features/user/providers/user_provider.dart';
+import 'package:fullxpet/locator.dart';
+import 'package:fullxpet/routes/app_router.dart';
+import 'package:fullxpet/common/constants/dimens.dart';
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  // 统一本地化代理列表
+  static const List<LocalizationsDelegate<dynamic>> _localizationsDelegates = [
+    S.delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ];
+  static double _resolveFontSize(num fontSize, ScreenUtil instance) {
+    final scale = instance.scaleText;
+    return fontSize * (scale > 1.2 ? 1.2 : scale);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      // 注册全局状态
       providers: [
         ChangeNotifierProvider.value(value: locator<UserProvider>()),
         ChangeNotifierProvider.value(value: locator<DeviceProvider>()),
       ],
       child: ScreenUtilInit(
-        // 设计稿尺寸
-        designSize: const Size(375, 812),
+        designSize: Dimens.designSize,
         minTextAdapt: true,
         splitScreenMode: true,
-        // 限制文本最大缩放
-        fontSizeResolver: (fontSize, instance) {
-          final scale = instance.scaleText;
-          final clampedScale = scale > 1.2 ? 1.2 : scale;
-          return fontSize * clampedScale;
-        },
+        fontSizeResolver: _resolveFontSize,
         builder: (context, child) {
           return MaterialApp.router(
-            title: 'FULLXPET',
+            title: locator<AppConfig>().appName,
             debugShowCheckedModeBanner: false,
             routerConfig: AppRouter.router,
             supportedLocales: S.supportedLocales,
-            localizationsDelegates: const [
-              S.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF917CEE)),
-              useMaterial3: true,
-              scaffoldBackgroundColor: Colors.white,
-              appBarTheme: const AppBarTheme(
-                systemOverlayStyle: SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.dark, // Android: 状态栏黑色图标/文字
-                  statusBarBrightness: Brightness.light, // iOS: 状态栏黑色图标/文字
-                ),
-              ),
-            ),
+            localizationsDelegates: _localizationsDelegates,
+            theme: AppTheme.lightTheme,
           );
         },
       ),
