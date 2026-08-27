@@ -7,13 +7,13 @@ import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/user/providers/user_provider.dart';
+import 'package:fullxpet/common/providers/user_provider.dart';
 
 class PersonalInfoPage extends StatelessWidget {
   const PersonalInfoPage({super.key});
 
   void _showEditNicknameDialog(BuildContext context, UserProvider provider, S s) {
-    final TextEditingController controller = TextEditingController(text: provider.userName);
+    final TextEditingController controller = TextEditingController(text: provider.user.nickname);
     showDialog(
       context: context,
       builder: (ctx) {
@@ -38,7 +38,7 @@ class PersonalInfoPage extends StatelessWidget {
                 FocusManager.instance.primaryFocus?.unfocus();
                 final newName = controller.text.trim();
                 Navigator.pop(ctx);
-                if (newName.isNotEmpty && newName != provider.userName) {
+                if (newName.isNotEmpty && newName != provider.user.nickname) {
                   final success = await provider.updateNickname(newName);
                   if (success && context.mounted) {
                     context.showAppToast(message: s.nicknameUpdated, type: AppToastType.success);

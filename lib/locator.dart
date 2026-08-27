@@ -9,9 +9,9 @@ import 'package:fullxpet/features/device/active_device_provider.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 
-import 'package:fullxpet/features/user/providers/user_provider.dart';
 import 'package:fullxpet/common/config/app_config.dart';
 import 'package:fullxpet/core/storage/token_manager.dart';
+import 'package:fullxpet/common/providers/user_provider.dart';
 
 final locator = GetIt.instance;
 

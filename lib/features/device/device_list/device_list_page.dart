@@ -7,7 +7,7 @@ import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/device_list/device_card.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
-import 'package:fullxpet/features/user/providers/user_provider.dart';
+import 'package:fullxpet/common/providers/user_provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class DeviceListPage extends StatefulWidget {
@@ -242,7 +242,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
                 // 2. 用户问候语（局部监听 UserProvider）
                 Selector<UserProvider, String>(
-                  selector: (_, userVm) => userVm.userName,
+                  selector: (_, userVm) => userVm.user.nickname,
                   builder: (context, userName, _) {
                     final displayName = (userName.isNotEmpty && userName != 'Unknown User') ? userName : '';
                     return Text(
@@ -280,7 +280,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Selector<UserProvider, String>(
-                              selector: (_, userVm) => userVm.avatarUrl,
+                              selector: (_, userVm) => userVm.user.avatarUrl,
                               builder: (context, avatarUrl, _) => AppAvatar(avatarUrl: avatarUrl, radius: 16),
                             ),
                             const SizedBox(width: 8),
@@ -289,7 +289,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Selector<UserProvider, String>(
-                                  selector: (_, userVm) => userVm.userName,
+                                  selector: (_, userVm) => userVm.user.nickname,
                                   builder: (context, userName, _) {
                                     return ConstrainedBox(
                                       constraints: const BoxConstraints(maxWidth: 100),

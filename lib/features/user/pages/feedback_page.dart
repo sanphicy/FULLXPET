@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fullxpet/common/config/app_constants.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/theme/app_theme.dart';
 
 class FeedbackPage extends StatelessWidget {
   const FeedbackPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryPurple = Color(0xFF917CEE);
+    final s = S.of(context)!;
+    const Color primaryPurple = AppTheme.primaryPurple;
     const Color pageBgColor = Color(0xFFFEF7FF);
 
     return Scaffold(
@@ -17,9 +20,9 @@ class FeedbackPage extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         scrolledUnderElevation: 0,
-        title: const Text(
-          '意见与反馈',
-          style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+        title: Text(
+          s.feedback,
+          style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
@@ -31,18 +34,17 @@ class FeedbackPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '意见与反馈',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+            Text(
+              s.feedback,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
             ),
             const SizedBox(height: 12),
             const Text(
               '\u3000\u3000如果您有任何问题或建议，欢迎随时与我们联系：',
-              softWrap: true, // 避免文本溢出
+              softWrap: true,
               style: TextStyle(fontSize: 14, color: Color(0xFF444444), height: 1.6),
             ),
             const SizedBox(height: 20),
-            // 联系方式卡片（带防溢出换行）
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),

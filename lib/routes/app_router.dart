@@ -1,51 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
+import 'package:fullxpet/common/widgets/web_view_page.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
-import 'package:fullxpet/features/home/home_shell_page.dart';
 import 'package:fullxpet/locator.dart';
 
-// splash
+// Splash
 import 'package:fullxpet/features/splash/pages/splash_page.dart';
 import 'package:fullxpet/features/splash/pages/welcome_page.dart';
 
-// auth
+// Auth
+import 'package:fullxpet/features/auth/page/forgot_password_page.dart';
 import 'package:fullxpet/features/auth/page/login_page.dart';
 import 'package:fullxpet/features/auth/page/register_page.dart';
-import 'package:fullxpet/features/auth/page/forgot_password_page.dart';
+import 'package:fullxpet/features/auth/viewmodels/forgot_password_view_model.dart';
 import 'package:fullxpet/features/auth/viewmodels/login_view_model.dart';
 import 'package:fullxpet/features/auth/viewmodels/register_view_model.dart';
-import 'package:fullxpet/features/auth/viewmodels/forgot_password_view_model.dart';
 
-// home tabs
+// Home Shell & Tabs
+import 'package:fullxpet/features/home/home_shell_page.dart';
 import 'package:fullxpet/features/device/device_list/device_list_page.dart';
 import 'package:fullxpet/features/device/device_usage/device_usage_page.dart';
 import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart';
 import 'package:fullxpet/features/user/pages/user_page.dart';
 
-// device
+// Device
+import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
+import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
+import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
+import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
+import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
 import 'package:fullxpet/features/device/device_manager/device_manager_page.dart';
 import 'package:fullxpet/features/device/device_manager/device_setting_page.dart';
-import 'package:fullxpet/features/device/device_manager/timer_mode_page.dart';
-import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
-import 'package:fullxpet/features/device/device_manager/weighing_calibration_page.dart';
 import 'package:fullxpet/features/device/device_manager/time_zone_search_page.dart';
-import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
-import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
-import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
-import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
-import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
-import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/device_manager/timer_mode_page.dart';
+import 'package:fullxpet/features/device/device_manager/weighing_calibration_page.dart';
+import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
 
-// user
-import 'package:fullxpet/features/user/pages/personal_info_page.dart';
+// User
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
 import 'package:fullxpet/features/user/pages/feedback_page.dart';
-
-// other
-import 'package:fullxpet/common/widgets/web_view_page.dart';
+import 'package:fullxpet/features/user/pages/personal_info_page.dart';
 
 class AppRoutes {
+  // Splash & Auth
   static const splash = '/splash';
   static const welcome = '/welcome';
   static const login = '/login';
@@ -58,21 +58,30 @@ class AppRoutes {
   static const tabUsage = '/home/usage';
   static const tabUser = '/home/user';
 
-  // Device Detail
+  // Device Detail (路径声明)
   static const deviceManager = '/device_manager/:id';
   static const deviceSetting = '/device_setting/:id';
   static const timezone = '/device_setting/:id/timezone';
   static const deviceTimer = '/device_setting/:id/timer';
   static const deviceWifi = '/device_setting/:id/wifi';
   static const deviceWeighing = '/device_setting/:id/weighing';
-  static const deviceAddSearch = '/device-add-search';
-  static const deviceAddWifi = '/device-add-wifi';
-  static const deviceAddSuccess = '/device-add-success/:id';
+  static const deviceAddSearch = '/device_add_search';
+  static const deviceAddWifi = '/device_add_wifi';
+  static const deviceAddSuccess = '/device_add_success/:id';
 
-  // User
+  // Device Detail (跳转辅助方法 - 业务代码直接调，避免手写字符串)
+  static String deviceManagerPath(String id) => '/device_manager/$id';
+  static String deviceSettingPath(String id) => '/device_setting/$id';
+  static String timezonePath(String id) => '/device_setting/$id/timezone';
+  static String deviceTimerPath(String id) => '/device_setting/$id/timer';
+  static String deviceWifiPath(String id) => '/device_setting/$id/wifi';
+  static String deviceWeighingPath(String id) => '/device_setting/$id/weighing';
+  static String deviceAddSuccessPath(String id) => '/device_add_success/$id';
+
+  // User & Common
   static const personalInfo = '/personal_info';
-  static const String aboutUs = '/about_us';
-  static const String feedback = '/feedback';
+  static const aboutUs = '/about_us';
+  static const feedback = '/feedback';
   static const webView = '/web_view';
 }
 
@@ -82,6 +91,12 @@ class AppRouter {
     initialLocation: AppRoutes.splash,
     routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
   );
+
+  // 统一包装 ActiveDeviceProvider 作用域
+  static Widget _withActiveDevice(Widget child) {
+    return ChangeNotifierProvider<ActiveDeviceProvider>.value(value: locator<ActiveDeviceProvider>(), child: child);
+  }
+
   static final List<GoRoute> _splashRoutes = [
     GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashPage()),
     GoRoute(path: AppRoutes.welcome, builder: (context, state) => const WelcomePage()),
@@ -104,20 +119,18 @@ class AppRouter {
     ),
   ];
 
-  // 使用 StatefulShellRoute 管理底部三大 Tab
+  // 管理底部三大 Tab（StatefulShellRoute 自动保活）
   static final StatefulShellRoute _homeShellRoute = StatefulShellRoute.indexedStack(
     builder: (context, state, navigationShell) {
       return HomeShellPage(navigationShell: navigationShell);
     },
     branches: [
-      //  设备列表
       StatefulShellBranch(
         routes: [
           GoRoute(path: AppRoutes.home, redirect: (_, __) => AppRoutes.tabDevice),
           GoRoute(path: AppRoutes.tabDevice, builder: (context, state) => const DeviceListPage()),
         ],
       ),
-      // 使用数据统计
       StatefulShellBranch(
         routes: [
           GoRoute(
@@ -129,7 +142,6 @@ class AppRouter {
           ),
         ],
       ),
-      //  我的个人中心
       StatefulShellBranch(
         routes: [GoRoute(path: AppRoutes.tabUser, builder: (context, state) => const UserPage())],
       ),
@@ -142,49 +154,22 @@ class AppRouter {
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
         locator<ActiveDeviceProvider>().selectDevice(deviceId);
-        return ChangeNotifierProvider<ActiveDeviceProvider>.value(
-          value: locator<ActiveDeviceProvider>(),
-          child: DeviceManagerPage(deviceId: deviceId),
-        );
+        return _withActiveDevice(DeviceManagerPage(deviceId: deviceId));
       },
     ),
     GoRoute(
       path: AppRoutes.deviceSetting,
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
-        return ChangeNotifierProvider<ActiveDeviceProvider>.value(
-          value: locator<ActiveDeviceProvider>(),
-          child: DeviceSettingPage(deviceId: deviceId),
-        );
+        return _withActiveDevice(DeviceSettingPage(deviceId: deviceId));
       },
     ),
-    GoRoute(
-      path: AppRoutes.timezone,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const TimeZoneSearchPage(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceTimer,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const TimerModePage(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceWifi,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const WifiInfoPage(),
-      ),
-    ),
+    GoRoute(path: AppRoutes.timezone, builder: (context, state) => _withActiveDevice(const TimeZoneSearchPage())),
+    GoRoute(path: AppRoutes.deviceTimer, builder: (context, state) => _withActiveDevice(const TimerModePage())),
+    GoRoute(path: AppRoutes.deviceWifi, builder: (context, state) => _withActiveDevice(const WifiInfoPage())),
     GoRoute(
       path: AppRoutes.deviceWeighing,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const WeighingCalibrationPage(),
-      ),
+      builder: (context, state) => _withActiveDevice(const WeighingCalibrationPage()),
     ),
     GoRoute(
       path: AppRoutes.deviceAddSearch,
@@ -216,11 +201,7 @@ class AppRouter {
   ];
 
   static final List<GoRoute> _userRoutes = [
-    GoRoute(
-      path: AppRoutes.personalInfo,
-      // 这里的 UserProvider 已在全局根树挂载，直接进入页面消费即可，无需再从 extra 强转
-      builder: (context, state) => const PersonalInfoPage(),
-    ),
+    GoRoute(path: AppRoutes.personalInfo, builder: (context, state) => const PersonalInfoPage()),
     GoRoute(path: AppRoutes.aboutUs, builder: (context, state) => const AboutUsPage()),
     GoRoute(path: AppRoutes.feedback, builder: (context, state) => const FeedbackPage()),
   ];

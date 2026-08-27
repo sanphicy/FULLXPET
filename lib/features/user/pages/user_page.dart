@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/config/app_constants.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/theme/app_theme.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/user/providers/user_provider.dart';
+import 'package:fullxpet/common/providers/user_provider.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class UserPage extends StatelessWidget {
@@ -15,7 +17,7 @@ class UserPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context)!;
 
-    const Color primaryPurple = Color(0xFF917CEE);
+    const Color primaryPurple = AppTheme.primaryPurple;
     const Color textColor = Color(0xFF333333);
     const Color subTextColor = Color(0xFF666666);
     const Color bgColor = Color(0xFFF9F9FC);
@@ -31,10 +33,8 @@ class UserPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
-
-                // 1. 用户信息头部（外层单个 Selector 一次性读取头像、昵称与 ID）
                 Selector<UserProvider, (String, String, String)>(
-                  selector: (_, vm) => (vm.avatarUrl, vm.userName, vm.userId),
+                  selector: (_, vm) => (vm.user.avatarUrl, vm.user.nickname, vm.user.userId),
                   builder: (context, data, _) {
                     final avatarUrl = data.$1;
                     final userName = data.$2;
@@ -99,8 +99,6 @@ class UserPage extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 30),
-
-                // 2. 设置列表项 第一组
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -117,7 +115,7 @@ class UserPage extends StatelessWidget {
                     children: [
                       _buildListTile(
                         Icons.privacy_tip_outlined,
-                        const Color(0xFF917CEE),
+                        primaryPurple,
                         s.privacyPolicy,
                         onTap: () {
                           context.push(
@@ -139,7 +137,7 @@ class UserPage extends StatelessWidget {
                         },
                       ),
                       _buildDivider(),
-                      Selector<UserProvider, String>(
+                      Selector<UserViewModel, String>(
                         selector: (_, vm) => vm.appVersion,
                         builder: (context, version, _) {
                           return _buildListTile(
@@ -155,8 +153,6 @@ class UserPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // 3. 设置列表项 第二组
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
