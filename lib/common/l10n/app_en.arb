@@ -18,6 +18,7 @@
   "resetPasswordSuccess": "Password reset successfully, please log in",
   "hasAccountGoLogin": "Already have an account? Log In",
   "rememberPasswordGoLogin": "Remember password? Log In",
+  "tokenParseError": "Failed to parse login token, please try again",
   "confirm": "Confirm",
   "cancel": "Cancel",
   "save": "Save",

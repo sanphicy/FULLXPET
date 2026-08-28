@@ -14,7 +14,7 @@ class UserProvider extends BaseProvider {
 
   final HttpClient _httpClient = locator<HttpClient>();
 
-  // 外部/ViewModel 手动更新全局用户数据
+  // 手动更新全局用户数据
   void updateUser(UserDto newUser) {
     _user = newUser;
     notifyListeners();

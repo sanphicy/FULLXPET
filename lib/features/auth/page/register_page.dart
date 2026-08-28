@@ -109,7 +109,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (mounted) _isSubmitting.value = false;
     if (success && mounted) {
-      context.go(AppRoutes.login);
+      context.go(AppRoutes.home);
     } else if (viewModel.hasError && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(viewModel.errorMsg)));
     }

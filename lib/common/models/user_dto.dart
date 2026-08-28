@@ -7,6 +7,7 @@ class UserDto {
   final String email;
   final String phone;
   final String account;
+  final String phoneCountryCode;
 
   // 国内版 默认使用上海时区与CN编码
   const UserDto({
@@ -18,6 +19,7 @@ class UserDto {
     this.email = '',
     this.phone = '',
     this.account = '',
+    this.phoneCountryCode = '+86',
   });
 
   /// 从后端接口返回的 Map 构造实例
@@ -40,6 +42,7 @@ class UserDto {
       email: emailStr,
       phone: phoneStr,
       account: accountStr,
+      phoneCountryCode: json['phoneCountryCode']?.toString() ?? '+86',
     );
   }
 
@@ -54,6 +57,7 @@ class UserDto {
       'email': email,
       'phone': phone,
       'account': account,
+      'phoneCountryCode': phoneCountryCode,
     };
   }
 
@@ -67,6 +71,7 @@ class UserDto {
     String? email,
     String? phone,
     String? account,
+    String? phoneCountryCode,
   }) {
     return UserDto(
       userId: userId ?? this.userId,
@@ -77,6 +82,7 @@ class UserDto {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       account: account ?? this.account,
+      phoneCountryCode: phoneCountryCode ?? this.phoneCountryCode,
     );
   }
 }

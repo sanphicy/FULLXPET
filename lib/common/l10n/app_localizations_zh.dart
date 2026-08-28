@@ -63,6 +63,9 @@ class SZh extends S {
   String get rememberPasswordGoLogin => '想起密码？去登录';
 
   @override
+  String get tokenParseError => '登录凭证解析失败，请重试';
+
+  @override
   String get confirm => '确认';
 
   @override

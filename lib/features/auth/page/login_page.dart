@@ -81,6 +81,10 @@ class _LoginPageState extends State<LoginPage> {
           Selector<LoginViewModel, CountryDto?>(
             selector: (_, vm) => vm.currentCountry,
             builder: (context, currentCountry, _) {
+              final String displayLabel = currentCountry != null
+                  ? '${currentCountry.name} (${currentCountry.phoneCountryCode})'
+                  : s.selectCountry;
+
               return GestureDetector(
                 onTap: () async {
                   final country = await CountryPickerSheet.show(context);
@@ -96,7 +100,7 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        currentCountry?.name ?? s.selectCountry,
+                        displayLabel,
                         style: TextStyle(fontSize: 12, color: _primaryPurple, fontWeight: FontWeight.bold),
                       ),
                       Icon(Icons.arrow_drop_down, color: _primaryPurple, size: 18),

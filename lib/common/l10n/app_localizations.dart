@@ -205,6 +205,12 @@ abstract class S {
   /// **'想起密码？去登录'**
   String get rememberPasswordGoLogin;
 
+  /// No description provided for @tokenParseError.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录凭证解析失败，请重试'**
+  String get tokenParseError;
+
   /// No description provided for @confirm.
   ///
   /// In zh, this message translates to:

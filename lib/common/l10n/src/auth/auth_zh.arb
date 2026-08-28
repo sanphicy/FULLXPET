@@ -16,5 +16,6 @@
   "passwordMismatch": "两次输入的密码不一致",
   "resetPasswordSuccess": "密码重置成功，请重新登录",
   "hasAccountGoLogin": "已有账号？去登录",
-  "rememberPasswordGoLogin": "想起密码？去登录"
+  "rememberPasswordGoLogin": "想起密码？去登录",
+  "tokenParseError": "登录凭证解析失败，请重试"
 }

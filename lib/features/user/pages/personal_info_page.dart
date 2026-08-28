@@ -3,17 +3,31 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/models/user_dto.dart';
+import 'package:fullxpet/common/providers/user_provider.dart';
+import 'package:fullxpet/common/theme/app_theme.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/app_dialogs.dart';
-import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/common/providers/user_provider.dart';
+import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 
 class PersonalInfoPage extends StatelessWidget {
   const PersonalInfoPage({super.key});
 
-  void _showEditNicknameDialog(BuildContext context, UserProvider provider, S s) {
-    final TextEditingController controller = TextEditingController(text: provider.user.nickname);
+  @override
+  Widget build(BuildContext context) {
+    // 按需创建局部 ViewModel，离开页面自动销毁[cite: 1]
+    return ChangeNotifierProvider(create: (_) => UserViewModel(), child: const _PersonalInfoView());
+  }
+}
+
+class _PersonalInfoView extends StatelessWidget {
+  const _PersonalInfoView();
+
+  void _showEditNicknameDialog(BuildContext context, UserViewModel vm, String currentNickname, S s) {
+    final TextEditingController controller = TextEditingController(text: currentNickname);
     showDialog(
       context: context,
       builder: (ctx) {
@@ -25,7 +39,7 @@ class PersonalInfoPage extends StatelessWidget {
             autofocus: true,
             decoration: InputDecoration(
               hintText: s.enterNewNickname,
-              focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF917CEE))),
+              focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryPurple)),
             ),
           ),
           actions: [
@@ -38,8 +52,8 @@ class PersonalInfoPage extends StatelessWidget {
                 FocusManager.instance.primaryFocus?.unfocus();
                 final newName = controller.text.trim();
                 Navigator.pop(ctx);
-                if (newName.isNotEmpty && newName != provider.user.nickname) {
-                  final success = await provider.updateNickname(newName);
+                if (newName.isNotEmpty && newName != currentNickname) {
+                  final success = await vm.updateNickname(newName);
                   if (success && context.mounted) {
                     context.showAppToast(message: s.nicknameUpdated, type: AppToastType.success);
                   }
@@ -47,7 +61,7 @@ class PersonalInfoPage extends StatelessWidget {
               },
               child: Text(
                 s.confirm,
-                style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold),
+                style: const TextStyle(color: AppTheme.primaryPurple, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -56,7 +70,7 @@ class PersonalInfoPage extends StatelessWidget {
     );
   }
 
-  void _showImagePicker(BuildContext context, UserProvider provider, S s) {
+  void _showImagePicker(BuildContext context, UserViewModel vm, S s) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -71,7 +85,7 @@ class PersonalInfoPage extends StatelessWidget {
                 title: Text(s.chooseFromGallery),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  final success = await provider.uploadAvatar(ImageSource.gallery);
+                  final success = await vm.uploadAvatar(ImageSource.gallery);
                   if (success && context.mounted) {
                     context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
                   }
@@ -82,7 +96,10 @@ class PersonalInfoPage extends StatelessWidget {
                 title: Text(s.takePhoto),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  await provider.uploadAvatar(ImageSource.camera);
+                  final success = await vm.uploadAvatar(ImageSource.camera);
+                  if (success && context.mounted) {
+                    context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
+                  }
                 },
               ),
             ],
@@ -92,8 +109,7 @@ class PersonalInfoPage extends StatelessWidget {
     );
   }
 
-  /// 注销安全验证弹窗
-  void _showDeleteAccountDialog(BuildContext context, UserProvider provider, S s) {
+  void _showDeleteAccountDialog(BuildContext context, UserViewModel vm, String account, S s) {
     final TextEditingController codeController = TextEditingController();
     int countdown = 0;
     Timer? timer;
@@ -131,7 +147,7 @@ class PersonalInfoPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '注销后账号数据将永久删除且无法恢复。我们将向 ${provider.account} 发送验证码以确认操作。',
+                    '注销后账号数据将永久删除且无法恢复。我们将向 $account 发送验证码以确认操作。',
                     style: const TextStyle(fontSize: 13, color: Color(0xFF666666), height: 1.4),
                   ),
                   const SizedBox(height: 16),
@@ -157,26 +173,24 @@ class PersonalInfoPage extends StatelessWidget {
                               ? null
                               : () async {
                                   setState(() => isSending = true);
-                                  final cd = await provider.sendDeleteAccountCode();
+                                  final cd = await vm.sendDeleteAccountCode();
                                   setState(() => isSending = false);
                                   if (cd > 0) {
                                     startCountdown(cd);
-                                  } else if (provider.hasError && context.mounted) {
-                                    context.showAppToast(message: provider.errorMsg, type: AppToastType.error);
                                   }
                                 },
                           child: isSending
                               ? const SizedBox(
                                   width: 14,
                                   height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF917CEE)),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryPurple),
                                 )
                               : Text(
                                   countdown > 0 ? '${countdown}s' : s.sendCode,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: countdown > 0 ? Colors.grey : const Color(0xFF917CEE),
+                                    color: countdown > 0 ? Colors.grey : AppTheme.primaryPurple,
                                   ),
                                 ),
                         ),
@@ -208,14 +222,7 @@ class PersonalInfoPage extends StatelessWidget {
                     FocusManager.instance.primaryFocus?.unfocus();
                     timer?.cancel();
                     Navigator.pop(ctx);
-
-                    final success = await provider.deleteAccount(code);
-                    if (!success && context.mounted) {
-                      context.showAppToast(
-                        message: provider.errorMsg.isNotEmpty ? provider.errorMsg : "注销失败",
-                        type: AppToastType.error,
-                      );
-                    }
+                    await vm.deleteAccount(code);
                   },
                   child: const Text(
                     "确认注销",
@@ -233,13 +240,16 @@ class PersonalInfoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final provider = context.watch<UserProvider>();
+    // 监听局部 ViewModel 状态（loading / 错误信息）[cite: 1]
+    final vm = context.watch<UserViewModel>();
+    // 精准监听全局 UserDto 实体[cite: 1, 2]
+    final user = context.select<UserProvider, UserDto>((p) => p.user);
 
     const Color textColor = Color(0xFF333333);
     const Color valueColor = Color(0xFF888888);
     const Color dividerColor = Color(0xFFEEEEEE);
 
-    final String displayAccount = provider.account.isNotEmpty ? provider.account : s.notBound;
+    final String displayAccount = user.account.isNotEmpty ? user.account : s.notBound;
 
     String accountLabel = s.accountLabel;
     if (displayAccount.contains('@')) {
@@ -272,28 +282,28 @@ class PersonalInfoPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Column(
                   children: [
-                    // 1. 头像项
+                    // 1. 头像
                     _buildListItem(
                       title: s.avatar,
                       textColor: textColor,
                       showArrow: true,
-                      onTap: () => _showImagePicker(context, provider, s),
-                      trailing: AppAvatar(avatarUrl: provider.avatarUrl, radius: 22),
+                      onTap: () => _showImagePicker(context, vm, s),
+                      trailing: AppAvatar(avatarUrl: user.avatarUrl, radius: 22),
                     ),
                     const Divider(height: 1, color: dividerColor),
 
-                    // 2. 昵称项
+                    // 2. 昵称
                     _buildListItem(
                       title: s.nickname,
                       textColor: textColor,
-                      trailingText: provider.userName,
+                      trailingText: user.nickname,
                       valueColor: valueColor,
                       showArrow: true,
-                      onTap: () => _showEditNicknameDialog(context, provider, s),
+                      onTap: () => _showEditNicknameDialog(context, vm, user.nickname, s),
                     ),
                     const Divider(height: 1, color: dividerColor),
 
-                    // 3. 真实账号展示
+                    // 3. 账号
                     _buildListItem(
                       title: accountLabel,
                       textColor: textColor,
@@ -315,7 +325,7 @@ class PersonalInfoPage extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           elevation: 0,
                         ),
-                        onPressed: () => _showDeleteAccountDialog(context, provider, s),
+                        onPressed: () => _showDeleteAccountDialog(context, vm, user.account, s),
                         child: Text(
                           s.deleteAccount,
                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
@@ -330,7 +340,7 @@ class PersonalInfoPage extends StatelessWidget {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF917CEE),
+                          backgroundColor: AppTheme.primaryPurple,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           elevation: 0,
                         ),
@@ -342,7 +352,7 @@ class PersonalInfoPage extends StatelessWidget {
                             cancelText: s.cancel,
                           );
                           if (confirm == true) {
-                            await provider.logout();
+                            await context.read<UserProvider>().logout();
                           }
                         },
                         child: Text(
@@ -356,10 +366,11 @@ class PersonalInfoPage extends StatelessWidget {
                 ),
               ),
 
-              if (provider.isLoading)
+              // 遮罩 Loading（直接绑定 vm.isLoading）
+              if (vm.isLoading)
                 Container(
                   color: Colors.black.withValues(alpha: 0.2),
-                  child: const Center(child: CircularProgressIndicator(color: Color(0xFF917CEE))),
+                  child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryPurple)),
                 ),
             ],
           ),

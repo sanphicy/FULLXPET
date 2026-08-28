@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
 import 'package:fullxpet/core/network/result_model.dart';
-import 'package:fullxpet/core/services/region_service.dart';
 import 'package:fullxpet/features/auth/models/auth_request.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 import 'package:fullxpet/locator.dart';
@@ -15,7 +15,21 @@ class UserViewModel extends BaseProvider {
   final UserProvider _userProvider = locator<UserProvider>();
   final AuthRepository _authRepo = locator<AuthRepository>();
   final HttpClient _httpClient = locator<HttpClient>();
-  final RegionService _regionService = locator<RegionService>();
+
+  String _appVersion = '';
+  String get appVersion => _appVersion;
+
+  UserViewModel() {
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _appVersion = info.version;
+      notifyListeners();
+    } catch (_) {}
+  }
 
   // 修改昵称
   Future<bool> updateNickname(String newName) async {
@@ -88,7 +102,7 @@ class UserViewModel extends BaseProvider {
         SendEmailCodeRequest(email: currentUser.account, purpose: "delete_account"),
       );
     } else {
-      final phonePrefix = _regionService.currentCountry?.phoneCountryCode ?? "+86";
+      final phonePrefix = _userProvider.user.phoneCountryCode;
       result = await _authRepo.sendPhoneVerifyCode(
         SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: currentUser.account, purpose: "delete_account"),
       );

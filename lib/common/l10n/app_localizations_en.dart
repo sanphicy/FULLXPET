@@ -64,6 +64,9 @@ class SEn extends S {
   String get rememberPasswordGoLogin => 'Remember password? Log In';
 
   @override
+  String get tokenParseError => 'Failed to parse login token, please try again';
+
+  @override
   String get confirm => 'Confirm';
 
   @override

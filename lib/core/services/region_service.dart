@@ -87,6 +87,7 @@ class RegionService {
     await switchCountryByCode(countryCode);
   }
 
+  //加载国家列表
   Future<List<CountryDto>> loadCountryList() async {
     //  如果内存已有，直接返回
     if (_countries.isNotEmpty) return _countries;
@@ -149,6 +150,7 @@ class RegionService {
     return true;
   }
 
+  // 根据国家代码切换对应的服务器机房地址并保存到本地
   Future<bool> switchCountryByCode(String countryCode) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -187,6 +189,7 @@ class RegionService {
     return false;
   }
 
+  //根据当前地区自动匹配国家
   CountryDto _matchDefaultCountryBySystem() {
     final systemLocale = ui.PlatformDispatcher.instance.locale;
     final sysCountryCode = systemLocale.countryCode?.toUpperCase() ?? 'CN';
