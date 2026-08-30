@@ -22,27 +22,33 @@ class UserDto {
     this.phoneCountryCode = '+86',
   });
 
-  /// 从后端接口返回的 Map 构造实例
+  // 从后端接口返回的 Map 构造实例
   factory UserDto.fromJson(Map<String, dynamic> json) {
     final emailStr = json['email']?.toString() ?? '';
     final phoneStr = json['phone']?.toString() ?? '';
 
-    // 自动计算当前展示账号（优先邮箱，其次手机号）
     String accountStr = json['account']?.toString() ?? '';
     if (accountStr.isEmpty) {
       accountStr = emailStr.isNotEmpty ? emailStr : phoneStr;
     }
+    final rawPhoneCode = json['phoneCountryCode']?.toString().trim() ?? '';
+    final safePhoneCode = rawPhoneCode.isNotEmpty ? rawPhoneCode : '+86';
+
+    final rawCountryCode = json['countryCode']?.toString().trim() ?? '';
+    final safeCountryCode = rawCountryCode.isNotEmpty ? rawCountryCode : 'CN';
 
     return UserDto(
       userId: json['userId']?.toString() ?? json['id']?.toString() ?? '',
-      nickname: json['nickname']?.toString() ?? json['username']?.toString() ?? '',
-      avatarUrl: json['avatarDisplay']?.toString() ?? json['avatar']?.toString() ?? '',
-      countryCode: json['countryCode']?.toString() ?? 'CN',
+      nickname:
+          json['nickname']?.toString() ?? json['username']?.toString() ?? '',
+      avatarUrl:
+          json['avatarDisplay']?.toString() ?? json['avatar']?.toString() ?? '',
+      countryCode: safeCountryCode,
       timezone: json['timezone']?.toString() ?? 'Asia/Shanghai',
       email: emailStr,
       phone: phoneStr,
       account: accountStr,
-      phoneCountryCode: json['phoneCountryCode']?.toString() ?? '+86',
+      phoneCountryCode: safePhoneCode,
     );
   }
 
