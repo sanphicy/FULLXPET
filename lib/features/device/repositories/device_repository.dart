@@ -185,6 +185,30 @@ class DeviceRepository {
     }
   }
 
+  // 获取 MQTT 连接凭证
+  Future<ResultEntity<Map<String, dynamic>>> fetchMqttCredentials() async {
+    try {
+      final res = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.mqttCredentials);
+      if (res.data != null && (res.code == 0 || res.code == 200)) {
+        return ResultEntity.success(res.data!);
+      }
+      return ResultEntity.error(res.message);
+    } catch (e) {
+      return ResultEntity.error("获取 MQTT 凭证异常: $e");
+    }
+  }
+
+  // 一键同步订阅所有设备的主题
+  Future<bool> syncMqttSubscriptions() async {
+    try {
+      final res = await _httpClient.post(ApiEndpoints.mqttSubscribeSync);
+      return res.code == 0 || res.code == 200;
+    } catch (e) {
+      debugPrint("一键同步订阅失败: $e");
+      return false;
+    }
+  }
+
   // 开始监听 MQTT 消息
   void _startListeningMqtt() {
     _mqttSub = _mqttManager.messageStream.listen((data) {

@@ -16,5 +16,6 @@
   "actionIdle": "Idle",
   "actionAddLitter": "Add Litter",
   "actionEmptyLitter": "Empty Litter",
-  "actionResetting": "Resetting"
+  "actionResetting": "Resetting",
+  "networkError":"Network Error"
 }

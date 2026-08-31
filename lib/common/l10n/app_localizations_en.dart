@@ -121,6 +121,9 @@ class SEn extends S {
   String get actionResetting => 'Resetting';
 
   @override
+  String get networkError => 'Network Error';
+
+  @override
   String get wifiConfigTitle => '配置设备网络';
 
   @override
@@ -438,6 +441,9 @@ class SEn extends S {
   @override
   String get resetWifiSuccess =>
       'Reset Wi-Fi command sent, device entering pairing mode';
+
+  @override
+  String get latestVersion => 'Latest';
 
   @override
   String get dataStatistics => 'Data Statistics';

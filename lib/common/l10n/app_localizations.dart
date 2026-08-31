@@ -319,6 +319,12 @@ abstract class S {
   /// **'复位中'**
   String get actionResetting;
 
+  /// No description provided for @networkError.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络连接失败，请检查网络设置'**
+  String get networkError;
+
   /// No description provided for @wifiConfigTitle.
   ///
   /// In zh, this message translates to:
@@ -930,6 +936,12 @@ abstract class S {
   /// In zh, this message translates to:
   /// **'重置 Wi-Fi 指令已发送，设备即将重启配网模式'**
   String get resetWifiSuccess;
+
+  /// No description provided for @latestVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新'**
+  String get latestVersion;
 
   /// No description provided for @dataStatistics.
   ///

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
@@ -17,46 +19,29 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   DeviceDto? get currentDevice => _currentDevice;
 
   StreamSubscription<String>? _repoSubscription;
+  Timer? _otaPollingTimer;
 
-  String _pendingOtaRecordId = '';
-  String _currentTimeZoneId = 'Asia/Shanghai';
-  String get currentTimeZoneId => _currentTimeZoneId;
-
-  String _currentTimeZoneOffset = 'UTC+08:00';
-  String get currentTimeZoneOffset => _currentTimeZoneOffset;
-
-  List<String> _localTimerList = [];
-  List<String> get timerList => _localTimerList;
-
-  bool _hasNewFirmware = false;
-  bool get hasNewFirmware => _hasNewFirmware;
-
-  String _newFirmwareVersion = '';
-  String get newFirmwareVersion => _newFirmwareVersion;
-
+  // 1. 全部委托给 _currentDevice，保留对外 Getter 确保 UI 0 成本无缝兼容
+  List<String> get timerList => _currentDevice?.timerList ?? [];
+  bool get hasNewFirmware => _currentDevice?.hasNewFirmware ?? false;
+  String get newFirmwareVersion => _currentDevice?.newFirmwareVersion ?? '';
+  bool get isOtaUpdating => _currentDevice?.isOtaUpdating ?? false;
+  int get savedCalibrationWeight => _currentDevice?.savedCalibrationWeight ?? 5000;
+  String get currentTimeZoneId => _currentDevice?.timeZoneId ?? 'Asia/Shanghai';
+  String get currentTimeZoneOffset => _currentDevice?.timeZoneOffset ?? 'UTC+08:00';
+  int get autoModeIndex => _currentDevice?.autoModeIndex ?? 0;
   bool get isNetworkGood => true;
 
-  int _savedCalibrationWeight = 5000;
-  int get savedCalibrationWeight => _savedCalibrationWeight;
+  final List<String> autoModeOptions = const ['1', '2', '3', '4', '5'];
 
-  final List<String> _autoModeOptions = ['1', '2', '3', '4', '5'];
-  List<String> get autoModeOptions => _autoModeOptions;
-
-  int get autoModeIndex {
-    if (_currentDevice == null) return 0;
-    int mins = _currentDevice!.autoModeDelaySeconds ~/ 60;
-    int idx = _autoModeOptions.indexOf(mins.toString());
-    return idx == -1 ? 0 : idx;
+  S? get _s {
+    final BuildContext? ctx = NavService.rootNavigatorKey.currentContext;
+    return ctx != null ? S.of(ctx) : null;
   }
-
-  Timer? _otaPollingTimer;
-  bool _isOtaUpdating = false;
-  bool get isOtaUpdating => _isOtaUpdating;
 
   ActiveDeviceProvider() {
     _repoSubscription = _deviceRepo.onDeviceUpdated.listen((updatedDeviceId) {
-      if (_currentDevice != null &&
-          _currentDevice!.deviceId == updatedDeviceId) {
+      if (_currentDevice != null && _currentDevice!.deviceId == updatedDeviceId) {
         notifyListeners();
       }
     });
@@ -82,7 +67,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   bool _checkOffline() {
     if (_currentDevice == null) return false;
     if (!_currentDevice!.isOnline) {
-      setError('offline');
+      setError(_s?.offline ?? 'offline');
       return false;
     }
     return true;
@@ -100,7 +85,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     required Map<String, dynamic> newAttrs,
     required Map<String, dynamic> oldAttrs,
     required Future<bool> Function() apiCall,
-    required String errorMsg,
+    String? errorMsg,
   }) async {
     _currentDevice!.updateAttributesFromMap(newAttrs);
     notifyListeners();
@@ -108,21 +93,21 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final success = await _executeWithTimeout(apiCall);
     if (!success) {
       _currentDevice!.updateAttributesFromMap(oldAttrs);
-      setError(errorMsg);
+      setError(errorMsg ?? _s?.operationFailed ?? 'Operation Failed');
       notifyListeners();
     }
   }
 
+  // 选择并激活当前设备
   Future<void> selectDevice(String id) async {
     if (_currentDevice?.deviceId == id) return;
     _currentDevice = _deviceRepo.getDevice(id);
-    _localTimerList = List.from(_currentDevice!.timerList);
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      _savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
-      _currentTimeZoneId = await FlutterTimezone.getLocalTimezone();
-      _currentTimeZoneOffset = _calculateOffsetStr(_currentTimeZoneId);
+      _currentDevice!.savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
+      _currentDevice!.timeZoneId = await FlutterTimezone.getLocalTimezone();
+      _currentDevice!.timeZoneOffset = _calculateOffsetStr(_currentDevice!.timeZoneId);
     } catch (_) {}
 
     clearError();
@@ -137,13 +122,13 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
       final otaData = await _deviceRepo.checkPendingFirmware(id);
       if (otaData != null && otaData['recordId'] != null) {
-        _hasNewFirmware = true;
-        _newFirmwareVersion = otaData['version']?.toString() ?? '最新版';
-        _pendingOtaRecordId = otaData['recordId'].toString();
+        _currentDevice!.hasNewFirmware = true;
+        _currentDevice!.newFirmwareVersion = otaData['version']?.toString() ?? (_s?.latestVersion ?? '最新');
+        _currentDevice!.pendingOtaRecordId = otaData['recordId'].toString();
       } else {
-        _hasNewFirmware = false;
-        _newFirmwareVersion = '';
-        _pendingOtaRecordId = '';
+        _currentDevice!.hasNewFirmware = false;
+        _currentDevice!.newFirmwareVersion = '';
+        _currentDevice!.pendingOtaRecordId = '';
       }
     } catch (e) {
       setError(e.toString());
@@ -153,41 +138,36 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
+  // 切换工作模式
   Future<void> setMode(WorkMode mode) async {
     if (!_checkOffline()) return;
     if (_currentDevice!.workMode == mode) return;
 
-    if (mode == WorkMode.timer || mode == WorkMode.manual) {
-      if (_currentDevice!.isDndEnabled) {
-        toggleDnd(false);
-      }
+    if ((mode == WorkMode.timer || mode == WorkMode.manual) && _currentDevice!.isDndEnabled) {
+      toggleDnd(false);
     }
 
     final previousMode = _currentDevice!.workMode;
     final attrs = <Map<String, dynamic>>[
-      {
-        'dpid': DeviceThingModel.deviceMode.dpid,
-        'value': mode.value.toString(),
-      },
+      {'dpid': DeviceThingModel.deviceMode.dpid, 'value': mode.value.toString()},
     ];
+
     if (mode == WorkMode.timer) {
       attrs.add({
         'dpid': DeviceThingModel.timerModeSchedule.dpid,
-        'value': '["0","28800"]',
+        'value': jsonEncode(["0", "28800"]),
       });
     }
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.deviceMode.dpid: mode.value.toString()},
-      oldAttrs: {
-        DeviceThingModel.deviceMode.dpid: previousMode.value.toString(),
-      },
-      apiCall: () =>
-          _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, attrs),
-      errorMsg: 'Failed to set mode',
+      oldAttrs: {DeviceThingModel.deviceMode.dpid: previousMode.value.toString()},
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, attrs),
+      errorMsg: _s?.operationFailed ?? 'Failed to set mode',
     );
   }
 
+  // 开关勿扰模式
   Future<void> toggleDnd(bool isBool) async {
     if (!_checkOffline()) return;
 
@@ -202,15 +182,13 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       newAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: targetState},
       oldAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: previousState},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {
-          'dpid': DeviceThingModel.notdisturbModeStatus.dpid,
-          'value': targetState,
-        },
+        {'dpid': DeviceThingModel.notdisturbModeStatus.dpid, 'value': targetState},
       ]),
-      errorMsg: 'Failed to toggle DND',
+      errorMsg: _s?.operationFailed ?? 'Failed to toggle DND',
     );
   }
 
+  // 执行动作
   Future<void> executeAction(ExecuteAction action) async {
     if (!_checkOffline()) return;
 
@@ -225,16 +203,15 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final previousAction = _currentDevice!.executeAction;
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.deviceExecute.dpid: action.value.toString()},
-      oldAttrs: {
-        DeviceThingModel.deviceExecute.dpid: previousAction.value.toString(),
-      },
+      oldAttrs: {DeviceThingModel.deviceExecute.dpid: previousAction.value.toString()},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': targetDpid!, 'value': true},
       ]),
-      errorMsg: 'Failed to execute action',
+      errorMsg: _s?.operationFailed ?? 'Failed to execute action',
     );
   }
 
+  // 开关童锁
   Future<void> toggleChildLock() async {
     if (!_checkOffline()) return;
 
@@ -247,10 +224,11 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.childLockSwitch.dpid, 'value': targetState},
       ]),
-      errorMsg: 'Failed to toggle child lock',
+      errorMsg: _s?.operationFailed ?? 'Failed to toggle child lock',
     );
   }
 
+  // 开关等离子
   Future<void> togglePlasma() async {
     if (!_checkOffline()) return;
 
@@ -263,32 +241,29 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.palsmaState.dpid, 'value': targetState},
       ]),
-      errorMsg: 'Failed to toggle plasma',
+      errorMsg: _s?.operationFailed ?? 'Failed to toggle plasma',
     );
   }
 
+  // 更新自动模式延时
   void updateAutoMode(int index) async {
     if (!_checkOffline()) return;
-    int minutes = int.parse(_autoModeOptions[index]);
+    int minutes = int.parse(autoModeOptions[index]);
     int seconds = minutes * 60;
 
     final previousSeconds = _currentDevice!.autoModeDelaySeconds;
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.autoModeDelay.dpid: seconds.toString()},
-      oldAttrs: {
-        DeviceThingModel.autoModeDelay.dpid: previousSeconds.toString(),
-      },
+      oldAttrs: {DeviceThingModel.autoModeDelay.dpid: previousSeconds.toString()},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {
-          'dpid': DeviceThingModel.autoModeDelay.dpid,
-          'value': seconds.toString(),
-        },
+        {'dpid': DeviceThingModel.autoModeDelay.dpid, 'value': seconds.toString()},
       ]),
-      errorMsg: 'Failed to update auto mode',
+      errorMsg: _s?.operationFailed ?? 'Failed to update auto mode',
     );
   }
 
+  // 设置勿扰时间段
   void setDndTime(String start, String end) async {
     if (!_checkOffline()) return;
 
@@ -299,66 +274,68 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final oldStartSec = _timeToSeconds(previousRange['start']!);
     final oldEndSec = _timeToSeconds(previousRange['end']!);
 
-    final newJsonStr = jsonEncode({
-      'TimerStart': startSec.toString(),
-      'TimerEnd': endSec.toString(),
-    });
-    final oldJsonStr = jsonEncode({
-      'TimerStart': oldStartSec.toString(),
-      'TimerEnd': oldEndSec.toString(),
-    });
+    final newJsonStr = jsonEncode({'TimerStart': startSec.toString(), 'TimerEnd': endSec.toString()});
+    final oldJsonStr = jsonEncode({'TimerStart': oldStartSec.toString(), 'TimerEnd': oldEndSec.toString()});
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: newJsonStr},
       oldAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: oldJsonStr},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {
-          'dpid': DeviceThingModel.notdisturbModeSchedule.dpid,
-          'value': newJsonStr,
-        },
+        {'dpid': DeviceThingModel.notdisturbModeSchedule.dpid, 'value': newJsonStr},
       ]),
-      errorMsg: 'Failed to set DND time',
+      errorMsg: _s?.operationFailed ?? 'Failed to set DND time',
     );
   }
 
+  // 设置时区
   void setTimeZone(String tzId, String offsetStr) {
-    _currentTimeZoneId = tzId;
-    _currentTimeZoneOffset = offsetStr;
+    if (_currentDevice == null) return;
+    _currentDevice!.timeZoneId = tzId;
+    _currentDevice!.timeZoneOffset = offsetStr;
     notifyListeners();
   }
 
+  // 添加定时
   void addTimer(String timeStr) {
-    _localTimerList.add(timeStr);
-    _localTimerList.sort();
+    if (_currentDevice == null) return;
+    final list = List<String>.from(_currentDevice!.timerList);
+    list.add(timeStr);
+    list.sort();
+    final jsonStr = jsonEncode(list.map((t) => _timeToSeconds(t).toString()).toList());
+    _currentDevice!.updateAttributesFromMap({DeviceThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
   }
 
+  // 移除定时
   void removeTimer(int index) {
-    _localTimerList.removeAt(index);
+    if (_currentDevice == null) return;
+    final list = List<String>.from(_currentDevice!.timerList);
+    list.removeAt(index);
+    final jsonStr = jsonEncode(list.map((t) => _timeToSeconds(t).toString()).toList());
+    _currentDevice!.updateAttributesFromMap({DeviceThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
   }
 
+  // 提交定时列表
   Future<void> submitTimers() async {
     if (!_checkOffline()) return;
     setLoading(true);
-    final secondsArray = _localTimerList
-        .map((time) => _timeToSeconds(time))
-        .toList();
+
     final timersJsonString = jsonEncode(
-      secondsArray.map((e) => e.toString()).toList(),
+      _currentDevice!.timerList.map((time) => _timeToSeconds(time).toString()).toList(),
     );
+
     final success = await _executeWithTimeout(
       () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
-        {
-          'dpid': DeviceThingModel.timerModeSchedule.dpid,
-          'value': timersJsonString,
-        },
+        {'dpid': DeviceThingModel.timerModeSchedule.dpid, 'value': timersJsonString},
       ]),
     );
+
     setLoading(false);
-    if (!success) setError('Failed to save timers');
+    if (!success) setError(_s?.operationFailed ?? 'Failed to save timers');
   }
 
+  // 称重校准第 1 步
   Future<bool> startCalibrationStep1() async {
     if (!_checkOffline()) return false;
     setLoading(true);
@@ -368,20 +345,18 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       ]),
     );
     setLoading(false);
-    if (!success) setError('Calibration start failed');
+    if (!success) setError(_s?.operationFailed ?? 'Calibration start failed');
     return success;
   }
 
+  // 称重校准第 3 步
   Future<bool> submitCalibrationStep3(int weightGrams) async {
     if (!_checkOffline()) return false;
     setLoading(true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(
-        'calibration_weight_${_currentDevice!.deviceId}',
-        weightGrams,
-      );
-      _savedCalibrationWeight = weightGrams;
+      await prefs.setInt('calibration_weight_${_currentDevice!.deviceId}', weightGrams);
+      _currentDevice!.savedCalibrationWeight = weightGrams;
     } catch (_) {}
 
     final success = await _executeWithTimeout(
@@ -391,10 +366,11 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       ]),
     );
     setLoading(false);
-    if (!success) setError('Calibration submit failed');
+    if (!success) setError(_s?.operationFailed ?? 'Calibration submit failed');
     return success;
   }
 
+  // 重置 Wi-Fi
   Future<void> resetWifi() async {
     if (!_checkOffline()) return;
     setLoading(true);
@@ -404,58 +380,52 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       ]),
     );
     setLoading(false);
-    if (!success) setError('Failed to reset Wi-Fi');
+    if (!success) setError(_s?.operationFailed ?? 'Failed to reset Wi-Fi');
   }
 
+  // 固件升级
   Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
     if (!_checkOffline()) return false;
-    if (_pendingOtaRecordId.isEmpty) {
-      setError('No pending firmware');
+    if (_currentDevice!.pendingOtaRecordId.isEmpty) {
+      setError(_s?.operationFailed ?? 'No pending firmware');
       return false;
     }
 
     setLoading(true);
-    final targetVersion = _newFirmwareVersion;
+    final targetVersion = _currentDevice!.newFirmwareVersion;
     final success = await _deviceRepo.dispatchFirmwareUpgrade(
       _currentDevice!.deviceId,
-      _pendingOtaRecordId,
+      _currentDevice!.pendingOtaRecordId,
     );
     setLoading(false);
 
     if (success) {
-      _hasNewFirmware = false;
-      _isOtaUpdating = true;
+      _currentDevice!.hasNewFirmware = false;
+      _currentDevice!.isOtaUpdating = true;
       notifyListeners();
       _startOtaPolling(_currentDevice!.deviceId, targetVersion, timeoutSeconds);
       return true;
     } else {
-      setError('Dispatch firmware failed');
+      setError(_s?.operationFailed ?? 'Dispatch firmware failed');
       return false;
     }
   }
 
-  void _startOtaPolling(
-    String deviceId,
-    String targetVersion,
-    int timeoutSeconds,
-  ) {
+  void _startOtaPolling(String deviceId, String targetVersion, int timeoutSeconds) {
     _otaPollingTimer?.cancel();
     final startTime = DateTime.now();
 
-    _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (
-      timer,
-    ) async {
+    _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
         stopOtaPolling();
-        setError('OTA timeout');
+        setError(_s?.operationFailed ?? 'OTA timeout');
         notifyListeners();
         return;
       }
 
       try {
         await _deviceRepo.fetchDeviceProperties(deviceId);
-        if (_currentDevice != null &&
-            _currentDevice!.firmwareVersion == targetVersion) {
+        if (_currentDevice != null && _currentDevice!.firmwareVersion == targetVersion) {
           stopOtaPolling();
           notifyListeners();
         }
@@ -468,18 +438,18 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   void stopOtaPolling() {
     _otaPollingTimer?.cancel();
     _otaPollingTimer = null;
-    _isOtaUpdating = false;
+    if (_currentDevice != null) {
+      _currentDevice!.isOtaUpdating = false;
+    }
   }
 
+  // 重命名设备
   Future<bool> updateDeviceName(String newName) async {
     if (_currentDevice == null) return false;
     setLoading(true);
-    final success = await _deviceRepo.renameDevice(
-      _currentDevice!.deviceId,
-      newName,
-    );
+    final success = await _deviceRepo.renameDevice(_currentDevice!.deviceId, newName);
     setLoading(false);
-    if (!success) setError('Failed to rename');
+    if (!success) setError(_s?.operationFailed ?? 'Failed to rename');
     return success;
   }
 

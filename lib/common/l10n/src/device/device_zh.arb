@@ -86,5 +86,6 @@
   "ipAddress": "IP 地址",
   "macAddress": "MAC 地址",
   "resetWifi": "重置 Wi-Fi",
-  "resetWifiSuccess": "重置 Wi-Fi 指令已发送，设备即将重启配网模式"
+  "resetWifiSuccess": "重置 Wi-Fi 指令已发送，设备即将重启配网模式",
+  "latestVersion":"最新"
 }

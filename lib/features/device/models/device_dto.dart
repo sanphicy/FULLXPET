@@ -20,6 +20,15 @@ class DeviceDto {
   String? logNextPageToken;
   bool hasMoreLogs = true;
 
+  // 1. 运行时扩展状态 (从 Provider 沉降)
+  int savedCalibrationWeight = 5000;
+  String timeZoneId = 'Asia/Shanghai';
+  String timeZoneOffset = 'UTC+08:00';
+  bool hasNewFirmware = false;
+  String newFirmwareVersion = '';
+  String pendingOtaRecordId = '';
+  bool isOtaUpdating = false;
+
   DeviceDto({
     required this.deviceId,
     this.deviceName = 'FULLXPET',
@@ -31,6 +40,7 @@ class DeviceDto {
     }
   }
 
+  // 2. 物模型属性与计算属性
   ExecuteAction get executeAction {
     final val = _attributes[DeviceThingModel.deviceExecute.dpid];
     if (val?.toString() == '5') {
@@ -75,6 +85,12 @@ class DeviceDto {
     return int.tryParse(val?.toString() ?? '') ?? 60;
   }
 
+  int get autoModeIndex {
+    int mins = autoModeDelaySeconds ~/ 60;
+    int idx = mins - 1;
+    return (idx >= 0 && idx <= 4) ? idx : 0;
+  }
+
   List<String> get timerList {
     final val = _attributes[DeviceThingModel.timerModeSchedule.dpid];
     if (val == null) return [];
@@ -110,6 +126,14 @@ class DeviceDto {
     return {'start': start, 'end': end};
   }
 
+  bool get isOperating {
+    final dpid8 = _attributes[DeviceThingModel.deviceStatus.dpid]?.toString();
+    final dpid9 = _attributes[DeviceThingModel.deviceExecute.dpid]?.toString();
+    if (dpid9 == '5') return false;
+    if (dpid8 != '0' || dpid9 != '0') return true;
+    return false;
+  }
+
   void updateAttributes(List<dynamic> newAttributes) {
     for (var attr in newAttributes) {
       if (attr is Map<String, dynamic>) {
@@ -126,14 +150,6 @@ class DeviceDto {
     changedAttributes.forEach((dpid, value) {
       _attributes[dpid.toString()] = value;
     });
-  }
-
-  bool get isOperating {
-    final dpid8 = _attributes[DeviceThingModel.deviceStatus.dpid]?.toString();
-    final dpid9 = _attributes[DeviceThingModel.deviceExecute.dpid]?.toString();
-    if (dpid9 == '5') return false;
-    if (dpid8 != '0' || dpid9 != '0') return true;
-    return false;
   }
 
   String _secondsToTime(int seconds) {

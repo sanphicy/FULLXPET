@@ -120,6 +120,9 @@ class SZh extends S {
   String get actionResetting => '复位中';
 
   @override
+  String get networkError => '网络连接失败，请检查网络设置';
+
+  @override
   String get wifiConfigTitle => '配置设备网络';
 
   @override
@@ -432,6 +435,9 @@ class SZh extends S {
 
   @override
   String get resetWifiSuccess => '重置 Wi-Fi 指令已发送，设备即将重启配网模式';
+
+  @override
+  String get latestVersion => '最新';
 
   @override
   String get dataStatistics => '数据统计';

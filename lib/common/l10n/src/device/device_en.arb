@@ -86,5 +86,6 @@
   "ipAddress": "IP Address",
   "macAddress": "MAC Address",
   "resetWifi": "Reset Wi-Fi",
-  "resetWifiSuccess": "Reset Wi-Fi command sent, device entering pairing mode"
+  "resetWifiSuccess": "Reset Wi-Fi command sent, device entering pairing mode",
+  "latestVersion":"Latest"
 }
