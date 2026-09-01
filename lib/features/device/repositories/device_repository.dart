@@ -11,11 +11,11 @@ import 'package:fullxpet/locator.dart';
 class DeviceRepository {
   final HttpClient _httpClient = locator<HttpClient>();
   final MqttManager _mqttManager = locator<MqttManager>();
-  final Map<String, DeviceDto> _devicePool = {};
+  final Map<String, DeviceDto> _devicePool = {}; //设备池
   StreamSubscription<Map<String, dynamic>>? _mqttSub;
 
-  final StreamController<String> _deviceUpdateController = StreamController<String>.broadcast();
-  Stream<String> get onDeviceUpdated => _deviceUpdateController.stream;
+  final StreamController<String> _deviceUpdateController = StreamController<String>.broadcast(); //广播流
+  Stream<String> get onDeviceUpdated => _deviceUpdateController.stream; // 对外公开监听流
 
   DeviceRepository() {
     _startListeningMqtt();
@@ -62,7 +62,7 @@ class DeviceRepository {
       }
       return false;
     } catch (e) {
-      debugPrint('Rename Device Error [$deviceId]: $e');
+      debugPrint('重命名失败 [$deviceId]: $e');
       return false;
     }
   }
@@ -80,7 +80,7 @@ class DeviceRepository {
         }
       }
     } catch (e) {
-      debugPrint('Delete Device Error [$deviceId]: $e');
+      debugPrint('删除设备失败 [$deviceId]: $e');
     }
     return false;
   }
@@ -91,7 +91,7 @@ class DeviceRepository {
       final result = await _httpClient.post(ApiEndpoints.deviceInvoke(deviceId), data: {'attributes': attributes});
       return result.code == 0 || result.code == 200;
     } catch (e) {
-      debugPrint('Command Error [$deviceId]: $e');
+      debugPrint('发送指令失败 [$deviceId]: $e');
       return false;
     }
   }
@@ -118,7 +118,7 @@ class DeviceRepository {
       final result = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.upgradeFirmware(deviceId, recordId));
       return result.code == 0 || result.code == 200;
     } catch (e) {
-      debugPrint('Dispatch Firmware Upgrade Error [$deviceId]: $e');
+      debugPrint('下发固件升级指令失败 [$deviceId]: $e');
       return false;
     }
   }
@@ -135,7 +135,7 @@ class DeviceRepository {
         }
       }
     } catch (e) {
-      debugPrint('Fetch Device Properties Error: $e');
+      debugPrint('拉取设备最新属性失败: $e');
     }
   }
 
@@ -170,9 +170,9 @@ class DeviceRepository {
           for (var valObj in values) {
             final dpid = valObj['dpid']?.toString();
             final value = valObj['value'];
-            final content = _parseLogAction(dpid, value);
-            if (content != null) {
-              device.logs.add(DeviceLog(time: time, content: content));
+            final parsed = _parseLogAction(dpid, value);
+            if (parsed != null) {
+              device.logs.add(DeviceLog(time: time, content: parsed.$1, isAction: parsed.$2));
             }
           }
         }
@@ -181,7 +181,7 @@ class DeviceRepository {
         _notifyDeviceChanged(deviceId);
       }
     } catch (e) {
-      debugPrint('Fetch Device Logs Error: $e');
+      debugPrint('获取日志失败: $e');
     }
   }
 
@@ -212,7 +212,7 @@ class DeviceRepository {
   // 开始监听 MQTT 消息
   void _startListeningMqtt() {
     _mqttSub = _mqttManager.messageStream.listen((data) {
-      debugPrint('🔔 [MQTT 原始消息]: $data');
+      debugPrint('[MQTT 原始消息]: $data');
       final deviceId = data['deviceId']?.toString() ?? '';
       if (deviceId.isEmpty) return;
       final type = data['type']?.toString();
@@ -240,25 +240,48 @@ class DeviceRepository {
     } else {
       time = DateTime.now();
     }
+
     changedAttrs.forEach((dpid, value) {
-      final content = _parseLogAction(dpid, value);
-      if (content != null) {
-        device.logs.insert(0, DeviceLog(time: time, content: content));
+      final parsed = _parseLogAction(dpid, value);
+      if (parsed != null) {
+        final content = parsed.$1;
+        final isAction = parsed.$2;
+
+        if (device.logs.isNotEmpty) {
+          final latest = device.logs.first;
+          if (latest.content == content &&
+              latest.isAction == isAction &&
+              time.difference(latest.time).inSeconds.abs() < 2) {
+            return;
+          }
+        }
+
+        device.logs.insert(0, DeviceLog(time: time, content: content, isAction: isAction));
         hasNewLog = true;
       }
     });
+
     if (hasNewLog) _notifyDeviceChanged(deviceId);
   }
 
-  // 解析 dpId 和值，生成可读的日志内容
-  String? _parseLogAction(String? dpid, dynamic value) {
+  // 解析 dpId 和值，生成可读的日志内容并配置过滤规则
+  (String, bool)? _parseLogAction(String? dpid, dynamic value) {
+    if (dpid == null || value == null) return null;
+
     if (dpid == DeviceThingModel.deviceExecute.dpid) {
-      final valStr = value.toString();
-      const actionMap = {'1': 'Clean', '2': 'Smooth', '3': 'Add Litter', '4': 'Empty Litter'};
-      return actionMap[valStr];
+      final action = ExecuteAction.fromValue(int.tryParse(value.toString()) ?? 0);
+      if (action == ExecuteAction.cleaning ||
+          action == ExecuteAction.smoothing ||
+          action == ExecuteAction.adding ||
+          action == ExecuteAction.emptying) {
+        return (action.name, true);
+      }
+      return null;
     }
     if (dpid == DeviceThingModel.excretionTimeDay.dpid) {
-      return value.toString();
+      final duration = int.tryParse(value.toString()) ?? 0;
+      if (duration <= 0) return null;
+      return (duration.toString(), false);
     }
     return null;
   }

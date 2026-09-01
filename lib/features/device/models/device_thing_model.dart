@@ -31,6 +31,7 @@ enum DeviceThingModel {
   calibration('28', '称重校准', 'bool'),
   palsmaState('29', '等离子状态', 'bool'),
   calibrationWeight('30', '称重校准下发重量', 'int'),
+  plasmaSchedule('32', '等离子运行时长设置', 'string'),
   excretionTimesDay('207', '每天排泄次数', 'value'),
   excretionTimeDay('208', '每次排泄时长(秒)', 'value');
 

@@ -1,14 +1,17 @@
 import 'dart:convert';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'device_thing_model.dart';
+import 'package:fullxpet/core/utils/time_utils.dart';
 
+//设备日志
 class DeviceLog {
   final DateTime time;
   final String content;
-
-  DeviceLog({required this.time, required this.content});
+  final bool isAction;
+  DeviceLog({required this.time, required this.content, required this.isAction});
 }
 
+//设备属性
 class DeviceDto {
   final String deviceId;
   String deviceName;
@@ -20,7 +23,6 @@ class DeviceDto {
   String? logNextPageToken;
   bool hasMoreLogs = true;
 
-  // 1. 运行时扩展状态 (从 Provider 沉降)
   int savedCalibrationWeight = 5000;
   String timeZoneId = 'Asia/Shanghai';
   String timeZoneOffset = 'UTC+08:00';
@@ -40,7 +42,7 @@ class DeviceDto {
     }
   }
 
-  // 2. 物模型属性与计算属性
+  // 物模型属性与计算属性
   ExecuteAction get executeAction {
     final val = _attributes[DeviceThingModel.deviceExecute.dpid];
     if (val?.toString() == '5') {
@@ -99,7 +101,7 @@ class DeviceDto {
       List<String> result = [];
       for (var t in tList) {
         int seconds = int.parse(t.toString());
-        result.add(_secondsToTime(seconds));
+        result.add(TimeUtils.secondsToTime(seconds));
       }
       result.sort();
       return result;
@@ -116,10 +118,10 @@ class DeviceDto {
       try {
         final Map<String, dynamic> dndMap = jsonDecode(val.toString());
         if (dndMap.containsKey('TimerStart')) {
-          start = _secondsToTime(int.parse(dndMap['TimerStart'].toString()));
+          start = TimeUtils.secondsToTime(int.parse(dndMap['TimerStart'].toString()));
         }
         if (dndMap.containsKey('TimerEnd')) {
-          end = _secondsToTime(int.parse(dndMap['TimerEnd'].toString()));
+          end = TimeUtils.secondsToTime(int.parse(dndMap['TimerEnd'].toString()));
         }
       } catch (_) {}
     }
@@ -152,9 +154,27 @@ class DeviceDto {
     });
   }
 
-  String _secondsToTime(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  // 等离子工作时间排期 (DP 32: {"runTime":"3600","outTime":"1800"})
+  Map<String, int> get plasmaSchedule {
+    final val = _attributes[DeviceThingModel.plasmaSchedule.dpid];
+    if (val == null || val.toString().isEmpty) {
+      return {'runTime': 3600, 'outTime': 1800}; // 默认配置
+    }
+    try {
+      final decoded = jsonDecode(val.toString());
+      if (decoded is Map) {
+        return {
+          'runTime': int.tryParse(decoded['runTime']?.toString() ?? '0') ?? 0,
+          'outTime': int.tryParse(decoded['outTime']?.toString() ?? '0') ?? 0,
+        };
+      }
+    } catch (_) {}
+    return {'runTime': 3600, 'outTime': 1800};
+  }
+
+  // 是否为常开模式 (runTime == 0 && outTime == 0)
+  bool get isPlasmaAlwaysOn {
+    final sched = plasmaSchedule;
+    return sched['runTime'] == 0 && sched['outTime'] == 0;
   }
 }

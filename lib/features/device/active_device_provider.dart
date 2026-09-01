@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
@@ -11,6 +10,7 @@ import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
 import 'package:fullxpet/features/device/models/device_thing_model.dart';
+import 'package:fullxpet/core/utils/time_utils.dart';
 
 class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   final DeviceRepository _deviceRepo = locator<DeviceRepository>();
@@ -21,7 +21,6 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   StreamSubscription<String>? _repoSubscription;
   Timer? _otaPollingTimer;
 
-  // 1. 全部委托给 _currentDevice，保留对外 Getter 确保 UI 0 成本无缝兼容
   List<String> get timerList => _currentDevice?.timerList ?? [];
   bool get hasNewFirmware => _currentDevice?.hasNewFirmware ?? false;
   String get newFirmwareVersion => _currentDevice?.newFirmwareVersion ?? '';
@@ -31,6 +30,8 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   String get currentTimeZoneOffset => _currentDevice?.timeZoneOffset ?? 'UTC+08:00';
   int get autoModeIndex => _currentDevice?.autoModeIndex ?? 0;
   bool get isNetworkGood => true;
+  Map<String, int> get plasmaSchedule => _currentDevice?.plasmaSchedule ?? {'runTime': 3600, 'outTime': 1800};
+  bool get isPlasmaAlwaysOn => _currentDevice?.isPlasmaAlwaysOn ?? false;
 
   final List<String> autoModeOptions = const ['1', '2', '3', '4', '5'];
 
@@ -64,15 +65,18 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
+  //检查设备是否在线
   bool _checkOffline() {
     if (_currentDevice == null) return false;
     if (!_currentDevice!.isOnline) {
-      setError(_s?.offline ?? 'offline');
+      setError(_s?.offline ?? '离线');
       return false;
     }
     return true;
   }
 
+  //异步执行超时包装器
+  //为下发硬件指令等异步操作设置 3 秒超时上限，防止因网络阻塞或硬件未响应导致程序无限等待卡死。
   Future<bool> _executeWithTimeout(Future<bool> Function() action) async {
     try {
       return await action().timeout(const Duration(seconds: 3));
@@ -81,6 +85,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
+  //乐观更新UI
   Future<void> _executeOptimistic({
     required Map<String, dynamic> newAttrs,
     required Map<String, dynamic> oldAttrs,
@@ -93,7 +98,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final success = await _executeWithTimeout(apiCall);
     if (!success) {
       _currentDevice!.updateAttributesFromMap(oldAttrs);
-      setError(errorMsg ?? _s?.operationFailed ?? 'Operation Failed');
+      setError(errorMsg ?? _s?.operationFailed ?? '操作失败');
       notifyListeners();
     }
   }
@@ -107,7 +112,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       _currentDevice!.savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
       _currentDevice!.timeZoneId = await FlutterTimezone.getLocalTimezone();
-      _currentDevice!.timeZoneOffset = _calculateOffsetStr(_currentDevice!.timeZoneId);
+      _currentDevice!.timeZoneOffset = TimeUtils.calculateOffsetStr(_currentDevice!.timeZoneId);
     } catch (_) {}
 
     clearError();
@@ -163,7 +168,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       newAttrs: {DeviceThingModel.deviceMode.dpid: mode.value.toString()},
       oldAttrs: {DeviceThingModel.deviceMode.dpid: previousMode.value.toString()},
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, attrs),
-      errorMsg: _s?.operationFailed ?? 'Failed to set mode',
+      errorMsg: _s?.operationFailed ?? '切换模式失败',
     );
   }
 
@@ -184,7 +189,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.notdisturbModeStatus.dpid, 'value': targetState},
       ]),
-      errorMsg: _s?.operationFailed ?? 'Failed to toggle DND',
+      errorMsg: _s?.operationFailed ?? '切换勿扰状态失败',
     );
   }
 
@@ -207,7 +212,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': targetDpid!, 'value': true},
       ]),
-      errorMsg: _s?.operationFailed ?? 'Failed to execute action',
+      errorMsg: _s?.operationFailed ?? '执行动作失败',
     );
   }
 
@@ -224,7 +229,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.childLockSwitch.dpid, 'value': targetState},
       ]),
-      errorMsg: _s?.operationFailed ?? 'Failed to toggle child lock',
+      errorMsg: _s?.operationFailed ?? '切换童锁状态失败',
     );
   }
 
@@ -241,7 +246,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.palsmaState.dpid, 'value': targetState},
       ]),
-      errorMsg: _s?.operationFailed ?? 'Failed to toggle plasma',
+      errorMsg: _s?.operationFailed ?? '切换等离子状态失败',
     );
   }
 
@@ -259,7 +264,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.autoModeDelay.dpid, 'value': seconds.toString()},
       ]),
-      errorMsg: _s?.operationFailed ?? 'Failed to update auto mode',
+      errorMsg: _s?.operationFailed ?? '自动模式清理计划设置失败',
     );
   }
 
@@ -267,12 +272,12 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   void setDndTime(String start, String end) async {
     if (!_checkOffline()) return;
 
-    int startSec = _timeToSeconds(start);
-    int endSec = _timeToSeconds(end);
+    int startSec = TimeUtils.timeToSeconds(start);
+    int endSec = TimeUtils.timeToSeconds(end);
 
     final previousRange = _currentDevice!.dndTimeRange;
-    final oldStartSec = _timeToSeconds(previousRange['start']!);
-    final oldEndSec = _timeToSeconds(previousRange['end']!);
+    final oldStartSec = TimeUtils.timeToSeconds(previousRange['start']!);
+    final oldEndSec = TimeUtils.timeToSeconds(previousRange['end']!);
 
     final newJsonStr = jsonEncode({'TimerStart': startSec.toString(), 'TimerEnd': endSec.toString()});
     final oldJsonStr = jsonEncode({'TimerStart': oldStartSec.toString(), 'TimerEnd': oldEndSec.toString()});
@@ -283,7 +288,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
         {'dpid': DeviceThingModel.notdisturbModeSchedule.dpid, 'value': newJsonStr},
       ]),
-      errorMsg: _s?.operationFailed ?? 'Failed to set DND time',
+      errorMsg: _s?.operationFailed ?? '设置勿扰时间段失败',
     );
   }
 
@@ -301,7 +306,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     final list = List<String>.from(_currentDevice!.timerList);
     list.add(timeStr);
     list.sort();
-    final jsonStr = jsonEncode(list.map((t) => _timeToSeconds(t).toString()).toList());
+    final jsonStr = jsonEncode(list.map((t) => TimeUtils.timeToSeconds(t).toString()).toList());
     _currentDevice!.updateAttributesFromMap({DeviceThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
   }
@@ -311,9 +316,40 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     if (_currentDevice == null) return;
     final list = List<String>.from(_currentDevice!.timerList);
     list.removeAt(index);
-    final jsonStr = jsonEncode(list.map((t) => _timeToSeconds(t).toString()).toList());
+    final jsonStr = jsonEncode(list.map((t) => TimeUtils.timeToSeconds(t).toString()).toList());
     _currentDevice!.updateAttributesFromMap({DeviceThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
+  }
+
+  // 下发等离子排期设置
+  Future<void> setPlasmaSchedule({required int runSeconds, required int outSeconds}) async {
+    if (!_checkOffline()) return;
+
+    int safeRun = runSeconds < 0 ? 0 : runSeconds;
+    int safeOut = outSeconds < 0 ? 0 : outSeconds;
+
+    if (safeRun > 7200) safeRun = 7200;
+    if (safeOut > 21600) safeOut = 21600;
+
+    if (safeRun == 0 && safeOut != 0) safeRun = 60;
+    if (safeOut == 0 && safeRun != 0) safeOut = 60;
+
+    final newJsonStr = jsonEncode({'runTime': safeRun.toString(), 'outTime': safeOut.toString()});
+
+    final previousSched = _currentDevice?.plasmaSchedule ?? {'runTime': 3600, 'outTime': 1800};
+    final oldJsonStr = jsonEncode({
+      'runTime': previousSched['runTime'].toString(),
+      'outTime': previousSched['outTime'].toString(),
+    });
+
+    await _executeOptimistic(
+      newAttrs: {DeviceThingModel.plasmaSchedule.dpid: newJsonStr},
+      oldAttrs: {DeviceThingModel.plasmaSchedule.dpid: oldJsonStr},
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.plasmaSchedule.dpid, 'value': newJsonStr},
+      ]),
+      errorMsg: _s?.operationFailed ?? '设置除臭模式失败',
+    );
   }
 
   // 提交定时列表
@@ -322,7 +358,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     setLoading(true);
 
     final timersJsonString = jsonEncode(
-      _currentDevice!.timerList.map((time) => _timeToSeconds(time).toString()).toList(),
+      _currentDevice!.timerList.map((time) => TimeUtils.timeToSeconds(time).toString()).toList(),
     );
 
     final success = await _executeWithTimeout(
@@ -332,7 +368,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     );
 
     setLoading(false);
-    if (!success) setError(_s?.operationFailed ?? 'Failed to save timers');
+    if (!success) setError(_s?.operationFailed ?? '定时列表设置失败');
   }
 
   // 称重校准第 1 步
@@ -345,7 +381,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       ]),
     );
     setLoading(false);
-    if (!success) setError(_s?.operationFailed ?? 'Calibration start failed');
+    if (!success) setError(_s?.operationFailed ?? '校准启动失败');
     return success;
   }
 
@@ -366,7 +402,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       ]),
     );
     setLoading(false);
-    if (!success) setError(_s?.operationFailed ?? 'Calibration submit failed');
+    if (!success) setError(_s?.operationFailed ?? '校准失败');
     return success;
   }
 
@@ -380,14 +416,14 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       ]),
     );
     setLoading(false);
-    if (!success) setError(_s?.operationFailed ?? 'Failed to reset Wi-Fi');
+    if (!success) setError(_s?.operationFailed ?? '重置WiFi失败');
   }
 
   // 固件升级
   Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
     if (!_checkOffline()) return false;
     if (_currentDevice!.pendingOtaRecordId.isEmpty) {
-      setError(_s?.operationFailed ?? 'No pending firmware');
+      setError(_s?.operationFailed ?? '没有要升级的固件');
       return false;
     }
 
@@ -406,11 +442,12 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
       _startOtaPolling(_currentDevice!.deviceId, targetVersion, timeoutSeconds);
       return true;
     } else {
-      setError(_s?.operationFailed ?? 'Dispatch firmware failed');
+      setError(_s?.operationFailed ?? '分发固件失败');
       return false;
     }
   }
 
+  //固件升级轮询定时器
   void _startOtaPolling(String deviceId, String targetVersion, int timeoutSeconds) {
     _otaPollingTimer?.cancel();
     final startTime = DateTime.now();
@@ -418,7 +455,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
         stopOtaPolling();
-        setError(_s?.operationFailed ?? 'OTA timeout');
+        setError(_s?.operationFailed ?? 'OTA 超时');
         notifyListeners();
         return;
       }
@@ -435,6 +472,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     });
   }
 
+  //停止固件升级轮询
   void stopOtaPolling() {
     _otaPollingTimer?.cancel();
     _otaPollingTimer = null;
@@ -449,28 +487,7 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     setLoading(true);
     final success = await _deviceRepo.renameDevice(_currentDevice!.deviceId, newName);
     setLoading(false);
-    if (!success) setError(_s?.operationFailed ?? 'Failed to rename');
+    if (!success) setError(_s?.operationFailed ?? '重命名失败');
     return success;
-  }
-
-  int _timeToSeconds(String hhmm) {
-    final parts = hhmm.split(':');
-    if (parts.length != 2) return 0;
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = int.tryParse(parts[1]) ?? 0;
-    return h * 3600 + m * 60;
-  }
-
-  String _calculateOffsetStr(String tzName) {
-    try {
-      final location = tz.getLocation(tzName);
-      final offset = tz.TZDateTime.now(location).timeZoneOffset;
-      final hours = offset.inHours;
-      final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
-      final sign = hours >= 0 ? '+' : '-';
-      return 'UTC$sign${hours.abs().toString().padLeft(2, '0')}:$minutes';
-    } catch (_) {
-      return 'UTC+00:00';
-    }
   }
 }

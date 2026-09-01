@@ -343,10 +343,23 @@ class DeviceManagerPage extends StatelessWidget {
                                     final log = logs[index];
                                     final timeStr =
                                         "${log.time.hour.toString().padLeft(2, '0')}:${log.time.minute.toString().padLeft(2, '0')}";
-                                    String parsedContent = log.content;
-                                    if (int.tryParse(log.content) != null) {
-                                      parsedContent = s.catToiletLog(log.content);
+
+                                    String parsedContent = '';
+
+                                    if (log.isAction) {
+                                      // 动作：转回枚举直接调 getLocalizedLabel
+                                      try {
+                                        final action = ExecuteAction.values.byName(log.content);
+                                        parsedContent = action.getLocalizedLabel(s);
+                                      } catch (_) {
+                                        parsedContent = log.content;
+                                      }
+                                    } else {
+                                      // 如厕时长：直接调用带参文案
+                                      final seconds = int.tryParse(log.content) ?? log.content;
+                                      parsedContent = s.catToiletLog(seconds);
                                     }
+
                                     return Padding(
                                       padding: const EdgeInsets.only(bottom: 10.0),
                                       child: Row(
