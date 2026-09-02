@@ -50,7 +50,7 @@ class DeviceAddSuccessPage extends StatelessWidget {
                     // 1. 触发刷新 API
                     context.read<DeviceProvider>().fetchDevices();
                     // 2. 跳转进入管理设备页
-                    context.go('/device_manager/$deviceId');
+                    context.go(AppRoutes.deviceManagerPath(deviceId));
                   },
                   child: const Text(
                     "管理设备",

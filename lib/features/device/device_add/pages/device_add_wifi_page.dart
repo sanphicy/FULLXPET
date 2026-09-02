@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/common/constants/dimens.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/password_text_field.dart';
@@ -53,7 +54,7 @@ class _DeviceAddWifiPageState extends State<DeviceAddWifiPage> {
     if (_provider.configStep == 4 && _provider.boundDeviceId != null) {
       _provider.removeListener(_onProviderStateChanged);
       // 跳转到外部独立的成功页面
-      context.pushReplacement('/device-add-success/${_provider.boundDeviceId}');
+      context.pushReplacement(AppRoutes.deviceAddSuccessPath(_provider.boundDeviceId!));
     }
   }
 
