@@ -2,34 +2,37 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
-		<!-- FULLXPET IOS所需权限声明 start-->
-		<key>NSBluetoothAlwaysUsageDescription</key>
-		<string>App需要您的同意，才能始终访问蓝牙，以便扫描、连接和管理设备。</string>
-		<key>NSBluetoothPeripheralUsageDescription</key>
-		<string>App需要您的同意，才能访问蓝牙外设，以便连接和管理设备。</string>
-		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>App需要您的同意，才能在使用期间访问位置信息，以便在配网时为您自动获取当前连接的Wi-Fi名称。</string>
-		<key>NSLocationAlwaysUsageDescription</key>
-		<string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称。</string>
-		<key>NSLocalNetworkUsageDescription</key>
-		<string>App需要您的同意，才能访问本地网络，以便发现、连接和控制局域网内的设备。</string>
-		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>App需要您的同意，才能始终访问位置信息，以便为您自动获取当前Wi-Fi名称并配网。</string>
-		<!-- 相册访问权限 -->
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>We need access to your photo library to allow you to select a profile avatar.</string>
-		<!-- 相机访问权限 -->
-		<key>NSCameraUsageDescription</key>
-		<string>We need access to your camera to allow you to take a photo for your avatar.</string>
-		<!-- 允许非https请求 -->
-		<key>NSAppTransportSecurity</key>
-		<dict>
-			<key>NSAllowsArbitraryLoads</key>
-			<true/>
-		</dict>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>We need access to your microphone if you choose to record a video for your profile.</string>
-		<!-- FULLXPET IOS所需权限声明 end-->
+<!-- FULLXPET IOS所需权限声明 start-->
+        <!-- 蓝牙权限 (iOS 13+) -->
+        <key>NSBluetoothAlwaysUsageDescription</key>
+        <string>App需要您的同意，才能访问手机蓝牙以扫描、连接和配置智能硬件设备。</string>
+        <!-- 蓝牙权限兜底 (iOS 12及更早) -->
+        <key>NSBluetoothPeripheralUsageDescription</key>
+        <string>App需要您的同意，才能通过蓝牙与智能设备建立通信并进行控制。</string>
+
+        <!-- 定位权限 (iOS 获取当前连接的 Wi-Fi SSID 必须前置申请使用期间定位) -->
+        <key>NSLocationWhenInUseUsageDescription</key>
+        <string>App需要您的位置权限，以便在设备配网时自动读取手机当前连接的Wi-Fi名称。</string>
+        <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+        <string>App需要您的位置权限，以便在设备配网时自动读取当前Wi-Fi名称进行快捷连接。</string>
+
+        <!-- 本地局域网权限 -->
+        <key>NSLocalNetworkUsageDescription</key>
+        <string>App需要访问本地网络，以便与局域网内的智能硬件进行数据通信与控制。</string>
+
+        <!-- 相册与相机权限 -->
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>App需要访问您的相册，以便您上传和更换个人用户头像。</string>
+        <key>NSCameraUsageDescription</key>
+        <string>App需要使用相机拍摄照片，以便您设置个人用户头像。</string>
+
+        <!-- 网络通信安全 -->
+        <key>NSAppTransportSecurity</key>
+        <dict>
+            <key>NSAllowsArbitraryLoads</key>
+            <true/>
+        </dict>
+        <!-- FULLXPET IOS所需权限声明 end-->
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
