@@ -3,7 +3,7 @@ description: "FULLX PET 客户端应用程序"
 publish_to: 'none'
 
 # 应用版本号与构建号
-version: 1.1.1
+version: 1.1.2
 
 environment:
   sdk: ^3.11.1

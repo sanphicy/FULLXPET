@@ -44,8 +44,13 @@ class DeviceRepository {
         final deviceId = json['deviceId']?.toString() ?? '';
         if (deviceId.isEmpty) continue;
 
+        final productId = json['productId']?.toString() ?? json['productKey']?.toString() ?? '';
+
+        final device = getDevice(deviceId);
+        device.productId = productId;
+
         updateBaseInfo(deviceId, name: json['nickname']?.toString(), isOnline: json['online'] ?? false);
-        devices.add(getDevice(deviceId));
+        devices.add(device);
       }
       return ResultEntity.success(devices);
     }

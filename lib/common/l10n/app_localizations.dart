@@ -340,7 +340,7 @@ abstract class S {
   /// No description provided for @wifiConfigDesc.
   ///
   /// In zh, this message translates to:
-  /// **'请选择 2.4GHz 的 Wi-Fi 网络并输入密码，暂不支持 5G 网络。'**
+  /// **'请选择 Wi-Fi 网络并输入密码。'**
   String get wifiConfigDesc;
 
   /// No description provided for @wifiPasswordHint.

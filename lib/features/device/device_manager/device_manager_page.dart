@@ -160,24 +160,31 @@ class DeviceManagerPage extends StatelessWidget {
 
                 // 2. 设备展示图与当前状态标签（局部监听）
                 Image.asset(
-                  'assets/images/product-pic.png',
+                  provider.currentDevice?.displayImage ?? 'assets/images/product-pic.png',
                   width: 110,
                   height: 110,
                   errorBuilder: (_, __, ___) => const Icon(Icons.devices, size: 90, color: Colors.grey),
                 ),
                 const SizedBox(height: 10),
-                Selector<ActiveDeviceProvider, ExecuteAction>(
-                  selector: (_, vm) => vm.currentDevice?.executeAction ?? ExecuteAction.idle,
-                  builder: (context, action, _) {
+                Selector<ActiveDeviceProvider, (ExecuteAction, bool)>(
+                  selector: (_, vm) =>
+                      (vm.currentDevice?.executeAction ?? ExecuteAction.idle, vm.currentDevice?.isOnline ?? false),
+                  builder: (context, data, _) {
+                    final action = data.$1;
+                    final isOnline = data.$2;
+
+                    final statusText = isOnline ? action.getLocalizedLabel(s) : s.offline;
+                    final tagBgColor = isOnline
+                        ? primaryPurple.withValues(alpha: 0.1)
+                        : Colors.grey.withValues(alpha: 0.15);
+                    final tagTextColor = isOnline ? primaryPurple : Colors.grey.shade600;
+
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: primaryPurple.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      decoration: BoxDecoration(color: tagBgColor, borderRadius: BorderRadius.circular(12)),
                       child: Text(
-                        action.getLocalizedLabel(s),
-                        style: const TextStyle(color: primaryPurple, fontSize: 13, fontWeight: FontWeight.bold),
+                        statusText,
+                        style: TextStyle(color: tagTextColor, fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                     );
                   },
@@ -294,12 +301,13 @@ class DeviceManagerPage extends StatelessWidget {
                                   isBusy ? null : () => provider.executeAction(ExecuteAction.smoothing),
                                   isLocked: isBusy,
                                 ),
-                                _buildActionButton(
-                                  s.actionDeodorize,
-                                  isPlasma ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
-                                  state.$1 ? null : () => provider.togglePlasma(),
-                                  isLocked: state.$1,
-                                ),
+                                if (provider.currentDevice?.hasPlasma == true)
+                                  _buildActionButton(
+                                    s.actionDeodorize,
+                                    isPlasma ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
+                                    state.$1 ? null : () => provider.togglePlasma(),
+                                    isLocked: state.$1,
+                                  ),
                                 _buildActionButton(
                                   s.actionChildLock,
                                   isLock ? Icons.lock_rounded : Icons.lock_open_rounded,

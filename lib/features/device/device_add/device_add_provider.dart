@@ -10,6 +10,7 @@ import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
 import 'models/discovered_device.dart';
 import 'repositories/device_add_repository.dart';
+import 'package:fullxpet/features/device/repositories/device_repository.dart';
 
 class DeviceAddProvider extends BaseProvider {
   final _bleManager = locator<BluetoothManager>();
@@ -189,8 +190,7 @@ class DeviceAddProvider extends BaseProvider {
       final state = await FlutterBluePlus.adapterState
           .firstWhere((s) => s == BluetoothAdapterState.on)
           .timeout(const Duration(seconds: 3));
-      if (state != BluetoothAdapterState.on)
-        throw Exception("Status is not on");
+      if (state != BluetoothAdapterState.on) throw Exception("Status is not on");
     } catch (e) {
       setError("请确保已开启蓝牙");
       return;
@@ -200,10 +200,7 @@ class DeviceAddProvider extends BaseProvider {
     notifyListeners();
 
     try {
-      await _bleManager.startScan(
-        targetChipType: '',
-        timeout: const Duration(seconds: 15),
-      );
+      await _bleManager.startScan(targetChipType: '', timeout: const Duration(seconds: 15));
     } catch (e) {
       setError("扫描失败");
       _isScanning = false;
@@ -217,9 +214,7 @@ class DeviceAddProvider extends BaseProvider {
         final id = r.device.remoteId.toString();
         map[id] = DiscoveredDevice(
           id: id,
-          name: r.device.platformName.isNotEmpty
-              ? r.device.platformName
-              : "Unknown Device",
+          name: r.device.platformName.isNotEmpty ? r.device.platformName : "Unknown Device",
           rssi: r.rssi,
           device: r.device,
         );
@@ -232,8 +227,7 @@ class DeviceAddProvider extends BaseProvider {
           return false;
         }
         // 规则2：精确名称过滤（包含即可）
-        if (_filterName.isNotEmpty &&
-            !d.name.toUpperCase().contains(_filterName.toUpperCase())) {
+        if (_filterName.isNotEmpty && !d.name.toUpperCase().contains(_filterName.toUpperCase())) {
           return false;
         }
         return true;
@@ -257,10 +251,7 @@ class DeviceAddProvider extends BaseProvider {
     }
   }
 
-  Future<void> _send0x86Data(
-    String deviceId,
-    Map<String, dynamic> jsonMap,
-  ) async {
+  Future<void> _send0x86Data(String deviceId, Map<String, dynamic> jsonMap) async {
     final String jsonStr = jsonEncode(jsonMap);
     final List<int> jsonData = utf8.encode(jsonStr);
     final int totalLength = jsonData.length;
@@ -302,9 +293,7 @@ class DeviceAddProvider extends BaseProvider {
     notifyListeners();
 
     _addLog("设备开始连接");
-    final connectSuccess = await _bleManager.connectToDevice(
-      targetDevice.device!,
-    );
+    final connectSuccess = await _bleManager.connectToDevice(targetDevice.device!);
 
     if (!connectSuccess) {
       _connectingDeviceId = null;
@@ -326,8 +315,7 @@ class DeviceAddProvider extends BaseProvider {
     bool isSuccess = false;
 
     try {
-      List<BluetoothService> services = await targetDevice.device!
-          .discoverServices();
+      List<BluetoothService> services = await targetDevice.device!.discoverServices();
       for (var service in services) {
         String sUuid = _shortUuid(service.uuid.toString());
         _addLog("寻找到服务$sUuid");
@@ -338,9 +326,7 @@ class DeviceAddProvider extends BaseProvider {
       }
       _addLog("获取服务成功");
 
-      final stream = await _bleManager.subscribeToNotifications(
-        deviceId: _connectingDeviceId!,
-      );
+      final stream = await _bleManager.subscribeToNotifications(deviceId: _connectingDeviceId!);
 
       _progress = 0.25;
       _addLog("特征值订阅成功", isHighlight: true);
@@ -369,22 +355,12 @@ class DeviceAddProvider extends BaseProvider {
               if (data['list'] != null) {
                 final List list = data['list'];
                 _deviceWifiList = list
-                    .map(
-                      (item) => {
-                        "ssid": item[0].toString(),
-                        "channel": item[1] as int,
-                        "rssi": item[2] as int,
-                      },
-                    )
+                    .map((item) => {"ssid": item[0].toString(), "channel": item[1] as int, "rssi": item[2] as int})
                     .toList();
 
-                _deviceWifiList.sort(
-                  (a, b) => (b['rssi'] as int).compareTo(a['rssi'] as int),
-                );
+                _deviceWifiList.sort((a, b) => (b['rssi'] as int).compareTo(a['rssi'] as int));
 
-                final ssidNames = _deviceWifiList
-                    .map((e) => e['ssid'])
-                    .join(', ');
+                final ssidNames = _deviceWifiList.map((e) => e['ssid']).join(', ');
                 _addLog("共解析出 ${_deviceWifiList.length} 条可用网络: $ssidNames");
 
                 if (!completer.isCompleted) completer.complete();
@@ -432,11 +408,7 @@ class DeviceAddProvider extends BaseProvider {
     return isSuccess;
   }
 
-  Future<bool> startWifiProvisioning(
-    String ssid,
-    String password,
-    DiscoveredDevice targetDevice,
-  ) async {
+  Future<bool> startWifiProvisioning(String ssid, String password, DiscoveredDevice targetDevice) async {
     if (ssid.isEmpty || password.isEmpty) {
       setError("Wi-Fi 或密码不能为空");
       return false;
@@ -470,9 +442,7 @@ class DeviceAddProvider extends BaseProvider {
     Completer<bool> completer = Completer();
 
     try {
-      final stream = await _bleManager.subscribeToNotifications(
-        deviceId: targetDevice.id,
-      );
+      final stream = await _bleManager.subscribeToNotifications(deviceId: targetDevice.id);
       List<int> receiveBuffer = [];
       int expectedLength = 0;
 
@@ -492,12 +462,9 @@ class DeviceAddProvider extends BaseProvider {
             final validBytes = receiveBuffer.sublist(0, expectedLength);
             final dynamic decodedJson = jsonDecode(utf8.decode(validBytes));
 
-            final Map<String, dynamic>? data =
-                (decodedJson is List && decodedJson.isNotEmpty)
+            final Map<String, dynamic>? data = (decodedJson is List && decodedJson.isNotEmpty)
                 ? decodedJson.first as Map<String, dynamic>
-                : (decodedJson is Map
-                      ? decodedJson as Map<String, dynamic>
-                      : null);
+                : (decodedJson is Map ? decodedJson as Map<String, dynamic> : null);
 
             if (data != null) {
               if (data['payload'] != null && data['payload']['msg'] != null) {
@@ -526,27 +493,28 @@ class DeviceAddProvider extends BaseProvider {
                   final String mac = payload['mac']?.toString() ?? '';
                   final String pid = payload['pid']?.toString() ?? '';
 
-                  final String realDeviceId =
-                      payload['deviceId']?.toString() ?? '';
+                  final String realDeviceId = payload['deviceId']?.toString() ?? '';
                   _boundDeviceId = realDeviceId;
 
-                  _bindDeviceToCloud(mac, pid, "FULLXPET").then((
-                    isBindSuccess,
-                  ) {
+                  final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";
+
+                  _bindDeviceToCloud(mac, pid, defaultNickname).then((isBindSuccess) {
                     if (isBindSuccess) {
                       _progress = 1.0;
                       _addLog("设备云端注册完成！", isHighlight: true);
+
+                      final device = locator<DeviceRepository>().getDevice(realDeviceId);
+                      device.productId = pid;
+                      device.deviceName = defaultNickname;
+
                       if (!completer.isCompleted) completer.complete(true);
                     } else {
-                      if (!completer.isCompleted)
-                        completer.completeError(Exception("绑定设备失败，请重试"));
+                      if (!completer.isCompleted) completer.completeError(Exception("绑定设备失败，请重试"));
                     }
                   });
                 } else if (stage == 2 && code != 0) {
                   if (!completer.isCompleted) {
-                    String errMsg = payload['msg'] == 'password_error'
-                        ? "Wi-Fi 密码错误或信号极弱"
-                        : "网络连接中断";
+                    String errMsg = payload['msg'] == 'password_error' ? "Wi-Fi 密码错误或信号极弱" : "网络连接中断";
                     completer.completeError(Exception(errMsg));
                   }
                 }
@@ -580,9 +548,7 @@ class DeviceAddProvider extends BaseProvider {
     } catch (e) {
       _configStep = 0;
       _isReadyForWifi = true;
-      String errorMsg = e.toString().contains("Exception:")
-          ? e.toString().split("Exception: ").last
-          : "配网异常或超时";
+      String errorMsg = e.toString().contains("Exception:") ? e.toString().split("Exception: ").last : "配网异常或超时";
       _addLog("配网中断: $errorMsg", isError: true);
       setError(errorMsg);
       return false;
@@ -597,22 +563,14 @@ class DeviceAddProvider extends BaseProvider {
     }
   }
 
-  Future<bool> _bindDeviceToCloud(
-    String mac,
-    String pid,
-    String nickname,
-  ) async {
+  Future<bool> _bindDeviceToCloud(String mac, String pid, String nickname) async {
     try {
-      final homeListRes = await locator<HttpClient>().get<Map<String, dynamic>>(
-        ApiEndpoints.homeList,
-      );
+      final homeListRes = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.homeList);
       final items = homeListRes.data?['items'] as List?;
       if (items == null || items.isEmpty) return false;
 
       final homeId = items[0]['id']?.toString() ?? '';
-      final homeInfo = await locator<HttpClient>().get<Map<String, dynamic>>(
-        ApiEndpoints.homeInfo(homeId),
-      );
+      final homeInfo = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.homeInfo(homeId));
 
       String roomId = "";
       final responseData = homeInfo.data?['data'] ?? homeInfo.data;
@@ -637,10 +595,7 @@ class DeviceAddProvider extends BaseProvider {
 
       while (DateTime.now().isBefore(endTime)) {
         try {
-          final bindResult = await locator<HttpClient>().post(
-            ApiEndpoints.deviceBind(homeId),
-            data: bindPayload,
-          );
+          final bindResult = await locator<HttpClient>().post(ApiEndpoints.deviceBind(homeId), data: bindPayload);
           if (bindResult.code == 0 || bindResult.code == 200) {
             return true;
           }

@@ -129,7 +129,7 @@ class SZh extends S {
   String get selectWifiTitle => '选择设备的 Wi-Fi';
 
   @override
-  String get wifiConfigDesc => '请选择 2.4GHz 的 Wi-Fi 网络并输入密码，暂不支持 5G 网络。';
+  String get wifiConfigDesc => '请选择 Wi-Fi 网络并输入密码。';
 
   @override
   String get wifiPasswordHint => '请输入 Wi-Fi 密码';

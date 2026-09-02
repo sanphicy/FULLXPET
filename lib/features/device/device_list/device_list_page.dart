@@ -22,6 +22,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
   final Color _bgLight = const Color(0xFFF9F9FC);
   final Color _textColor = const Color(0xFF333333);
 
+  // 0: 全部, 1: V3, 2: V4
+  int _selectedTabIndex = 0;
+  final List<String> _tabs = ['全部', 'PETLUX V3', 'PETLUX V4'];
+
   @override
   void initState() {
     super.initState();
@@ -173,10 +177,9 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   ),
                 );
 
-                // _showDeleteConfirmDialog 异步弹出与关闭
                 final success = await context.read<DeviceProvider>().deleteDevice(deviceId);
                 if (!context.mounted) return;
-                Navigator.pop(context); // 关闭 loading 弹窗
+                Navigator.pop(context);
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteSuccess)));
                 } else {
@@ -209,145 +212,125 @@ class _DeviceListPageState extends State<DeviceListPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. 顶部栏 (Logo + Title + Help Icon)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+                // 1. 紧凑型一体化 Header（整合头像、用户名、在线统计与操作入口）
+                Selector<UserProvider, (String, String)>(
+                  selector: (_, userVm) => (userVm.user.avatarUrl, userVm.user.nickname),
+                  builder: (context, userData, _) {
+                    final avatarUrl = userData.$1;
+                    final rawName = userData.$2.trim();
+                    final userName = (rawName.isNotEmpty && rawName != 'Unknown User') ? rawName : 'User';
+
+                    return Row(
                       children: [
-                        SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'FULLX PET',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
-                            letterSpacing: 1.1,
+                        AppAvatar(avatarUrl: avatarUrl, radius: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Hello, $userName',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF222222),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 3),
+                              Selector<DeviceProvider, int>(
+                                selector: (_, devVm) => devVm.devices.where((d) => d.isOnline).length,
+                                builder: (context, onlineCount, _) {
+                                  return Row(
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF8CC152),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        '${s.online}: $onlineCount',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.help_outline_rounded, size: 22, color: Color(0xFF666666)),
+                          onPressed: () => _showHelpDialog(context, s),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline_rounded, size: 24, color: Color(0xFF222222)),
+                          onPressed: () => context.push(AppRoutes.deviceAddSearch),
+                        ),
                       ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.help_outline_rounded, size: 24, color: Color(0xFF555555)),
-                      onPressed: () => _showHelpDialog(context, s),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // 2. 用户问候语（局部监听 UserProvider）
-                Selector<UserProvider, String>(
-                  selector: (_, userVm) => userVm.user.nickname,
-                  builder: (context, userName, _) {
-                    final displayName = (userName.isNotEmpty && userName != 'Unknown User') ? userName : '';
-                    return Text(
-                      displayName.isNotEmpty ? 'Hello, $displayName' : 'Hello,',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryPurple),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     );
                   },
                 ),
+                const SizedBox(height: 14),
+
+                // 2. 全部 / V3 / V4 胶囊切换栏
+                SizedBox(
+                  height: 34,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _tabs.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final isSelected = _selectedTabIndex == index;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTabIndex = index;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isSelected ? _primaryPurple : Colors.white,
+                            borderRadius: BorderRadius.circular(17),
+                            border: Border.all(color: isSelected ? _primaryPurple : const Color(0xFFE5E5E5), width: 1),
+                          ),
+                          child: Text(
+                            _tabs[index],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? Colors.white : const Color(0xFF666666),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
                 const SizedBox(height: 16),
 
-                // 3. 用户头像与在线统计卡片 Banner
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Center(
-                      child: SizedBox(
-                        width: 140,
-                        height: 140,
-                        child: Image.asset(
-                          'assets/images/product-logo.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      left: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: const ShapeDecoration(color: Color(0xFFFCE21B), shape: StadiumBorder()),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Selector<UserProvider, String>(
-                              selector: (_, userVm) => userVm.user.avatarUrl,
-                              builder: (context, avatarUrl, _) => AppAvatar(avatarUrl: avatarUrl, radius: 16),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Selector<UserProvider, String>(
-                                  selector: (_, userVm) => userVm.user.nickname,
-                                  builder: (context, userName, _) {
-                                    return ConstrainedBox(
-                                      constraints: const BoxConstraints(maxWidth: 100),
-                                      child: Text(
-                                        userName.isNotEmpty ? userName : '',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF222222),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 1),
-                                Selector<DeviceProvider, int>(
-                                  selector: (_, devVm) => devVm.devices.where((d) => d.isOnline).length,
-                                  builder: (context, onlineCount, _) {
-                                    return Text(
-                                      '${s.online}: $onlineCount',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF7A60E6),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                // 3. 设备分类标题
+                Text(
+                  s.myDevices,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textColor),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 10),
 
-                // 4. 设备列表标题 + 添加设备按钮
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      s.myDevices,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textColor),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_rounded, size: 26, color: Color(0xFF555555)),
-                      onPressed: () => context.push(AppRoutes.deviceAddSearch),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // 5. 设备列表刷新区（局部监听 DeviceProvider 的设备列表）
+                // 4. 设备卡片列表（过滤与下拉刷新）
                 Expanded(
                   child: RefreshIndicator(
                     color: _primaryPurple,
@@ -359,9 +342,15 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       selector: (_, devVm) => (devVm.isLoading, devVm.devices),
                       builder: (context, data, _) {
                         final isLoading = data.$1;
-                        final devices = data.$2;
+                        final allDevices = data.$2;
 
-                        if (isLoading && devices.isEmpty) {
+                        final filteredDevices = allDevices.where((device) {
+                          if (_selectedTabIndex == 1) return !device.isV4;
+                          if (_selectedTabIndex == 2) return device.isV4;
+                          return true;
+                        }).toList()..sort((a, b) => (b.isOnline ? 1 : 0).compareTo(a.isOnline ? 1 : 0));
+
+                        if (isLoading && filteredDevices.isEmpty) {
                           return ListView(
                             children: [
                               const SizedBox(height: 60),
@@ -372,14 +361,14 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
                         return ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                          itemCount: devices.length,
+                          itemCount: filteredDevices.length,
                           itemBuilder: (context, index) {
-                            final device = devices[index];
+                            final device = filteredDevices[index];
                             return DeviceCard(
                               deviceName: device.deviceName,
                               deviceId: device.displayId,
                               isOnline: device.isOnline,
-                              imageUrl: 'assets/images/product-pic.png',
+                              imageUrl: device.displayImage,
                               onTap: () {
                                 context.push('/device_manager/${device.deviceId}');
                               },

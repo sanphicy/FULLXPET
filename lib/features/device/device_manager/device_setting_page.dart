@@ -129,7 +129,7 @@ class DeviceSettingPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Image.asset(
-                          'assets/images/product-pic.png',
+                          provider.currentDevice?.displayImage ?? 'assets/images/product-pic.png',
                           width: 70,
                           height: 70,
                           errorBuilder: (_, __, ___) => const Icon(Icons.devices, size: 70, color: Colors.grey),
@@ -237,19 +237,20 @@ class DeviceSettingPage extends StatelessWidget {
                       );
                     },
                   ),
-                  Selector<ActiveDeviceProvider, bool>(
-                    selector: (_, vm) => vm.isPlasmaAlwaysOn,
-                    builder: (context, isAlways, _) {
-                      return _buildSettingTile(
-                        Icons.bubble_chart_rounded,
-                        const Color(0xFF917CEE),
-                        '等离子除臭模式',
-                        showDivider: true,
-                        trailingText: isAlways ? '常开模式' : '循环模式',
-                        onTap: () => _showPlasmaScheduleSheet(context, provider, s),
-                      );
-                    },
-                  ),
+                  if (provider.currentDevice?.hasPlasma == true)
+                    Selector<ActiveDeviceProvider, bool>(
+                      selector: (_, vm) => vm.isPlasmaAlwaysOn,
+                      builder: (context, isAlways, _) {
+                        return _buildSettingTile(
+                          Icons.bubble_chart_rounded,
+                          const Color(0xFF917CEE),
+                          '等离子除臭模式',
+                          showDivider: true,
+                          trailingText: isAlways ? '常开模式' : '循环模式',
+                          onTap: () => _showPlasmaScheduleSheet(context, provider, s),
+                        );
+                      },
+                    ),
                   Selector<ActiveDeviceProvider, Map<String, String>>(
                     selector: (_, vm) => vm.currentDevice?.dndTimeRange ?? {'start': '22:00', 'end': '06:00'},
                     builder: (context, dndRange, _) {

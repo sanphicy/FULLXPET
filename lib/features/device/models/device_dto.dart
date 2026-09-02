@@ -16,6 +16,7 @@ class DeviceDto {
   final String deviceId;
   String deviceName;
   bool isOnline;
+  String productId;
   String get displayId => DeviceBatchHelper().getDisplayBatchNo(deviceId);
   final Map<String, dynamic> _attributes = {};
   final List<DeviceLog> logs = [];
@@ -30,10 +31,14 @@ class DeviceDto {
   String newFirmwareVersion = '';
   String pendingOtaRecordId = '';
   bool isOtaUpdating = false;
-
+  static const String pidV4 = '1a731d3e68cca08b';
+  bool get isV4 => productId == pidV4;
+  bool get hasPlasma => !isV4;
+  String get displayImage => isV4 ? 'assets/images/product-v4.png' : 'assets/images/product-pic.png';
   DeviceDto({
     required this.deviceId,
     this.deviceName = 'FULLXPET',
+    this.productId = '',
     this.isOnline = false,
     Map<String, dynamic>? attributes,
   }) {
@@ -44,6 +49,7 @@ class DeviceDto {
 
   // 物模型属性与计算属性
   ExecuteAction get executeAction {
+    if (!isOnline) return ExecuteAction.idle;
     final val = _attributes[DeviceThingModel.deviceExecute.dpid];
     if (val?.toString() == '5') {
       return ExecuteAction.idle;
@@ -129,6 +135,7 @@ class DeviceDto {
   }
 
   bool get isOperating {
+    if (!isOnline) return false;
     final dpid8 = _attributes[DeviceThingModel.deviceStatus.dpid]?.toString();
     final dpid9 = _attributes[DeviceThingModel.deviceExecute.dpid]?.toString();
     if (dpid9 == '5') return false;

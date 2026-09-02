@@ -262,7 +262,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
           Expanded(
             child: Text(
               device.name,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: Dimens.fontMedium),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: Dimens.fontSmall),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
