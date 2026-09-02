@@ -101,7 +101,7 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
                   TextField(
                     controller: nameCtrl,
                     decoration: InputDecoration(
-                      hintText: "输入要包含的设备名称 (留空则不过滤)",
+                      hintText: "多个名称用逗号隔开，如: FULLXPET, PETLUX",
                       hintStyle: const TextStyle(color: Colors.grey),
                       filled: true,
                       fillColor: const Color(0xFFF2F2F2),

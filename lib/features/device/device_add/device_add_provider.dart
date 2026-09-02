@@ -19,7 +19,7 @@ class DeviceAddProvider extends BaseProvider {
   // ================= 设置项持久化 =================
   bool _hasLoadedSettings = false;
   bool _filterUnknown = true;
-  String _filterName = 'FULLXPET';
+  String _filterName = 'FULLXPET, PETLUX';
   bool _autoFetchWifi = true;
 
   bool _isFactoryDebugMode = false; //工厂调试
@@ -226,9 +226,20 @@ class DeviceAddProvider extends BaseProvider {
         if (_filterUnknown && (d.name == "Unknown Device" || d.name.isEmpty)) {
           return false;
         }
-        // 规则2：精确名称过滤（包含即可）
-        if (_filterName.isNotEmpty && !d.name.toUpperCase().contains(_filterName.toUpperCase())) {
-          return false;
+        // 规则2：精确名称过滤（包含即可）按名称列表过滤（支持英文逗号 , 和中文逗号 ，）
+        if (_filterName.isNotEmpty) {
+          final filterKeywords = _filterName
+              .replaceAll('，', ',')
+              .split(',')
+              .map((e) => e.trim().toUpperCase())
+              .where((e) => e.isNotEmpty)
+              .toList();
+
+          if (filterKeywords.isNotEmpty) {
+            final deviceNameUpper = d.name.toUpperCase();
+            final bool isMatchAny = filterKeywords.any((kw) => deviceNameUpper.contains(kw));
+            if (!isMatchAny) return false;
+          }
         }
         return true;
       }).toList()..sort((a, b) => b.rssi.compareTo(a.rssi));
