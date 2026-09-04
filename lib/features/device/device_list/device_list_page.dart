@@ -155,40 +155,53 @@ class _DeviceListPageState extends State<DeviceListPage> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(ctx);
+                BuildContext? loadingContext;
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: _primaryPurple),
-                          const SizedBox(height: 12),
-                          Text(
-                            s.deleting,
-                            style: TextStyle(fontSize: 13, color: _textColor, decoration: TextDecoration.none),
-                          ),
-                        ],
+                  useRootNavigator: true,
+                  builder: (dialogCtx) {
+                    loadingContext = dialogCtx;
+                    return Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: _primaryPurple),
+                            const SizedBox(height: 12),
+                            Text(
+                              s.deleting,
+                              style: TextStyle(fontSize: 13, color: _textColor, decoration: TextDecoration.none),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
 
-                final success = await context.read<DeviceProvider>().deleteDevice(deviceId);
+                final success = await context.read<DeviceProvider>().deleteDevice(deviceId); //[cite: 2]
+
+                // 3. 关闭 Loading 弹窗：通过 loadingContext 或 rootNavigator 安全 pop
+                if (loadingContext != null && loadingContext!.mounted) {
+                  Navigator.of(loadingContext!).pop();
+                } else if (context.mounted) {
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+
                 if (!context.mounted) return;
-                Navigator.pop(context);
+
                 if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteSuccess)));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteSuccess))); //[cite: 2]
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteFailed)));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.deleteFailed))); //[cite: 2]
                 }
               },
               child: Text(
                 s.delete,
-                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold), //[cite: 2]
               ),
             ),
           ],
