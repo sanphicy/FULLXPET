@@ -23,7 +23,7 @@ class DeviceDto {
 
   String? logNextPageToken;
   bool hasMoreLogs = true;
-
+  Map<String, dynamic> get attributes => _attributes;
   int savedCalibrationWeight = 5000;
   String timeZoneId = 'Asia/Shanghai';
   String timeZoneOffset = 'UTC+08:00';

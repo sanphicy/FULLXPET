@@ -38,7 +38,8 @@ import 'package:fullxpet/features/device/device_manager/time_zone_search_page.da
 import 'package:fullxpet/features/device/device_manager/timer_mode_page.dart';
 import 'package:fullxpet/features/device/device_manager/weighing_calibration_page.dart';
 import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
-
+import 'package:fullxpet/features/device/feeder/pages/feeder_manager_page.dart';
+import 'package:fullxpet/features/device/repositories/device_repository.dart';
 // User
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
 import 'package:fullxpet/features/user/pages/feedback_page.dart';
@@ -159,9 +160,15 @@ class AppRouter {
     GoRoute(
       path: AppRoutes.deviceManager,
       builder: (context, state) {
-        final String deviceId = state.pathParameters['id'] ?? '';
-        locator<ActiveDeviceProvider>().selectDevice(deviceId);
-        return _withActiveDevice(DeviceManagerPage(deviceId: deviceId));
+        final id = state.pathParameters['id'] ?? '';
+        final device = locator<DeviceRepository>().getDevice(id);
+
+        if (device.productId == '9c2608de680bf9b6') {
+          return FeederManagerPage(deviceId: id);
+        }
+
+        // 默认依然是原本的猫砂盆页面
+        return DeviceManagerPage(deviceId: id);
       },
     ),
     GoRoute(
