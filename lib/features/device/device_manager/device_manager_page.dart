@@ -21,7 +21,9 @@ class DeviceManagerPage extends StatelessWidget {
     const Color bgColor = Color(0xFFF9F9FC);
     const Color textColor = Color(0xFF333333);
     const Color pillGray = Color(0xFFF0EFF5);
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      provider.selectDevice(deviceId);
+    });
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(

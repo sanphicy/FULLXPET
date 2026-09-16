@@ -71,7 +71,7 @@ class AppRoutes {
   static const deviceAddWifi = '/device_add_wifi';
   static const deviceAddSuccess = '/device_add_success/:id';
 
-  // Device Detail (跳转辅助方法 - 业务代码直接调，避免手写字符串)
+  // Device Detail
   static String deviceManagerPath(String id) => '/device_manager/$id';
   static String deviceSettingPath(String id) => '/device_setting/$id';
   static String timezonePath(String id) => '/device_setting/$id/timezone';
@@ -167,8 +167,7 @@ class AppRouter {
           return FeederManagerPage(deviceId: id);
         }
 
-        // 默认依然是原本的猫砂盆页面
-        return DeviceManagerPage(deviceId: id);
+        return _withActiveDevice(DeviceManagerPage(deviceId: id));
       },
     ),
     GoRoute(
