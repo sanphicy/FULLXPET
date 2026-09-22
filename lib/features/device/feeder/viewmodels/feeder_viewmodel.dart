@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/utils/time_utils.dart';
 import 'package:fullxpet/features/device/feeder/models/feeder_thing_model.dart';
@@ -9,8 +10,8 @@ import 'package:fullxpet/locator.dart';
 
 /// 定时区间实体
 class FeederTimeRange {
-  final String start; // 如 "08:00"
-  final String end; // 如 "22:00"
+  final String start;
+  final String end;
 
   FeederTimeRange({required this.start, required this.end});
 
@@ -25,6 +26,12 @@ class FeederViewModel extends BaseProvider {
   DeviceDto? get device => _device;
 
   StreamSubscription<String>? _repoSubscription;
+  Timer? _otaPollingTimer;
+
+  // --- OTA 升级相关状态 ---
+  bool get hasNewFirmware => _device?.hasNewFirmware ?? false;
+  String get newFirmwareVersion => _device?.newFirmwareVersion ?? '';
+  bool get isOtaUpdating => _device?.isOtaUpdating ?? false;
 
   FeederMode get currentMode {
     final val = _device?.attributes[FeederThingModel.deviceMode.dpid];
@@ -47,7 +54,10 @@ class FeederViewModel extends BaseProvider {
     return int.tryParse(val?.toString() ?? '') ?? 0;
   }
 
-  String get firmwareVersion => _device?.attributes[FeederThingModel.deviceVersion.dpid]?.toString() ?? '';
+  String get firmwareVersion =>
+      _device?.attributes[FeederThingModel.deviceVersion.dpid]?.toString() ?? (_device?.firmwareVersion ?? '');
+
+  String get wifiSsid => _device?.attributes[FeederThingModel.deviceSsid.dpid]?.toString() ?? (_device?.wifiSsid ?? '');
 
   String get wifiRssi => "${_device?.attributes[FeederThingModel.deviceRssi.dpid] ?? 0}dBm";
 
@@ -55,14 +65,12 @@ class FeederViewModel extends BaseProvider {
 
   String get wifiMac => _device?.attributes[FeederThingModel.deviceMac.dpid]?.toString() ?? '-';
 
-  /// 解析成对的时间区间列表 (DP 14: ["28800","79200", ...])
   List<FeederTimeRange> get timerRanges {
     final val = _device?.attributes[FeederThingModel.timerModeSchedule.dpid];
     if (val == null) return [];
     try {
       final List<dynamic> rawList = jsonDecode(val.toString());
       List<FeederTimeRange> result = [];
-      // 步长为 2 遍历，两两成对
       for (int i = 0; i < rawList.length - 1; i += 2) {
         final startSec = int.tryParse(rawList[i].toString()) ?? 0;
         final endSec = int.tryParse(rawList[i + 1].toString()) ?? 0;
@@ -84,6 +92,7 @@ class FeederViewModel extends BaseProvider {
 
   @override
   void dispose() {
+    stopOtaPolling();
     _repoSubscription?.cancel();
     super.dispose();
   }
@@ -95,12 +104,98 @@ class FeederViewModel extends BaseProvider {
     setLoading(true);
     try {
       await _deviceRepo.fetchDeviceProperties(deviceId);
+      // 检查固件版本
+      await checkFirmwareUpdate();
     } catch (e) {
       setError(e.toString());
     } finally {
       setLoading(false);
       notifyListeners();
     }
+  }
+
+  /// 检查是否有新固件
+  Future<void> checkFirmwareUpdate() async {
+    if (_device == null) return;
+    try {
+      final otaData = await _deviceRepo.checkPendingFirmware(_device!.deviceId);
+      if (otaData != null && otaData['recordId'] != null) {
+        _device!.hasNewFirmware = true;
+        _device!.newFirmwareVersion = otaData['version']?.toString() ?? '最新';
+        _device!.pendingOtaRecordId = otaData['recordId'].toString();
+      } else {
+        _device!.hasNewFirmware = false;
+        _device!.newFirmwareVersion = '';
+        _device!.pendingOtaRecordId = '';
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// 触发固件升级
+  Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
+    if (_device == null || _device!.pendingOtaRecordId.isEmpty) {
+      setError('没有要升级的固件');
+      return false;
+    }
+
+    setLoading(true);
+    final targetVersion = _device!.newFirmwareVersion;
+    final success = await _deviceRepo.dispatchFirmwareUpgrade(_device!.deviceId, _device!.pendingOtaRecordId);
+    setLoading(false);
+
+    if (success) {
+      _device!.hasNewFirmware = false;
+      _device!.isOtaUpdating = true;
+      notifyListeners();
+      _startOtaPolling(_device!.deviceId, targetVersion, timeoutSeconds);
+      return true;
+    } else {
+      setError('下发固件升级失败');
+      return false;
+    }
+  }
+
+  void _startOtaPolling(String deviceId, String targetVersion, int timeoutSeconds) {
+    _otaPollingTimer?.cancel();
+    final startTime = DateTime.now();
+
+    _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
+        stopOtaPolling();
+        setError('OTA 升级超时');
+        notifyListeners();
+        return;
+      }
+
+      try {
+        await _deviceRepo.fetchDeviceProperties(deviceId);
+        if (_device != null && _device!.firmwareVersion == targetVersion) {
+          stopOtaPolling();
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Feeder OTA Polling Exception: $e');
+      }
+    });
+  }
+
+  void stopOtaPolling() {
+    _otaPollingTimer?.cancel();
+    _otaPollingTimer = null;
+    if (_device != null) {
+      _device!.isOtaUpdating = false;
+    }
+  }
+
+  /// 重命名设备
+  Future<bool> updateDeviceName(String newName) async {
+    if (_device == null) return false;
+    setLoading(true);
+    final success = await _deviceRepo.renameDevice(_device!.deviceId, newName);
+    setLoading(false);
+    if (!success) setError('重命名失败');
+    return success;
   }
 
   Future<void> switchMode(FeederMode mode) async {
@@ -172,21 +267,18 @@ class FeederViewModel extends BaseProvider {
     }
   }
 
-  /// 添加时间区间
   Future<bool> addTimerRange(String start, String end) async {
     final list = List<FeederTimeRange>.from(timerRanges);
     list.add(FeederTimeRange(start: start, end: end));
     return await _saveTimerRanges(list);
   }
 
-  /// 移除时间区间
   Future<bool> removeTimerRange(int index) async {
     final list = List<FeederTimeRange>.from(timerRanges);
     list.removeAt(index);
     return await _saveTimerRanges(list);
   }
 
-  /// 转换成下发数组：["28800", "79200", ...]
   Future<bool> _saveTimerRanges(List<FeederTimeRange> list) async {
     if (_device == null) return false;
 
@@ -197,7 +289,6 @@ class FeederViewModel extends BaseProvider {
     }
 
     final jsonStr = jsonEncode(secondsArray);
-
     _device!.updateAttributesFromMap({FeederThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
 

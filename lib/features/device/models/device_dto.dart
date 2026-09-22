@@ -32,9 +32,18 @@ class DeviceDto {
   String pendingOtaRecordId = '';
   bool isOtaUpdating = false;
   static const String pidV4 = '1a731d3e68cca08b';
+  static const String pidFeeder = '9c2608de680bf9b6';
   bool get isV4 => productId == pidV4;
-  bool get hasPlasma => !isV4;
-  String get displayImage => isV4 ? 'assets/images/product-v4.png' : 'assets/images/product-pic.png';
+  bool get isFeeder => productId == pidFeeder;
+  bool get isLitterBox => !isFeeder;
+  bool get hasPlasma => !isV4 && !isFeeder;
+  String get displayImage {
+    if (isFeeder) {
+      return 'assets/images/product-feeder.png';
+    }
+    return isV4 ? 'assets/images/product-v4.png' : 'assets/images/product-pic.png';
+  }
+
   DeviceDto({
     required this.deviceId,
     this.deviceName = 'FULLXPET',
@@ -132,6 +141,12 @@ class DeviceDto {
       } catch (_) {}
     }
     return {'start': start, 'end': end};
+  }
+
+  String get categoryName {
+    if (isFeeder) return '猫脸喂食器';
+    if (isV4) return 'PETLUX V4';
+    return 'PETLUX V3';
   }
 
   bool get isOperating {

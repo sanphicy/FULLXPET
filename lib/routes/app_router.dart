@@ -40,6 +40,7 @@ import 'package:fullxpet/features/device/device_manager/weighing_calibration_pag
 import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
 import 'package:fullxpet/features/device/feeder/pages/feeder_manager_page.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
+import 'package:fullxpet/features/device/feeder/pages/feeder_setting_page.dart';
 // User
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
 import 'package:fullxpet/features/user/pages/feedback_page.dart';
@@ -174,6 +175,12 @@ class AppRouter {
       path: AppRoutes.deviceSetting,
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
+        final device = locator<DeviceRepository>().getDevice(deviceId);
+
+        if (device.productId == '9c2608de680bf9b6') {
+          return FeederSettingPage(deviceId: deviceId);
+        }
+
         return _withActiveDevice(DeviceSettingPage(deviceId: deviceId));
       },
     ),

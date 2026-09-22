@@ -56,7 +56,12 @@ class _FeederManagerView extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert_rounded, color: _primary),
-            onPressed: () => _showDeviceSettingsSheet(context, vm),
+            onPressed: () {
+              final id = vm.device?.deviceId ?? '';
+              if (id.isNotEmpty) {
+                context.push('/device_setting/$id');
+              }
+            },
           ),
         ],
       ),
