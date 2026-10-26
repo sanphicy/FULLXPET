@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/feeder/models/feeder_thing_model.dart';
 import '../viewmodels/feeder_viewmodel.dart';
+import '../widgets/agora_video_widget.dart';
 
 class FeederManagerPage extends StatelessWidget {
   final String deviceId;
@@ -122,69 +123,59 @@ class _FeederManagerView extends StatelessWidget {
             BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, 8)),
           ],
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              top: 14,
-              left: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(12),
+        // 使用 ClipRRect 裁剪圆角，防止视频画面溢出黑框
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // ==========================================
+              // 🌟 这里替换成我们的声网拉流组件
+              // ==========================================
+              Positioned.fill(
+                // 把 deviceId 传进去。isTestMode 设为 true 时走本地测试
+                child: AgoraVideoWidget(deviceId: vm.device?.deviceId ?? '', isTestMode: true),
+              ),
+
+              // 左上角的状态标签
+              Positioned(
+                top: 14,
+                left: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(color: _online, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(visionStatus, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                    ],
+                  ),
                 ),
+              ),
+
+              // 右下角的控制按钮
+              Positioned(
+                bottom: 12,
+                right: 14,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(color: _online, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(visionStatus, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                    _buildMediaBtn(Icons.camera_alt_outlined, () {}),
+                    const SizedBox(width: 8),
+                    _buildMediaBtn(Icons.fullscreen_rounded, () {}),
                   ],
                 ),
               ),
-            ),
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _primary.withValues(alpha: 0.7), width: 1.5),
-              ),
-              alignment: Alignment.bottomCenter,
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(6)),
-                child: const Text(
-                  'CAT FACE AI',
-                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const Positioned(
-              bottom: 30,
-              child: Text(
-                '视频预览与识别插槽',
-                style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
-              ),
-            ),
-            Positioned(
-              bottom: 12,
-              right: 14,
-              child: Row(
-                children: [
-                  _buildMediaBtn(Icons.camera_alt_outlined, () {}),
-                  const SizedBox(width: 8),
-                  _buildMediaBtn(Icons.fullscreen_rounded, () {}),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -52,7 +52,7 @@ dependencies:
   flutter_blue_plus: ^1.31.0
 
   # 动态权限申请
-  permission_handler: ^11.3.0
+  permission_handler: ^13.0.2
 
   # 获取当前连接的 Wi-Fi SSID
   network_info_plus: ^5.0.0
@@ -80,6 +80,7 @@ dependencies:
 
   # iOS 风格图标库
   cupertino_icons: ^1.0.8
+  agora_rtc_engine: ^6.6.4
 
 dev_dependencies:
   flutter_test:
