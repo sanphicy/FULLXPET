@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/active_device_provider.dart';
 
 class TimeZoneSearchPage extends StatefulWidget {
@@ -25,7 +27,11 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
 
   late String _tempSelectedTzId;
   late String _tempSelectedTzOffset;
-  final double _itemExtentHeight = 56.0;
+  final double _itemExtentHeight = 52.0;
+
+  final Color _primaryPurple = const Color(0xFF917CEE);
+  final Color _textColor = const Color(0xFF333333);
+  final Color _bgColor = const Color(0xFFF9F9FC);
 
   @override
   void initState() {
@@ -34,7 +40,6 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
     _tempSelectedTzId = provider.currentTimeZoneId;
     _tempSelectedTzOffset = provider.currentTimeZoneOffset;
 
-    // 获取并排序所有 IANA 时区
     _allTimeZones = tz.timeZoneDatabase.locations.keys.toList();
     _allTimeZones.sort();
     _filteredTimeZones = _allTimeZones;
@@ -70,7 +75,6 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
 
   Future<void> _initSystemTimeZone() async {
     try {
-      // 直接拿到 String
       final String tzId = await FlutterTimezone.getLocalTimezone();
       final offset = _getOffsetStr(tzId);
       if (mounted) {
@@ -80,7 +84,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
           _isFetchingSystemTz = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => _isFetchingSystemTz = false);
     }
   }
@@ -94,7 +98,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
       final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
       final sign = hours >= 0 ? '+' : '-';
       return 'UTC$sign${hours.abs().toString().padLeft(2, '0')}:$minutes';
-    } catch (e) {
+    } catch (_) {
       return '';
     }
   }
@@ -108,120 +112,128 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context)!;
     final bool isCurrentSelectedInList = _filteredTimeZones.contains(_tempSelectedTzId);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
+      backgroundColor: _bgColor,
       appBar: AppBar(
-        title: const Text(
-          'Time Zone',
-          style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+        title: Text(
+          s.timeZoneTitle,
+          style: TextStyle(color: _textColor, fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFF9F9FC), // 替换为白净背景
+        backgroundColor: _bgColor,
         elevation: 0,
         leading: TextButton(
           onPressed: () => context.pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          child: Text(s.cancel, style: const TextStyle(color: Colors.grey)),
         ),
-        leadingWidth: 80,
+        leadingWidth: 70,
         actions: [
           TextButton(
             onPressed: () {
               context.read<ActiveDeviceProvider>().setTimeZone(_tempSelectedTzId, _tempSelectedTzOffset);
               context.pop();
             },
-            child: const Text(
-              'Confirm',
-              style: TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold), // 替换为紫色
+            child: Text(
+              s.confirm,
+              style: TextStyle(color: _primaryPurple, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search timezone...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-            ),
-          ),
-          if (!_isFetchingSystemTz && _systemTzId.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                _searchCtrl.text = _systemTzId;
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.my_location, size: 18, color: Color(0xFF917CEE)), // 替换为紫色
-                    const SizedBox(width: 8),
-                    Text(
-                      'Use system timezone ($_systemTzId)',
-                      style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.w500), // 替换为紫色
-                    ),
-                  ],
+      body: SafeArea(
+        child: ResponsiveFormContainer(
+          maxWidth: 600,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: s.searchTimezoneHint,
+                    hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
                 ),
               ),
-            ),
-          const Divider(height: 1, color: Color(0xFFEEEEEE)),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: _filteredTimeZones.length,
-              itemExtent: _itemExtentHeight,
-              itemBuilder: (context, index) {
-                final tzName = _filteredTimeZones[index];
-                final offsetStr = _getOffsetStr(tzName);
-                final isSelected = _tempSelectedTzId == tzName;
-
-                return ListTile(
-                  title: Text(
-                    tzName,
-                    style: TextStyle(
-                      color: isSelected ? const Color(0xFF917CEE) : const Color(0xFF333333), // 替换为紫色
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(offsetStr, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.check, color: Color(0xFF917CEE), size: 20), // 替换为紫色
-                      ],
-                    ],
-                  ),
+              if (!_isFetchingSystemTz && _systemTzId.isNotEmpty)
+                GestureDetector(
                   onTap: () {
+                    _searchCtrl.text = _systemTzId;
                     FocusManager.instance.primaryFocus?.unfocus();
-                    setState(() {
-                      _tempSelectedTzId = tzName;
-                      _tempSelectedTzOffset = offsetStr;
-                    });
                   },
-                );
-              },
-            ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(
+                      children: [
+                        Icon(Icons.my_location, size: 18, color: _primaryPurple),
+                        const SizedBox(width: 8),
+                        Text(
+                          s.useSystemTimezone(_systemTzId),
+                          style: TextStyle(color: _primaryPurple, fontWeight: FontWeight.w500, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const Divider(height: 1, color: Color(0xFFEEEEEE)),
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: _filteredTimeZones.length,
+                  itemExtent: _itemExtentHeight,
+                  itemBuilder: (context, index) {
+                    final tzName = _filteredTimeZones[index];
+                    final offsetStr = _getOffsetStr(tzName);
+                    final isSelected = _tempSelectedTzId == tzName;
+
+                    return ListTile(
+                      title: Text(
+                        tzName,
+                        style: TextStyle(
+                          color: isSelected ? _primaryPurple : _textColor,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(offsetStr, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.check, color: _primaryPurple, size: 18),
+                          ],
+                        ],
+                      ),
+                      onTap: () {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        setState(() {
+                          _tempSelectedTzId = tzName;
+                          _tempSelectedTzOffset = offsetStr;
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       floatingActionButton: isCurrentSelectedInList
           ? FloatingActionButton(
               mini: true,
-              backgroundColor: const Color(0xFF917CEE), // 替换为紫色
+              backgroundColor: _primaryPurple,
               onPressed: () => _scrollToCurrentSelected(isAnimate: true),
               child: const Icon(Icons.center_focus_strong, color: Colors.white),
             )

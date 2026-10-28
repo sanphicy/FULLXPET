@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/core/bluetooth/bluetooth_manager.dart';
+import 'package:fullxpet/core/hardware/bluetooth_manager.dart';
 import 'package:fullxpet/locator.dart';
 import 'models/discovered_device.dart';
 
@@ -13,7 +13,12 @@ class FactoryDebugLog {
   final String rawText;
   final Map<String, dynamic>? parsedJson;
 
-  FactoryDebugLog({required this.timestamp, required this.isTx, required this.rawText, this.parsedJson});
+  FactoryDebugLog({
+    required this.timestamp,
+    required this.isTx,
+    required this.rawText,
+    this.parsedJson,
+  });
 }
 
 class FactoryDebugProvider extends BaseProvider {
@@ -69,7 +74,9 @@ class FactoryDebugProvider extends BaseProvider {
       // 监听断开
       _connSub?.cancel();
       _connSub = device.connectionState.listen((state) {
-        if (state == BluetoothConnectionState.disconnected && _targetDevice != null && !isLoading) {
+        if (state == BluetoothConnectionState.disconnected &&
+            _targetDevice != null &&
+            !isLoading) {
           setError("设备蓝牙已断开");
         }
       });
@@ -86,17 +93,21 @@ class FactoryDebugProvider extends BaseProvider {
         for (var c in s.characteristics) {
           final uuidStr = c.uuid.toString().toLowerCase();
 
-          if (uuidStr.contains("fa01") && (c.properties.notify || c.properties.indicate)) {
+          if (uuidStr.contains("fa01") &&
+              (c.properties.notify || c.properties.indicate)) {
             notifyChrFA01 = c;
           }
-          if (uuidStr.contains("fa02") && (c.properties.write || c.properties.writeWithoutResponse)) {
+          if (uuidStr.contains("fa02") &&
+              (c.properties.write || c.properties.writeWithoutResponse)) {
             writeChrFA02 = c;
           }
 
-          if (uuidStr.contains("ff02") && (c.properties.notify || c.properties.indicate)) {
+          if (uuidStr.contains("ff02") &&
+              (c.properties.notify || c.properties.indicate)) {
             notifyChrFF02 = c;
           }
-          if (uuidStr.contains("ff03") && (c.properties.write || c.properties.writeWithoutResponse)) {
+          if (uuidStr.contains("ff03") &&
+              (c.properties.write || c.properties.writeWithoutResponse)) {
             writeChrFF03 = c;
           }
         }
@@ -117,7 +128,9 @@ class FactoryDebugProvider extends BaseProvider {
       // 3. 开启监听
       await _notifyCharacteristic!.setNotifyValue(true);
       _notifySub?.cancel();
-      _notifySub = _notifyCharacteristic!.onValueReceived.listen(_handleIncomingBytes);
+      _notifySub = _notifyCharacteristic!.onValueReceived.listen(
+        _handleIncomingBytes,
+      );
 
       setLoading(false);
       return true;
@@ -206,8 +219,12 @@ class FactoryDebugProvider extends BaseProvider {
     final motor = telemetry['sensors']?['motor'];
     if (motor == null) return;
 
-    final int state = motor['state'] is num ? (motor['state'] as num).toInt() : 0;
-    final int currentEncoder = motor['encoder_cnt'] is num ? (motor['encoder_cnt'] as num).toInt() : 0;
+    final int state = motor['state'] is num
+        ? (motor['state'] as num).toInt()
+        : 0;
+    final int currentEncoder = motor['encoder_cnt'] is num
+        ? (motor['encoder_cnt'] as num).toInt()
+        : 0;
 
     // 核心逻辑：只有 state != 0 (电机被指令驱动运转中/寻零中) 才需要监测编码器脉冲！
     final bool isMotorWorking = (state != 0);
@@ -230,7 +247,10 @@ class FactoryDebugProvider extends BaseProvider {
     }
 
     // 运行状态下，连续 3 次脉冲完全没有变化 -> 判定堵转/无动作
-    if (_recentEncoderCounts.length == 3 && _recentEncoderCounts.every((cnt) => cnt == _recentEncoderCounts.first)) {
+    if (_recentEncoderCounts.length == 3 &&
+        _recentEncoderCounts.every(
+          (cnt) => cnt == _recentEncoderCounts.first,
+        )) {
       if (!_isMotorStuckWarning) {
         _isMotorStuckWarning = true;
         notifyListeners();
@@ -247,7 +267,8 @@ class FactoryDebugProvider extends BaseProvider {
   // 发送指令 (支持纯 JSON 或 0x86 配网协议)
   // ==========================================
   Future<bool> sendJsonCommand(String jsonText, {bool use0x86 = false}) async {
-    if (_targetDevice?.device != null && _targetDevice!.device!.isConnected == false) {
+    if (_targetDevice?.device != null &&
+        _targetDevice!.device!.isConnected == false) {
       setError("连接已断开，正在尝试重连...");
       bool reconnected = await connectAndInitGatt(_targetDevice!);
       if (!reconnected) {
@@ -285,14 +306,16 @@ class FactoryDebugProvider extends BaseProvider {
         for (List<int> packet in packets) {
           await _writeCharacteristic!.write(
             packet,
-            withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
+            withoutResponse:
+                _writeCharacteristic!.properties.writeWithoutResponse,
           );
           await Future.delayed(const Duration(milliseconds: 15));
         }
       } else {
         await _writeCharacteristic!.write(
           jsonData,
-          withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
+          withoutResponse:
+              _writeCharacteristic!.properties.writeWithoutResponse,
         );
       }
 

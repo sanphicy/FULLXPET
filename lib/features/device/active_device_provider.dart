@@ -2,83 +2,50 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/common/widgets/app_dialogs.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
 import 'package:fullxpet/features/device/models/device_thing_model.dart';
+import 'package:fullxpet/core/utils/time_utils.dart';
 
 class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
-  // 设备数据仓库实例
   final DeviceRepository _deviceRepo = locator<DeviceRepository>();
 
-  // 当前选中的设备对象
   DeviceDto? _currentDevice;
   DeviceDto? get currentDevice => _currentDevice;
 
-  // 设备更新事件订阅
   StreamSubscription<String>? _repoSubscription;
+  Timer? _otaPollingTimer;
 
-  // 暂存 OTA 记录 ID
-  String _pendingOtaRecordId = '';
-  // 当前设备时区标识（如：Asia/Shanghai）
-  String _currentTimeZoneId = 'Asia/Shanghai';
-  String get currentTimeZoneId => _currentTimeZoneId;
-
-  // 当前设备时区偏移量字符串（如：UTC+08:00）
-  String _currentTimeZoneOffset = 'UTC+08:00';
-  String get currentTimeZoneOffset => _currentTimeZoneOffset;
-
-  // 本地定时任务时间列表（格式："HH:mm"）
-  List<String> _localTimerList = [];
-
-  // 获取定时任务时间列表
-  List<String> get timerList => _localTimerList;
-
-  // 是否有新固件可供升级
-  bool _hasNewFirmware = false;
-  bool get hasNewFirmware => _hasNewFirmware;
-
-  // 新固件版本号
-  String _newFirmwareVersion = '';
-  String get newFirmwareVersion => _newFirmwareVersion;
-
-  // 获取网络状态是否良好
+  List<String> get timerList => _currentDevice?.timerList ?? [];
+  bool get hasNewFirmware => _currentDevice?.hasNewFirmware ?? false;
+  String get newFirmwareVersion => _currentDevice?.newFirmwareVersion ?? '';
+  bool get isOtaUpdating => _currentDevice?.isOtaUpdating ?? false;
+  int get savedCalibrationWeight => _currentDevice?.savedCalibrationWeight ?? 5000;
+  String get currentTimeZoneId => _currentDevice?.timeZoneId ?? 'Asia/Shanghai';
+  String get currentTimeZoneOffset => _currentDevice?.timeZoneOffset ?? 'UTC+08:00';
+  int get autoModeIndex => _currentDevice?.autoModeIndex ?? 0;
   bool get isNetworkGood => true;
+  Map<String, int> get plasmaSchedule => _currentDevice?.plasmaSchedule ?? {'runTime': 3600, 'outTime': 1800};
+  bool get isPlasmaAlwaysOn => _currentDevice?.isPlasmaAlwaysOn ?? false;
 
-  // 本地保存的校准砝码重量（单位：克）
-  int _savedCalibrationWeight = 5000;
-  int get savedCalibrationWeight => _savedCalibrationWeight;
+  final List<String> autoModeOptions = const ['1', '2', '3', '4', '5'];
 
-  // 自动模式延迟时间选项列表（单位：分钟）
-  final List<String> _autoModeOptions = ['1', '2', '3', '4', '5'];
-  List<String> get autoModeOptions => _autoModeOptions;
-
-  int get autoModeIndex {
-    if (_currentDevice == null) return 0;
-    int mins = _currentDevice!.autoModeDelaySeconds ~/ 60;
-    int idx = _autoModeOptions.indexOf(mins.toString());
-    return idx == -1 ? 0 : idx;
+  S? get _s {
+    final BuildContext? ctx = NavService.rootNavigatorKey.currentContext;
+    return ctx != null ? S.of(ctx) : null;
   }
 
-  // ================= OTA 纯轮询状态变量 =================
-  Timer? _otaPollingTimer;
-  bool _isOtaUpdating = false;
-  bool get isOtaUpdating => _isOtaUpdating;
-  // ====================================================
-
-  // 构造函数，监听设备仓库数据更新与应用生命周期
   ActiveDeviceProvider() {
     _repoSubscription = _deviceRepo.onDeviceUpdated.listen((updatedDeviceId) {
       if (_currentDevice != null && _currentDevice!.deviceId == updatedDeviceId) {
         notifyListeners();
       }
     });
-    // 注册生命周期监听
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -93,112 +60,119 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-
-    if (state == AppLifecycleState.resumed) {
-      if (_currentDevice != null) {
-        _deviceRepo.fetchDeviceProperties(_currentDevice!.deviceId).then((_) {
-          notifyListeners();
-        });
-      }
+    if (state == AppLifecycleState.resumed && _currentDevice != null) {
+      _deviceRepo.fetchDeviceProperties(_currentDevice!.deviceId);
     }
   }
 
+  //检查设备是否在线
   bool _checkOffline() {
     if (_currentDevice == null) return false;
     if (!_currentDevice!.isOnline) {
-      setError("设备离线无法操作");
+      setError(_s?.offline ?? '离线');
       return false;
     }
     return true;
   }
 
+  //异步执行超时包装器
+  //为下发硬件指令等异步操作设置 3 秒超时上限，防止因网络阻塞或硬件未响应导致程序无限等待卡死。
   Future<bool> _executeWithTimeout(Future<bool> Function() action) async {
     try {
       return await action().timeout(const Duration(seconds: 3));
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
 
+  //乐观更新UI
   Future<void> _executeOptimistic({
     required Map<String, dynamic> newAttrs,
     required Map<String, dynamic> oldAttrs,
     required Future<bool> Function() apiCall,
-    required String errorMsg,
+    String? errorMsg,
   }) async {
     _currentDevice!.updateAttributesFromMap(newAttrs);
     notifyListeners();
 
     final success = await _executeWithTimeout(apiCall);
-
     if (!success) {
       _currentDevice!.updateAttributesFromMap(oldAttrs);
-      setError(errorMsg);
+      setError(errorMsg ?? _s?.operationFailed ?? '操作失败');
       notifyListeners();
     }
   }
 
-  // 选择并切换当前操作的设备
+  // 选择并激活当前设备
   Future<void> selectDevice(String id) async {
     if (_currentDevice?.deviceId == id) return;
     _currentDevice = _deviceRepo.getDevice(id);
-    _localTimerList = List.from(_currentDevice!.timerList);
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      _savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
-      _currentTimeZoneId = await FlutterTimezone.getLocalTimezone();
-      _currentTimeZoneOffset = _calculateOffsetStr(_currentTimeZoneId);
+      _currentDevice!.savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
+      _currentDevice!.timeZoneId = await FlutterTimezone.getLocalTimezone();
+      _currentDevice!.timeZoneOffset = TimeUtils.calculateOffsetStr(_currentDevice!.timeZoneId);
     } catch (_) {}
+
     clearError();
     notifyListeners();
-    final needsLoading = _currentDevice!.wifiMac == "00:00:00:00:00:00";
+
+    final needsLoading = _currentDevice!.wifiMac == '00:00:00:00:00:00';
     if (needsLoading) setLoading(true);
+
     try {
       await _deviceRepo.fetchDeviceProperties(id);
       await _deviceRepo.fetchDeviceLogs(id, isLoadMore: false);
 
-      // 主动检查设备是否有待升级的固件
       final otaData = await _deviceRepo.checkPendingFirmware(id);
-
       if (otaData != null && otaData['recordId'] != null) {
-        _hasNewFirmware = true;
-        _newFirmwareVersion = otaData['version']?.toString() ?? '最新版';
-        _pendingOtaRecordId = otaData['recordId'].toString();
-        debugPrint("✅ 匹配到固件升级! 版本: $_newFirmwareVersion, RecordID: $_pendingOtaRecordId");
+        _currentDevice!.hasNewFirmware = true;
+        _currentDevice!.newFirmwareVersion = otaData['version']?.toString() ?? (_s?.latestVersion ?? '最新');
+        _currentDevice!.pendingOtaRecordId = otaData['recordId'].toString();
       } else {
-        _hasNewFirmware = false;
-        _newFirmwareVersion = '';
-        _pendingOtaRecordId = '';
+        _currentDevice!.hasNewFirmware = false;
+        _currentDevice!.newFirmwareVersion = '';
+        _currentDevice!.pendingOtaRecordId = '';
       }
     } catch (e) {
-      setError("Sync Error: $e");
+      setError(e.toString());
     } finally {
       if (needsLoading) setLoading(false);
       notifyListeners();
     }
   }
 
-  // 设置设备工作模式（自动/定时/手动等）
+  // 切换工作模式
   Future<void> setMode(WorkMode mode) async {
     if (!_checkOffline()) return;
     if (_currentDevice!.workMode == mode) return;
 
-    if (mode == WorkMode.timer || mode == WorkMode.manual) {
-      if (_currentDevice!.isDndEnabled) {
-        toggleDnd(false);
-      }
+    if ((mode == WorkMode.timer || mode == WorkMode.manual) && _currentDevice!.isDndEnabled) {
+      toggleDnd(false);
     }
 
     final previousMode = _currentDevice!.workMode;
+    final attrs = <Map<String, dynamic>>[
+      {'dpid': DeviceThingModel.deviceMode.dpid, 'value': mode.value.toString()},
+    ];
+
+    if (mode == WorkMode.timer) {
+      attrs.add({
+        'dpid': DeviceThingModel.timerModeSchedule.dpid,
+        'value': jsonEncode(["0", "28800"]),
+      });
+    }
+
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.deviceMode.dpid: mode.value.toString()},
       oldAttrs: {DeviceThingModel.deviceMode.dpid: previousMode.value.toString()},
-      apiCall: () => _deviceRepo.setWorkMode(_currentDevice!.deviceId, mode),
-      errorMsg: "Failed to set mode",
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, attrs),
+      errorMsg: _s?.operationFailed ?? '切换模式失败',
     );
   }
 
-  // 切换免打扰模式开关
+  // 开关勿扰模式
   Future<void> toggleDnd(bool isBool) async {
     if (!_checkOffline()) return;
 
@@ -211,26 +185,38 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: targetState},
-      oldAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: previousState},
-      apiCall: () => _deviceRepo.setDndStatus(_currentDevice!.deviceId, targetState),
-      errorMsg: "Failed to toggle Do Not Disturb",
+      oldAttrs: {DeviceThingModel.notdisturbModeStatus.dpid: previousState},
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.notdisturbModeStatus.dpid, 'value': targetState},
+      ]),
+      errorMsg: _s?.operationFailed ?? '切换勿扰状态失败',
     );
   }
 
-  // 执行设备指定动作（如清理、抚平等）
+  // 执行动作
   Future<void> executeAction(ExecuteAction action) async {
     if (!_checkOffline()) return;
+
+    String? targetDpid;
+    if (action == ExecuteAction.cleaning) {
+      targetDpid = DeviceThingModel.cleanCatLitter.dpid;
+    } else if (action == ExecuteAction.smoothing) {
+      targetDpid = DeviceThingModel.flatCatLitter.dpid;
+    }
+    if (targetDpid == null) return;
 
     final previousAction = _currentDevice!.executeAction;
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.deviceExecute.dpid: action.value.toString()},
       oldAttrs: {DeviceThingModel.deviceExecute.dpid: previousAction.value.toString()},
-      apiCall: () => _deviceRepo.executeAction(_currentDevice!.deviceId, action),
-      errorMsg: "Failed to execute action",
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': targetDpid!, 'value': true},
+      ]),
+      errorMsg: _s?.operationFailed ?? '执行动作失败',
     );
   }
 
-  // 切换童锁功能开关
+  // 开关童锁
   Future<void> toggleChildLock() async {
     if (!_checkOffline()) return;
 
@@ -240,12 +226,14 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.childLockSwitch.dpid: targetState},
       oldAttrs: {DeviceThingModel.childLockSwitch.dpid: previousState},
-      apiCall: () => _deviceRepo.setChildLock(_currentDevice!.deviceId, targetState),
-      errorMsg: "Failed to toggle child lock",
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.childLockSwitch.dpid, 'value': targetState},
+      ]),
+      errorMsg: _s?.operationFailed ?? '切换童锁状态失败',
     );
   }
 
-  // 等离子状态
+  // 开关等离子
   Future<void> togglePlasma() async {
     if (!_checkOffline()) return;
 
@@ -255,15 +243,17 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.palsmaState.dpid: targetState},
       oldAttrs: {DeviceThingModel.palsmaState.dpid: previousState},
-      apiCall: () => _deviceRepo.setPlasmaState(_currentDevice!.deviceId, targetState),
-      errorMsg: "Failed to toggle plasma",
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.palsmaState.dpid, 'value': targetState},
+      ]),
+      errorMsg: _s?.operationFailed ?? '切换等离子状态失败',
     );
   }
 
-  // 更新自动模式下的延迟等待时长
+  // 更新自动模式延时
   void updateAutoMode(int index) async {
     if (!_checkOffline()) return;
-    int minutes = int.parse(_autoModeOptions[index]);
+    int minutes = int.parse(autoModeOptions[index]);
     int seconds = minutes * 60;
 
     final previousSeconds = _currentDevice!.autoModeDelaySeconds;
@@ -271,215 +261,233 @@ class ActiveDeviceProvider extends BaseProvider with WidgetsBindingObserver {
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.autoModeDelay.dpid: seconds.toString()},
       oldAttrs: {DeviceThingModel.autoModeDelay.dpid: previousSeconds.toString()},
-      apiCall: () => _deviceRepo.setAutoModeDelay(_currentDevice!.deviceId, seconds),
-      errorMsg: "Failed to update auto mode",
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.autoModeDelay.dpid, 'value': seconds.toString()},
+      ]),
+      errorMsg: _s?.operationFailed ?? '自动模式清理计划设置失败',
     );
   }
 
-  // 设置免打扰模式的时间段范围
+  // 设置勿扰时间段
   void setDndTime(String start, String end) async {
     if (!_checkOffline()) return;
 
-    int startSec = _timeToSeconds(start);
-    int endSec = _timeToSeconds(end);
+    int startSec = TimeUtils.timeToSeconds(start);
+    int endSec = TimeUtils.timeToSeconds(end);
 
     final previousRange = _currentDevice!.dndTimeRange;
-    final oldStartSec = _timeToSeconds(previousRange['start']!);
-    final oldEndSec = _timeToSeconds(previousRange['end']!);
+    final oldStartSec = TimeUtils.timeToSeconds(previousRange['start']!);
+    final oldEndSec = TimeUtils.timeToSeconds(previousRange['end']!);
 
-    final newJsonStr = jsonEncode({"TimerStart": startSec.toString(), "TimerEnd": endSec.toString()});
-    final oldJsonStr = jsonEncode({"TimerStart": oldStartSec.toString(), "TimerEnd": oldEndSec.toString()});
+    final newJsonStr = jsonEncode({'TimerStart': startSec.toString(), 'TimerEnd': endSec.toString()});
+    final oldJsonStr = jsonEncode({'TimerStart': oldStartSec.toString(), 'TimerEnd': oldEndSec.toString()});
 
     await _executeOptimistic(
       newAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: newJsonStr},
       oldAttrs: {DeviceThingModel.notdisturbModeSchedule.dpid: oldJsonStr},
-      apiCall: () => _deviceRepo.setDndTimeRange(_currentDevice!.deviceId, startSec, endSec),
-      errorMsg: "Failed to set DND time",
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.notdisturbModeSchedule.dpid, 'value': newJsonStr},
+      ]),
+      errorMsg: _s?.operationFailed ?? '设置勿扰时间段失败',
     );
   }
 
-  // 更新本地设置的时区信息
+  // 设置时区
   void setTimeZone(String tzId, String offsetStr) {
-    _currentTimeZoneId = tzId;
-    _currentTimeZoneOffset = offsetStr;
+    if (_currentDevice == null) return;
+    _currentDevice!.timeZoneId = tzId;
+    _currentDevice!.timeZoneOffset = offsetStr;
     notifyListeners();
   }
 
-  // 在本地定时列表中添加一个新的定时时间
+  // 添加定时
   void addTimer(String timeStr) {
-    _localTimerList.add(timeStr);
-    _localTimerList.sort();
+    if (_currentDevice == null) return;
+    final list = List<String>.from(_currentDevice!.timerList);
+    list.add(timeStr);
+    list.sort();
+    final jsonStr = jsonEncode(list.map((t) => TimeUtils.timeToSeconds(t).toString()).toList());
+    _currentDevice!.updateAttributesFromMap({DeviceThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
   }
 
-  // 从本地定时列表中移除指定索引的定时
+  // 移除定时
   void removeTimer(int index) {
-    _localTimerList.removeAt(index);
+    if (_currentDevice == null) return;
+    final list = List<String>.from(_currentDevice!.timerList);
+    list.removeAt(index);
+    final jsonStr = jsonEncode(list.map((t) => TimeUtils.timeToSeconds(t).toString()).toList());
+    _currentDevice!.updateAttributesFromMap({DeviceThingModel.timerModeSchedule.dpid: jsonStr});
     notifyListeners();
   }
 
-  // 提交并保存本地定时任务列表到云端/设备
+  // 下发等离子排期设置
+  Future<void> setPlasmaSchedule({required int runSeconds, required int outSeconds}) async {
+    if (!_checkOffline()) return;
+
+    int safeRun = runSeconds < 0 ? 0 : runSeconds;
+    int safeOut = outSeconds < 0 ? 0 : outSeconds;
+
+    if (safeRun > 7200) safeRun = 7200;
+    if (safeOut > 21600) safeOut = 21600;
+
+    if (safeRun == 0 && safeOut != 0) safeRun = 60;
+    if (safeOut == 0 && safeRun != 0) safeOut = 60;
+
+    final newJsonStr = jsonEncode({'runTime': safeRun.toString(), 'outTime': safeOut.toString()});
+
+    final previousSched = _currentDevice?.plasmaSchedule ?? {'runTime': 3600, 'outTime': 1800};
+    final oldJsonStr = jsonEncode({
+      'runTime': previousSched['runTime'].toString(),
+      'outTime': previousSched['outTime'].toString(),
+    });
+
+    await _executeOptimistic(
+      newAttrs: {DeviceThingModel.plasmaSchedule.dpid: newJsonStr},
+      oldAttrs: {DeviceThingModel.plasmaSchedule.dpid: oldJsonStr},
+      apiCall: () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.plasmaSchedule.dpid, 'value': newJsonStr},
+      ]),
+      errorMsg: _s?.operationFailed ?? '设置除臭模式失败',
+    );
+  }
+
+  // 提交定时列表
   Future<void> submitTimers() async {
     if (!_checkOffline()) return;
     setLoading(true);
-    final secondsArray = _localTimerList.map((time) => _timeToSeconds(time)).toList();
-    final success = await _executeWithTimeout(() => _deviceRepo.submitTimers(_currentDevice!.deviceId, secondsArray));
-    if (success) {
-      showSuccessToast("Success");
-    } else {
-      setError("Error");
-    }
+
+    final timersJsonString = jsonEncode(
+      _currentDevice!.timerList.map((time) => TimeUtils.timeToSeconds(time).toString()).toList(),
+    );
+
+    final success = await _executeWithTimeout(
+      () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.timerModeSchedule.dpid, 'value': timersJsonString},
+      ]),
+    );
+
     setLoading(false);
+    if (!success) setError(_s?.operationFailed ?? '定时列表设置失败');
   }
 
-  // 开始称重校准 (第一步)
+  // 称重校准第 1 步
   Future<bool> startCalibrationStep1() async {
     if (!_checkOffline()) return false;
     setLoading(true);
-    final success = await _executeWithTimeout(() => _deviceRepo.startCalibrationStep1(_currentDevice!.deviceId));
+    final success = await _executeWithTimeout(
+      () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.prepareCalibration.dpid, 'value': true},
+      ]),
+    );
     setLoading(false);
-    if (!success) setError("Failed");
+    if (!success) setError(_s?.operationFailed ?? '校准启动失败');
     return success;
   }
 
-  // 提交称重校准 (第三步)
+  // 称重校准第 3 步
   Future<bool> submitCalibrationStep3(int weightGrams) async {
     if (!_checkOffline()) return false;
     setLoading(true);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('calibration_weight_${_currentDevice!.deviceId}', weightGrams);
-      _savedCalibrationWeight = weightGrams;
+      _currentDevice!.savedCalibrationWeight = weightGrams;
     } catch (_) {}
+
     final success = await _executeWithTimeout(
-      () => _deviceRepo.submitCalibrationStep3(_currentDevice!.deviceId, weightGrams),
+      () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.calibrationWeight.dpid, 'value': weightGrams},
+        {'dpid': DeviceThingModel.calibration.dpid, 'value': true},
+      ]),
     );
     setLoading(false);
-    if (!success) setError("Failed");
+    if (!success) setError(_s?.operationFailed ?? '校准失败');
     return success;
   }
 
-  // 发送重置 Wi-Fi 指令
+  // 重置 Wi-Fi
   Future<void> resetWifi() async {
     if (!_checkOffline()) return;
     setLoading(true);
-    final success = await _executeWithTimeout(() => _deviceRepo.resetWifi(_currentDevice!.deviceId));
+    final success = await _executeWithTimeout(
+      () => _deviceRepo.sendDeviceCommand(_currentDevice!.deviceId, [
+        {'dpid': DeviceThingModel.resetWlan.dpid, 'value': true},
+      ]),
+    );
     setLoading(false);
-    if (success) {
-      showSuccessToast("Reset Wi-Fi command sent");
-    } else {
-      setError("Failed to reset Wi-Fi");
-    }
+    if (!success) setError(_s?.operationFailed ?? '重置WiFi失败');
   }
 
-  // ==================== 最简 OTA 短轮询逻辑 ====================
-
-  /// 启动 OTA 升级并开启纯轮询
+  // 固件升级
   Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
     if (!_checkOffline()) return false;
-    if (_pendingOtaRecordId.isEmpty) {
-      setError("没有可升级的固件");
+    if (_currentDevice!.pendingOtaRecordId.isEmpty) {
+      setError(_s?.operationFailed ?? '没有要升级的固件');
       return false;
     }
 
     setLoading(true);
-    final targetVersion = _newFirmwareVersion; // 目标版本号
-    final success = await _deviceRepo.dispatchFirmwareUpgrade(_currentDevice!.deviceId, _pendingOtaRecordId);
+    final targetVersion = _currentDevice!.newFirmwareVersion;
+    final success = await _deviceRepo.dispatchFirmwareUpgrade(
+      _currentDevice!.deviceId,
+      _currentDevice!.pendingOtaRecordId,
+    );
     setLoading(false);
 
     if (success) {
-      _hasNewFirmware = false;
-      _isOtaUpdating = true;
+      _currentDevice!.hasNewFirmware = false;
+      _currentDevice!.isOtaUpdating = true;
       notifyListeners();
-
-      // 开始纯短轮询检测版本号
       _startOtaPolling(_currentDevice!.deviceId, targetVersion, timeoutSeconds);
       return true;
     } else {
-      setError("下发固件升级指令失败");
+      setError(_s?.operationFailed ?? '分发固件失败');
       return false;
     }
   }
 
-  /// 纯短轮询：每 3 秒检测一次 fetchDeviceProperties
+  //固件升级轮询定时器
   void _startOtaPolling(String deviceId, String targetVersion, int timeoutSeconds) {
     _otaPollingTimer?.cancel();
     final startTime = DateTime.now();
 
     _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      // 1. 检查超时
       if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
         stopOtaPolling();
-        setError("OTA 升级超时，请检查设备状态");
+        setError(_s?.operationFailed ?? 'OTA 超时');
         notifyListeners();
         return;
       }
 
       try {
-        // 2. 拉取最新物模型属性
         await _deviceRepo.fetchDeviceProperties(deviceId);
-
-        // 3. 判断版本号是否升级成功
         if (_currentDevice != null && _currentDevice!.firmwareVersion == targetVersion) {
           stopOtaPolling();
-          showSuccessToast("固件升级完成！");
           notifyListeners();
         }
       } catch (e) {
-        debugPrint("OTA 轮询异常: $e");
+        debugPrint('OTA Polling Exception: $e');
       }
     });
   }
 
-  /// 停止 OTA 轮询
+  //停止固件升级轮询
   void stopOtaPolling() {
     _otaPollingTimer?.cancel();
     _otaPollingTimer = null;
-    _isOtaUpdating = false;
+    if (_currentDevice != null) {
+      _currentDevice!.isOtaUpdating = false;
+    }
   }
 
-  // ===========================================================
-
-  // 修改设备名称
+  // 重命名设备
   Future<bool> updateDeviceName(String newName) async {
     if (_currentDevice == null) return false;
     setLoading(true);
     final success = await _deviceRepo.renameDevice(_currentDevice!.deviceId, newName);
     setLoading(false);
-    if (success) {
-      showSuccessToast("Name updated");
-      return true;
-    } else {
-      setError("Failed to update name");
-      return false;
-    }
-  }
-
-  // 显示操作成功的应用 Toast 提示
-  void showSuccessToast(String message) {
-    NavService.rootNavigatorKey.currentContext?.showAppToast(message: message, type: AppToastType.success);
-  }
-
-  // 将 "HH:mm" 格式的时间字符串转为一天内的总秒数
-  int _timeToSeconds(String hhmm) {
-    final parts = hhmm.split(':');
-    if (parts.length != 2) return 0;
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = int.tryParse(parts[1]) ?? 0;
-    return h * 3600 + m * 60;
-  }
-
-  // 根据时区名称计算格式化的时区偏移量字符串
-  String _calculateOffsetStr(String tzName) {
-    try {
-      final location = tz.getLocation(tzName);
-      final offset = tz.TZDateTime.now(location).timeZoneOffset;
-      final hours = offset.inHours;
-      final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
-      final sign = hours >= 0 ? '+' : '-';
-      return 'UTC$sign${hours.abs().toString().padLeft(2, '0')}:$minutes';
-    } catch (e) {
-      return 'UTC+00:00';
-    }
+    if (!success) setError(_s?.operationFailed ?? '重命名失败');
+    return success;
   }
 }

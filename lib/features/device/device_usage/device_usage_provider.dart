@@ -1,17 +1,46 @@
-import 'package:fullxpet/locator.dart';
-import 'package:fullxpet/core/network/http_client.dart';
-import 'package:fullxpet/core/network/api_endpoints.dart';
+import 'package:flutter/material.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/network/api_endpoints.dart';
+import 'package:fullxpet/core/network/http_client.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
+import 'package:fullxpet/locator.dart';
 
 class DailyUsageData {
   final DateTime date;
-  final String weekDay;
+  final int weekdayIndex;
   final String dayStr;
   int times;
   int duration;
 
-  DailyUsageData({required this.date, required this.weekDay, required this.dayStr, this.times = 0, this.duration = 0});
+  DailyUsageData({
+    required this.date,
+    required this.weekdayIndex,
+    required this.dayStr,
+    this.times = 0,
+    this.duration = 0,
+  });
+
+  String getWeekdayName(S s) {
+    switch (weekdayIndex) {
+      case 1:
+        return s.mon;
+      case 2:
+        return s.tue;
+      case 3:
+        return s.wed;
+      case 4:
+        return s.thu;
+      case 5:
+        return s.fri;
+      case 6:
+        return s.sat;
+      case 7:
+        return s.sun;
+      default:
+        return '';
+    }
+  }
 }
 
 class DeviceUsageProvider extends BaseProvider {
@@ -59,11 +88,9 @@ class DeviceUsageProvider extends BaseProvider {
 
   void _generateRecent7Days() {
     final now = DateTime.now();
-    const weekDayMap = {1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六', 7: '周日'};
-
     _weekDays = List.generate(7, (i) {
       final d = now.subtract(Duration(days: 6 - i));
-      return DailyUsageData(date: d, weekDay: weekDayMap[d.weekday] ?? '', dayStr: d.day.toString());
+      return DailyUsageData(date: d, weekdayIndex: d.weekday, dayStr: d.day.toString());
     });
     _selectedDayIndex = 6;
   }
@@ -86,12 +113,10 @@ class DeviceUsageProvider extends BaseProvider {
       final toStr = "${toDate.toIso8601String().split('.').first}Z";
 
       final query = {"from": fromStr, "to": toStr, "dpid": "207,208", "pageSize": "100", "sort": "asc"};
-
       final result = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.deviceLogs(deviceId), query: query);
 
       if (result.data != null) {
         final List<dynamic> items = result.data!['items'] ?? [];
-
         for (var item in items) {
           final String tsStr = item['ts'] ?? '';
           final List<dynamic> values = item['values'] ?? [];
@@ -117,7 +142,7 @@ class DeviceUsageProvider extends BaseProvider {
           }
         }
       }
-    } catch (e) {
+    } catch (_) {
       setError("网络请求失败，请稍后重试");
     } finally {
       setLoading(false);

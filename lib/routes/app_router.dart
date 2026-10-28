@@ -1,70 +1,104 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
-import 'package:fullxpet/shell/main_shell.dart';
+
+import 'package:fullxpet/common/widgets/web_view_page.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/locator.dart';
 
-//splash
-import 'package:fullxpet/features/splash/splash_page.dart';
+// Splash
+import 'package:fullxpet/features/splash/pages/splash_page.dart';
+import 'package:fullxpet/features/splash/pages/welcome_page.dart';
 
-// auth
+// Auth
+import 'package:fullxpet/features/auth/page/forgot_password_page.dart';
 import 'package:fullxpet/features/auth/page/login_page.dart';
 import 'package:fullxpet/features/auth/page/register_page.dart';
-import 'package:fullxpet/features/auth/page/forgot_password_page.dart';
-import 'package:fullxpet/features/auth/auth_provider.dart';
+import 'package:fullxpet/features/auth/viewmodels/forgot_password_view_model.dart';
+import 'package:fullxpet/features/auth/viewmodels/login_view_model.dart';
+import 'package:fullxpet/features/auth/viewmodels/register_view_model.dart';
 
-// device
-import 'package:fullxpet/features/device/device_provider.dart';
+// Home Shell & Tabs
+import 'package:fullxpet/features/home/home_shell_page.dart';
+import 'package:fullxpet/features/device/device_list/device_list_page.dart';
+import 'package:fullxpet/features/device/device_usage/device_usage_page.dart';
+import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart';
+import 'package:fullxpet/features/user/pages/user_page.dart';
+
+// Device
+import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
+import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
+import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
+import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
+import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
 import 'package:fullxpet/features/device/device_manager/device_manager_page.dart';
 import 'package:fullxpet/features/device/device_manager/device_setting_page.dart';
-import 'package:fullxpet/features/device/device_manager/timer_mode_page.dart';
-import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
-import 'package:fullxpet/features/device/device_manager/weighing_calibration_page.dart';
 import 'package:fullxpet/features/device/device_manager/time_zone_search_page.dart';
-import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
-import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
-import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
-import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
-import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
-import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart';
-import 'package:fullxpet/features/device/active_device_provider.dart';
-
-// user
-import 'package:fullxpet/features/user/user_provider.dart';
-import 'package:fullxpet/features/user/personal_info_page.dart';
-import 'package:fullxpet/features/user/about_us_page.dart';
-import 'package:fullxpet/features/user/feedback_page.dart';
-
-//other
-import 'package:fullxpet/common/widgets/web_view_page.dart';
-import 'package:fullxpet/features/device/device_add/pages/factory_debug.dart';
-import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
+import 'package:fullxpet/features/device/device_manager/timer_mode_page.dart';
+import 'package:fullxpet/features/device/device_manager/weighing_calibration_page.dart';
+import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
+import 'package:fullxpet/features/device/feeder/pages/feeder_manager_page.dart';
+import 'package:fullxpet/features/device/repositories/device_repository.dart';
+import 'package:fullxpet/features/device/feeder/pages/feeder_setting_page.dart';
+// User
+import 'package:fullxpet/features/user/pages/about_us_page.dart';
+import 'package:fullxpet/features/user/pages/feedback_page.dart';
+import 'package:fullxpet/features/user/pages/personal_info_page.dart';
+import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 
 class AppRoutes {
+  // Splash & Auth
   static const splash = '/splash';
   static const welcome = '/welcome';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot_password';
+
+  // Shell Tabs
   static const home = '/home';
+  static const tabDevice = '/home/device';
+  static const tabUsage = '/home/usage';
+  static const tabUser = '/home/user';
+
+  // Device Detail (路径声明)
   static const deviceManager = '/device_manager/:id';
   static const deviceSetting = '/device_setting/:id';
   static const timezone = '/device_setting/:id/timezone';
   static const deviceTimer = '/device_setting/:id/timer';
   static const deviceWifi = '/device_setting/:id/wifi';
   static const deviceWeighing = '/device_setting/:id/weighing';
-  static const deviceAddSearch = '/device-add-search';
-  static const deviceAddWifi = '/device-add-wifi';
-  static const deviceAddSuccess = '/device-add-success/:id';
+  static const deviceAddSearch = '/device_add_search';
+  static const deviceAddWifi = '/device_add_wifi';
+  static const deviceAddSuccess = '/device_add_success/:id';
+
+  // Device Detail
+  static String deviceManagerPath(String id) => '/device_manager/$id';
+  static String deviceSettingPath(String id) => '/device_setting/$id';
+  static String timezonePath(String id) => '/device_setting/$id/timezone';
+  static String deviceTimerPath(String id) => '/device_setting/$id/timer';
+  static String deviceWifiPath(String id) => '/device_setting/$id/wifi';
+  static String deviceWeighingPath(String id) => '/device_setting/$id/weighing';
+  static String deviceAddSuccessPath(String id) => '/device_add_success/$id';
+
+  // User & Common
   static const personalInfo = '/personal_info';
-  static const String aboutUs = '/about_us';
-  static const String feedback = '/feedback';
+  static const aboutUs = '/about_us';
+  static const feedback = '/feedback';
   static const webView = '/web_view';
-  static const factoryDebug = '/factory-debug';
 }
 
 class AppRouter {
-  static late final GoRouter router;
+  static final GoRouter router = GoRouter(
+    navigatorKey: NavService.rootNavigatorKey,
+    initialLocation: AppRoutes.splash,
+    routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
+  );
+
+  // 统一包装 ActiveDeviceProvider 作用域
+  static Widget _withActiveDevice(Widget child) {
+    return ChangeNotifierProvider<ActiveDeviceProvider>.value(value: locator<ActiveDeviceProvider>(), child: child);
+  }
 
   static final List<GoRoute> _splashRoutes = [
     GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashPage()),
@@ -74,84 +108,88 @@ class AppRouter {
   static final List<GoRoute> _authRoutes = [
     GoRoute(
       path: AppRoutes.login,
-      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginProvider(), child: const LoginPage()),
+      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginViewModel(), child: const LoginPage()),
     ),
     GoRoute(
       path: AppRoutes.register,
-      builder: (context, state) => ChangeNotifierProvider(create: (_) => LoginProvider(), child: const RegisterPage()),
+      builder: (context, state) =>
+          ChangeNotifierProvider(create: (_) => RegisterViewModel(), child: const RegisterPage()),
     ),
     GoRoute(
       path: AppRoutes.forgotPassword,
       builder: (context, state) =>
-          ChangeNotifierProvider(create: (_) => LoginProvider(), child: const ForgotPasswordPage()),
+          ChangeNotifierProvider(create: (_) => ForgotPasswordViewModel(), child: const ForgotPasswordPage()),
     ),
   ];
 
-  static final List<GoRoute> _homeRoutes = [
-    GoRoute(
-      path: AppRoutes.home,
-      builder: (context, state) => MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => UserProvider()..fetchUserInfo()),
-          ChangeNotifierProvider(create: (_) => DeviceUsageProvider()..selectDevice(0)),
+  // 管理底部三大 Tab（StatefulShellRoute 自动保活）
+  static final StatefulShellRoute _homeShellRoute = StatefulShellRoute.indexedStack(
+    builder: (context, state, navigationShell) {
+      return HomeShellPage(navigationShell: navigationShell);
+    },
+    branches: [
+      StatefulShellBranch(
+        routes: [
+          GoRoute(path: AppRoutes.home, redirect: (_, __) => AppRoutes.tabDevice),
+          GoRoute(path: AppRoutes.tabDevice, builder: (context, state) => const DeviceListPage()),
         ],
-        child: const MainShell(),
       ),
-    ),
-  ];
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.tabUsage,
+            builder: (context, state) => ChangeNotifierProvider(
+              create: (_) => DeviceUsageProvider()..selectDevice(0),
+              child: const DeviceUsagePage(),
+            ),
+          ),
+        ],
+      ),
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.tabUser,
+            builder: (context, state) =>
+                ChangeNotifierProvider(create: (_) => UserViewModel(), child: const UserPage()),
+          ),
+        ],
+      ),
+    ],
+  );
 
   static final List<GoRoute> _deviceRoutes = [
     GoRoute(
       path: AppRoutes.deviceManager,
       builder: (context, state) {
-        final String deviceId = state.pathParameters['id'] ?? '';
-        // 触发全局设备切换
-        locator<ActiveDeviceProvider>().selectDevice(deviceId);
+        final id = state.pathParameters['id'] ?? '';
+        final device = locator<DeviceRepository>().getDevice(id);
 
-        // 核心修复：使用 .value 将单例挂载到组件树，允许页面 watch
-        return ChangeNotifierProvider<ActiveDeviceProvider>.value(
-          value: locator<ActiveDeviceProvider>(),
-          child: DeviceManagerPage(deviceId: deviceId),
-        );
+        if (device.productId == '9c2608de680bf9b6') {
+          return FeederManagerPage(deviceId: id);
+        }
+
+        return _withActiveDevice(DeviceManagerPage(deviceId: id));
       },
     ),
     GoRoute(
       path: AppRoutes.deviceSetting,
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
-        return ChangeNotifierProvider<ActiveDeviceProvider>.value(
-          value: locator<ActiveDeviceProvider>(),
-          child: DeviceSettingPage(deviceId: deviceId),
-        );
+        final device = locator<DeviceRepository>().getDevice(deviceId);
+
+        if (device.productId == '9c2608de680bf9b6') {
+          return FeederSettingPage(deviceId: deviceId);
+        }
+
+        return _withActiveDevice(DeviceSettingPage(deviceId: deviceId));
       },
     ),
-    GoRoute(
-      path: AppRoutes.timezone,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const TimeZoneSearchPage(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceTimer,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const TimerModePage(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceWifi,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const WifiInfoPage(),
-      ),
-    ),
+    GoRoute(path: AppRoutes.timezone, builder: (context, state) => _withActiveDevice(const TimeZoneSearchPage())),
+    GoRoute(path: AppRoutes.deviceTimer, builder: (context, state) => _withActiveDevice(const TimerModePage())),
+    GoRoute(path: AppRoutes.deviceWifi, builder: (context, state) => _withActiveDevice(const WifiInfoPage())),
     GoRoute(
       path: AppRoutes.deviceWeighing,
-      builder: (context, state) => ChangeNotifierProvider<ActiveDeviceProvider>.value(
-        value: locator<ActiveDeviceProvider>(),
-        child: const WeighingCalibrationPage(),
-      ),
+      builder: (context, state) => _withActiveDevice(const WeighingCalibrationPage()),
     ),
     GoRoute(
       path: AppRoutes.deviceAddSearch,
@@ -161,10 +199,15 @@ class AppRouter {
     GoRoute(
       path: AppRoutes.deviceAddWifi,
       builder: (context, state) {
-        final args = state.extra as Map<String, dynamic>;
+        final args = state.extra as Map<String, dynamic>? ?? {};
+        final provider = args['provider'] as DeviceAddProvider?;
+        final device = args['device'] as DiscoveredDevice?;
+        if (provider == null || device == null) {
+          return const Scaffold(body: Center(child: Text("参数异常")));
+        }
         return ChangeNotifierProvider.value(
-          value: args['provider'] as DeviceAddProvider,
-          child: DeviceAddWifiPage(targetDevice: args['device'] as DiscoveredDevice),
+          value: provider,
+          child: DeviceAddWifiPage(targetDevice: device),
         );
       },
     ),
@@ -175,22 +218,10 @@ class AppRouter {
         return DeviceAddSuccessPage(deviceId: deviceId);
       },
     ),
-    // 工厂调试入口
-    // GoRoute(
-    //   path: AppRoutes.factoryDebug,
-    //   builder: (context, state) {
-    //     final args = state.extra as Map<String, dynamic>;
-    //     return FactoryDebugPage(targetDevice: args['device'] as DiscoveredDevice);
-    //   },
-    // ),
   ];
 
   static final List<GoRoute> _userRoutes = [
-    GoRoute(
-      path: AppRoutes.personalInfo,
-      builder: (context, state) =>
-          ChangeNotifierProvider.value(value: state.extra as UserProvider, child: const PersonalInfoPage()),
-    ),
+    GoRoute(path: AppRoutes.personalInfo, builder: (context, state) => const PersonalInfoPage()),
     GoRoute(path: AppRoutes.aboutUs, builder: (context, state) => const AboutUsPage()),
     GoRoute(path: AppRoutes.feedback, builder: (context, state) => const FeedbackPage()),
   ];
@@ -199,21 +230,11 @@ class AppRouter {
     GoRoute(
       path: AppRoutes.webView,
       builder: (context, state) {
-        // 从 extra 中提取传递过来的 title 和 url 参数
         final args = state.extra as Map<String, dynamic>? ?? {};
         final title = args['title'] ?? '网页链接';
         final url = args['url'] ?? 'https://www.google.com';
-
         return WebViewPage(title: title, url: url);
       },
     ),
   ];
-
-  static void setup(String initialRoute) {
-    router = GoRouter(
-      navigatorKey: NavService.rootNavigatorKey,
-      initialLocation: initialRoute,
-      routes: [..._splashRoutes, ..._authRoutes, ..._homeRoutes, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
-    );
-  }
 }

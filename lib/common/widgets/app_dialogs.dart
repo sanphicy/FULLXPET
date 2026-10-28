@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fullxpet/core/navigation/nav_service.dart';
+import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 
 enum AppToastType { success, error, warning, info }
@@ -33,7 +33,7 @@ extension AppDialogExtension on BuildContext {
               onPressed: () => Navigator.of(context).pop(true),
               child: Text(
                 actualConfirmText,
-                style: const TextStyle(color: Color(0xFFD3B543), fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold),
               ),
             ),
           ],

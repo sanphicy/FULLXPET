@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 
 class DeviceCard extends StatelessWidget {
   final String deviceName;
@@ -7,8 +8,6 @@ class DeviceCard extends StatelessWidget {
   final bool isOnline;
   final String imageUrl;
   final VoidCallback? onTap;
-
-  // 新增回调函数用于左右滑动的操作
   final VoidCallback? onRename;
   final VoidCallback? onDelete;
 
@@ -25,21 +24,20 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 状态颜色配置
-    final Color onlineColor = const Color(0xFF8CC152); // 在线绿色
-    final Color offlineColor = const Color(0xFFF39191); // 离线粉红
+    final s = S.of(context)!;
+    final Color onlineColor = const Color(0xFF8CC152);
+    final Color offlineColor = const Color(0xFFF39191);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Slidable(
         key: ValueKey(deviceId),
-        // 右侧滑出的操作面板 (向左滑动时显示)
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
-          extentRatio: 0.38, // 缩小侧滑总宽度，防止块体过宽
+          extentRatio: 0.38,
           children: [
             const SizedBox(width: 8),
-            // 重命名按钮（紧凑卡片，防止文字换行）
+            // 重命名按钮
             Expanded(
               child: GestureDetector(
                 onTap: () => onRename?.call(),
@@ -47,11 +45,11 @@ class DeviceCard extends StatelessWidget {
                   height: double.infinity,
                   decoration: BoxDecoration(color: const Color(0xFFEFF5E8), borderRadius: BorderRadius.circular(15)),
                   alignment: Alignment.center,
-                  child: const Text(
-                    '重命名',
+                  child: Text(
+                    s.renameDevice,
                     maxLines: 1,
                     overflow: TextOverflow.visible,
-                    style: TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -65,31 +63,26 @@ class DeviceCard extends StatelessWidget {
                   height: double.infinity,
                   decoration: BoxDecoration(color: const Color(0xFFEFF5E8), borderRadius: BorderRadius.circular(15)),
                   alignment: Alignment.center,
-                  child: const Text(
-                    '删除',
+                  child: Text(
+                    s.delete,
                     maxLines: 1,
                     overflow: TextOverflow.visible,
-                    style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
             ),
           ],
         ),
-        // 卡片主体
         child: GestureDetector(
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFEFEF), // 卡片浅灰色背景
-              borderRadius: BorderRadius.circular(15),
-            ),
+            decoration: BoxDecoration(color: const Color(0xFFEFEFEF), borderRadius: BorderRadius.circular(15)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 左侧：设备名称、ID 与状态
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +102,7 @@ class DeviceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 25),
                       Text(
-                        isOnline ? '在线' : '离线',
+                        isOnline ? s.online : s.offline,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -119,9 +112,7 @@ class DeviceCard extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 16),
-                // 右侧：设备图片
                 Image.asset(
                   imageUrl,
                   width: 80,

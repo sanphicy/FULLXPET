@@ -5,11 +5,12 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 新增持久化库
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/locator.dart';
-import 'package:fullxpet/core/bluetooth/bluetooth_manager.dart';
+import 'package:fullxpet/core/hardware/bluetooth_manager.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
 import 'models/discovered_device.dart';
 import 'repositories/device_add_repository.dart';
+import 'package:fullxpet/features/device/repositories/device_repository.dart';
 
 class DeviceAddProvider extends BaseProvider {
   final _bleManager = locator<BluetoothManager>();
@@ -18,7 +19,7 @@ class DeviceAddProvider extends BaseProvider {
   // ================= 设置项持久化 =================
   bool _hasLoadedSettings = false;
   bool _filterUnknown = true;
-  String _filterName = 'FULLXPET';
+  String _filterName = 'FULLXPET, PETLUX';
   bool _autoFetchWifi = true;
 
   bool _isFactoryDebugMode = false; //工厂调试
@@ -225,9 +226,20 @@ class DeviceAddProvider extends BaseProvider {
         if (_filterUnknown && (d.name == "Unknown Device" || d.name.isEmpty)) {
           return false;
         }
-        // 规则2：精确名称过滤（包含即可）
-        if (_filterName.isNotEmpty && !d.name.toUpperCase().contains(_filterName.toUpperCase())) {
-          return false;
+        // 规则2：精确名称过滤（包含即可）按名称列表过滤（支持英文逗号 , 和中文逗号 ，）
+        if (_filterName.isNotEmpty) {
+          final filterKeywords = _filterName
+              .replaceAll('，', ',')
+              .split(',')
+              .map((e) => e.trim().toUpperCase())
+              .where((e) => e.isNotEmpty)
+              .toList();
+
+          if (filterKeywords.isNotEmpty) {
+            final deviceNameUpper = d.name.toUpperCase();
+            final bool isMatchAny = filterKeywords.any((kw) => deviceNameUpper.contains(kw));
+            if (!isMatchAny) return false;
+          }
         }
         return true;
       }).toList()..sort((a, b) => b.rssi.compareTo(a.rssi));
@@ -495,10 +507,17 @@ class DeviceAddProvider extends BaseProvider {
                   final String realDeviceId = payload['deviceId']?.toString() ?? '';
                   _boundDeviceId = realDeviceId;
 
-                  _bindDeviceToCloud(mac, pid, "FULLXPET").then((isBindSuccess) {
+                  final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";
+
+                  _bindDeviceToCloud(mac, pid, defaultNickname).then((isBindSuccess) {
                     if (isBindSuccess) {
                       _progress = 1.0;
                       _addLog("设备云端注册完成！", isHighlight: true);
+
+                      final device = locator<DeviceRepository>().getDevice(realDeviceId);
+                      device.productId = pid;
+                      device.deviceName = defaultNickname;
+
                       if (!completer.isCompleted) completer.complete(true);
                     } else {
                       if (!completer.isCompleted) completer.completeError(Exception("绑定设备失败，请重试"));

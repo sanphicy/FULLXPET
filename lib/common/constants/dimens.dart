@@ -1,7 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // 全局尺寸常量
 class Dimens {
+  // 设计稿基准尺寸 (iPhone 11/X 规格)
+  static const Size designSize = Size(375, 812);
+
   // 页面与屏幕边距
   static double get pagePadding => 30.w;
   static double get screenPadding => 16.w;

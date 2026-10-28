@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fullxpet/routes/app_router.dart';
 import 'package:fullxpet/common/constants/dimens.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/password_text_field.dart';
@@ -53,7 +54,7 @@ class _DeviceAddWifiPageState extends State<DeviceAddWifiPage> {
     if (_provider.configStep == 4 && _provider.boundDeviceId != null) {
       _provider.removeListener(_onProviderStateChanged);
       // 跳转到外部独立的成功页面
-      context.pushReplacement('/device-add-success/${_provider.boundDeviceId}');
+      context.pushReplacement(AppRoutes.deviceAddSuccessPath(_provider.boundDeviceId!));
     }
   }
 
@@ -197,17 +198,18 @@ class _DeviceAddWifiPageState extends State<DeviceAddWifiPage> {
                           minimumSize: Size(double.infinity, Dimens.buttonLarge),
                           backgroundColor: _primaryPurple, // 替换为紫色
                         ),
-                        onPressed: () {
+                        // 在 Wi-Fi 提交与异常捕获后校验 context
+                        onPressed: () async {
                           final targetSsid = _ssidCtrl.text.trim();
                           final pwd = _pwdCtrl.text.trim();
                           if (targetSsid.isEmpty || pwd.isEmpty) {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(const SnackBar(content: Text('请填写完整的 Wi-Fi 信息')));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.wifiPasswordHint)));
+                            }
                             return;
                           }
                           FocusManager.instance.primaryFocus?.unfocus();
-                          provider.startWifiProvisioning(targetSsid, pwd, widget.targetDevice);
+                          await provider.startWifiProvisioning(targetSsid, pwd, widget.targetDevice);
                         },
                         child: Text(
                           provider.hasError ? "重新配置" : s.startConfig,
@@ -321,11 +323,8 @@ class _AnimatedDotsState extends State<_AnimatedDots> {
           width: 8.w,
           height: 8.w,
           transformAlignment: Alignment.center,
-          transform: Matrix4.identity()..scale(isActive ? 1.4 : 1.0),
-          decoration: BoxDecoration(
-            color: isActive ? _primaryPurple : Colors.grey.shade300, // 替换为紫色
-            shape: BoxShape.circle,
-          ),
+          transform: Matrix4.diagonal3Values(isActive ? 1.4 : 1.0, isActive ? 1.4 : 1.0, 1.0),
+          decoration: BoxDecoration(color: isActive ? _primaryPurple : Colors.grey.shade300, shape: BoxShape.circle),
         );
       }),
     );
