@@ -23,6 +23,7 @@ class ApiEndpoints {
   static const String countries = "$_apiV1Byplatform/countries";
 
   // --- 设备相关 ---
+  static const String products = '$_apiV1/products';
   static const String devices = '$_apiV1/me/devices';
   static String deviceProperties(String deviceId) => "$_apiV1/devices/$deviceId/properties";
   static String deviceInvoke(String deviceId) => "$_apiV1/devices/$deviceId/properties/set";
