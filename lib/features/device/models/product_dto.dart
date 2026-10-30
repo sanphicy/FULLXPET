@@ -1,3 +1,5 @@
+import 'package:fullxpet/core/utils/json_parse_ext.dart';
+
 class ProductDto {
   final String productId;
   final String productShortId;
@@ -23,22 +25,18 @@ class ProductDto {
     this.pairingGuideUrl,
   });
 
-  static String _str(Map<String, dynamic> json, String key) {
-    return json[key]?.toString().trim() ?? '';
-  }
-
   factory ProductDto.fromJson(Map<String, dynamic> json) {
-    final rawGuide = _str(json, 'pairingGuideUrl');
+    final rawGuide = json.getStr('pairingGuideUrl');
     return ProductDto(
-      productId: _str(json, 'productId'),
-      productShortId: _str(json, 'productShortId'),
-      name: _str(json, 'name'),
-      brand: _str(json, 'brand'),
-      modelCode: _str(json, 'modelCode'),
-      connectivity: _str(json, 'connectivity'),
-      transportProtocol: _str(json, 'transportProtocol'),
-      thumbnailUrl: _str(json, 'thumbnailUrl'),
-      categoryCode: _str(json, 'categoryCode'),
+      productId: json.getStr('productId'),
+      productShortId: json.getStr('productShortId'),
+      name: json.getStr('name'),
+      brand: json.getStr('brand'),
+      modelCode: json.getStr('modelCode'),
+      connectivity: json.getStr('connectivity'),
+      transportProtocol: json.getStr('transportProtocol'),
+      thumbnailUrl: json.getStr('thumbnailUrl'),
+      categoryCode: json.getStr('categoryCode'),
       pairingGuideUrl: rawGuide.isNotEmpty ? rawGuide : null,
     );
   }
