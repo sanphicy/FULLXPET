@@ -5,6 +5,7 @@ import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
 import 'package:fullxpet/core/network/result_model.dart';
 import 'package:fullxpet/features/device/models/device_dto.dart';
+import 'package:fullxpet/features/device/models/device_log.dart';
 import 'package:fullxpet/features/device/models/device_thing_model.dart';
 import 'package:fullxpet/locator.dart';
 
