@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:fullxpet/features/pet/models/pet_dto.dart';
+import 'package:fullxpet/features/pet/pages/pet_edit_page.dart';
+import 'package:fullxpet/features/pet/pages/pet_list_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -26,21 +29,25 @@ import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart
 import 'package:fullxpet/features/user/pages/user_page.dart';
 
 // Device
-import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
 import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
-import 'package:fullxpet/features/device/device_manager/device_manager_page.dart';
-import 'package:fullxpet/features/device/device_manager/device_setting_page.dart';
-import 'package:fullxpet/features/device/device_manager/time_zone_search_page.dart';
-import 'package:fullxpet/features/device/device_manager/timer_mode_page.dart';
-import 'package:fullxpet/features/device/device_manager/weighing_calibration_page.dart';
-import 'package:fullxpet/features/device/device_manager/wifi_info_page.dart';
-import 'package:fullxpet/features/device/feeder/pages/feeder_manager_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
+import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/device_manager_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/device_setting_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/time_zone_search_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/timer_mode_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/weighing_calibration_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/wifi_info_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v4/pages/v4_manager_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/v4/pages/v4_setting_page.dart';
+import 'package:fullxpet/features/device/products/feeder/pages/feeder_manager_page.dart';
+import 'package:fullxpet/features/device/products/feeder/pages/feeder_setting_page.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
-import 'package:fullxpet/features/device/feeder/pages/feeder_setting_page.dart';
+
 // User
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
 import 'package:fullxpet/features/user/pages/feedback_page.dart';
@@ -61,7 +68,7 @@ class AppRoutes {
   static const tabUsage = '/home/usage';
   static const tabUser = '/home/user';
 
-  // Device Detail (路径声明)
+  // Device Detail
   static const deviceManager = '/device_manager/:id';
   static const deviceSetting = '/device_setting/:id';
   static const timezone = '/device_setting/:id/timezone';
@@ -72,7 +79,6 @@ class AppRoutes {
   static const deviceAddWifi = '/device_add_wifi';
   static const deviceAddSuccess = '/device_add_success/:id';
 
-  // Device Detail
   static String deviceManagerPath(String id) => '/device_manager/$id';
   static String deviceSettingPath(String id) => '/device_setting/$id';
   static String timezonePath(String id) => '/device_setting/$id/timezone';
@@ -86,6 +92,10 @@ class AppRoutes {
   static const aboutUs = '/about_us';
   static const feedback = '/feedback';
   static const webView = '/web_view';
+
+  // Pet
+  static const petList = '/pet_list';
+  static const petEdit = '/pet_edit';
 }
 
 class AppRouter {
@@ -95,9 +105,9 @@ class AppRouter {
     routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
   );
 
-  // 统一包装 ActiveDeviceProvider 作用域
-  static Widget _withActiveDevice(Widget child) {
-    return ChangeNotifierProvider<ActiveDeviceProvider>.value(value: locator<ActiveDeviceProvider>(), child: child);
+  /// 为猫砂盆二级工具页注入当前设备的 LitterBoxViewModel
+  static Widget _withLitterBoxVm(String deviceId, Widget child) {
+    return ChangeNotifierProvider(create: (_) => LitterBoxViewModel()..initDevice(deviceId), child: child);
   }
 
   static final List<GoRoute> _splashRoutes = [
@@ -122,7 +132,6 @@ class AppRouter {
     ),
   ];
 
-  // 管理底部三大 Tab（StatefulShellRoute 自动保活）
   static final StatefulShellRoute _homeShellRoute = StatefulShellRoute.indexedStack(
     builder: (context, state, navigationShell) {
       return HomeShellPage(navigationShell: navigationShell);
@@ -162,34 +171,69 @@ class AppRouter {
       path: AppRoutes.deviceManager,
       builder: (context, state) {
         final id = state.pathParameters['id'] ?? '';
-        final device = locator<DeviceRepository>().getDevice(id);
+        final repo = locator<DeviceRepository>();
+        final basic = repo.getDeviceBasic(id);
+        final prod = basic != null ? repo.getProduct(basic.productId) : null;
 
-        if (device.productId == '9c2608de680bf9b6') {
+        final pid = basic?.productId ?? '';
+        final cat = (prod?.categoryCode.isNotEmpty == true ? prod!.categoryCode : (basic?.category ?? ''))
+            .toLowerCase();
+        final prodName = prod?.name ?? '';
+
+        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.pidFeederTest || cat.contains('feeder')) {
           return FeederManagerPage(deviceId: id);
         }
 
-        return _withActiveDevice(DeviceManagerPage(deviceId: id));
+        if (pid == ProductConstants.pidLitterBoxV4 ||
+            prodName.contains('4.0') ||
+            (prod?.modelCode.toUpperCase().contains('V4') ?? false)) {
+          return V4ManagerPage(deviceId: id);
+        }
+
+        return DeviceManagerPage(deviceId: id);
       },
     ),
     GoRoute(
       path: AppRoutes.deviceSetting,
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
-        final device = locator<DeviceRepository>().getDevice(deviceId);
+        final repo = locator<DeviceRepository>();
+        final basic = repo.getDeviceBasic(deviceId);
+        final prod = basic != null ? repo.getProduct(basic.productId) : null;
 
-        if (device.productId == '9c2608de680bf9b6') {
+        final pid = basic?.productId ?? '';
+        final cat = (prod?.categoryCode.isNotEmpty == true ? prod!.categoryCode : (basic?.category ?? ''))
+            .toLowerCase();
+        final prodName = prod?.name ?? '';
+
+        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.pidFeederTest || cat.contains('feeder')) {
           return FeederSettingPage(deviceId: deviceId);
         }
 
-        return _withActiveDevice(DeviceSettingPage(deviceId: deviceId));
+        if (pid == ProductConstants.pidLitterBoxV4 ||
+            prodName.contains('4.0') ||
+            (prod?.modelCode.toUpperCase().contains('V4') ?? false)) {
+          return V4SettingPage(deviceId: deviceId);
+        }
+
+        return DeviceSettingPage(deviceId: deviceId);
       },
     ),
-    GoRoute(path: AppRoutes.timezone, builder: (context, state) => _withActiveDevice(const TimeZoneSearchPage())),
-    GoRoute(path: AppRoutes.deviceTimer, builder: (context, state) => _withActiveDevice(const TimerModePage())),
-    GoRoute(path: AppRoutes.deviceWifi, builder: (context, state) => _withActiveDevice(const WifiInfoPage())),
+    GoRoute(
+      path: AppRoutes.timezone,
+      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const TimeZoneSearchPage()),
+    ),
+    GoRoute(
+      path: AppRoutes.deviceTimer,
+      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const TimerModePage()),
+    ),
+    GoRoute(
+      path: AppRoutes.deviceWifi,
+      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const WifiInfoPage()),
+    ),
     GoRoute(
       path: AppRoutes.deviceWeighing,
-      builder: (context, state) => _withActiveDevice(const WeighingCalibrationPage()),
+      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const WeighingCalibrationPage()),
     ),
     GoRoute(
       path: AppRoutes.deviceAddSearch,
@@ -203,7 +247,7 @@ class AppRouter {
         final provider = args['provider'] as DeviceAddProvider?;
         final device = args['device'] as DiscoveredDevice?;
         if (provider == null || device == null) {
-          return const Scaffold(body: Center(child: Text("参数异常")));
+          return const Scaffold(body: Center(child: Text('参数异常')));
         }
         return ChangeNotifierProvider.value(
           value: provider,
@@ -224,6 +268,14 @@ class AppRouter {
     GoRoute(path: AppRoutes.personalInfo, builder: (context, state) => const PersonalInfoPage()),
     GoRoute(path: AppRoutes.aboutUs, builder: (context, state) => const AboutUsPage()),
     GoRoute(path: AppRoutes.feedback, builder: (context, state) => const FeedbackPage()),
+    GoRoute(path: AppRoutes.petList, builder: (context, state) => const PetListPage()),
+    GoRoute(
+      path: AppRoutes.petEdit,
+      builder: (context, state) {
+        final pet = state.extra as PetDto?;
+        return PetEditPage(initialPet: pet);
+      },
+    ),
   ];
 
   static final List<GoRoute> _commonRoutes = [

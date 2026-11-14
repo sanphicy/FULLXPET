@@ -5,7 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
 
 class TimeZoneSearchPage extends StatefulWidget {
   const TimeZoneSearchPage({super.key});
@@ -36,7 +36,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
   @override
   void initState() {
     super.initState();
-    final provider = context.read<ActiveDeviceProvider>();
+    final provider = context.read<LitterBoxViewModel>();
     _tempSelectedTzId = provider.currentTimeZoneId;
     _tempSelectedTzOffset = provider.currentTimeZoneOffset;
 
@@ -132,7 +132,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
         actions: [
           TextButton(
             onPressed: () {
-              context.read<ActiveDeviceProvider>().setTimeZone(_tempSelectedTzId, _tempSelectedTzOffset);
+              context.read<LitterBoxViewModel>().setTimeZone(_tempSelectedTzId, _tempSelectedTzOffset);
               context.pop();
             },
             child: Text(

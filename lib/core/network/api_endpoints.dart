@@ -33,6 +33,15 @@ class ApiEndpoints {
   static String deviceBind(String homeId) => "$_apiV1/homes/$homeId/devices";
   static String deviceUnBind(String homeId, String deviceId) => "$_apiV1/homes/$homeId/devices/$deviceId";
   static String deviceLogs(String deviceId) => "$_apiV1/devices/$deviceId/attr-logs";
+  static String deviceLiveVideo(String deviceId) => "$_apiV1/devices/$deviceId/live/publisher-token";
+
+  // --- 宠物相关 ---
+  static String pets(String homeId) => '$_apiV1/homes/$homeId/pets';
+  static String petAvatar(String homeId) => '$_apiV1/homes/$homeId/pets/avatar';
+  static String addPet(String homeId) => '$_apiV1/homes/$homeId/pets';
+  static String updatePetInfo(String homeId, String petId) => '$_apiV1/homes/$homeId/pets/$petId';
+  static String deletePet(String homeId, String petId) => '$_apiV1/homes/$homeId/pets/$petId';
+  static const String breeds = '$_apiV1/pets/breeds';
 
   // --- MQTT相关 ---
   static String mqttUri = "$_apiV1Byplatform/bootstrap";

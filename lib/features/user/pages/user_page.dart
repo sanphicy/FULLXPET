@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/config/app_constants.dart';
@@ -8,15 +7,30 @@ import 'package:fullxpet/common/theme/app_theme.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
+import 'package:fullxpet/features/pet/pet_provider.dart';
+import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
-class UserPage extends StatelessWidget {
+class UserPage extends StatefulWidget {
   const UserPage({super.key});
+
+  @override
+  State<UserPage> createState() => _UserPageState();
+}
+
+class _UserPageState extends State<UserPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 进入个人中心时静默预加载宠物列表
+      context.read<PetProvider>().fetchPets();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-
     const Color primaryPurple = AppTheme.primaryPurple;
     const Color textColor = Color(0xFF333333);
     const Color subTextColor = Color(0xFF666666);
@@ -33,13 +47,13 @@ class UserPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
+                // 1. 用户信息头部
                 Selector<UserProvider, (String, String, String)>(
                   selector: (_, vm) => (vm.user.avatarUrl, vm.user.nickname, vm.user.userId),
                   builder: (context, data, _) {
                     final avatarUrl = data.$1;
                     final userName = data.$2;
                     final userId = data.$3;
-
                     return Row(
                       children: [
                         Stack(
@@ -98,7 +112,37 @@ class UserPage extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
+
+                // 2. 宠物管理功能卡片
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Selector<PetProvider, int>(
+                    selector: (_, petVm) => petVm.pets.length,
+                    builder: (context, petCount, _) {
+                      return _buildListTile(
+                        Icons.pets_rounded,
+                        const Color(0xFFF39191),
+                        '爱宠档案',
+                        trailingText: petCount > 0 ? '$petCount 只宠物' : '未添加',
+                        onTap: () => context.push(AppRoutes.petList),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 3. 协议与版本卡片
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -153,6 +197,8 @@ class UserPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // 4. 反馈与关于卡片
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,

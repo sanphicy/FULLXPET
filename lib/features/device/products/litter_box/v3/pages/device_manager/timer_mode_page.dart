@@ -5,12 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
 
 class TimerModePage extends StatelessWidget {
   const TimerModePage({super.key});
 
-  Future<void> _showSingleTimePicker(BuildContext context, ActiveDeviceProvider provider, S s) async {
+  Future<void> _showSingleTimePicker(BuildContext context, LitterBoxViewModel provider, S s) async {
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
@@ -25,7 +25,7 @@ class TimerModePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final provider = context.read<ActiveDeviceProvider>();
+    final provider = context.read<LitterBoxViewModel>();
     const Color primaryColor = Color(0xFF917CEE);
 
     return Scaffold(
@@ -64,7 +64,7 @@ class TimerModePage extends StatelessWidget {
       body: SafeArea(
         child: ResponsiveFormContainer(
           maxWidth: 600,
-          child: Selector<ActiveDeviceProvider, List<String>>(
+          child: Selector<LitterBoxViewModel, List<String>>(
             selector: (_, vm) => vm.timerList,
             builder: (context, timerList, _) {
               if (timerList.isEmpty) {

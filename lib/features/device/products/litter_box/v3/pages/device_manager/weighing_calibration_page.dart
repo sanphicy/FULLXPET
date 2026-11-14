@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
 
 class WeighingCalibrationPage extends StatefulWidget {
   const WeighingCalibrationPage({super.key});
@@ -27,7 +27,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
     super.initState();
     _weightCtrl = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<ActiveDeviceProvider>();
+      final provider = context.read<LitterBoxViewModel>();
       _weightCtrl.text = provider.savedCalibrationWeight.toString();
     });
   }
@@ -40,7 +40,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
     super.dispose();
   }
 
-  Future<void> _nextStep(ActiveDeviceProvider provider, S s) async {
+  Future<void> _nextStep(LitterBoxViewModel provider, S s) async {
     if (_currentStep == 0) {
       _isProcessing.value = true;
       final success = await provider.startCalibrationStep1();
@@ -87,7 +87,7 @@ class _WeighingCalibrationPageState extends State<WeighingCalibrationPage> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final provider = context.read<ActiveDeviceProvider>();
+    final provider = context.read<LitterBoxViewModel>();
 
     return Scaffold(
       backgroundColor: Colors.white,

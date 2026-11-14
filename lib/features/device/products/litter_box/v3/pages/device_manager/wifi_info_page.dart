@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/device/active_device_provider.dart';
+import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
 
 class WifiInfoPage extends StatelessWidget {
   const WifiInfoPage({super.key});
@@ -12,7 +12,7 @@ class WifiInfoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final provider = context.read<ActiveDeviceProvider>();
+    final provider = context.read<LitterBoxViewModel>();
     const Color primaryPurple = Color(0xFF917CEE);
     const Color textColor = Color(0xFF333333);
 
@@ -41,7 +41,7 @@ class WifiInfoPage extends StatelessWidget {
                 const SizedBox(height: 20),
                 const Icon(Icons.wifi_rounded, size: 72, color: primaryPurple),
                 const SizedBox(height: 16),
-                Selector<ActiveDeviceProvider, bool>(
+                Selector<LitterBoxViewModel, bool>(
                   selector: (_, vm) => vm.isNetworkGood,
                   builder: (context, isGood, _) {
                     return Text(
@@ -63,13 +63,8 @@ class WifiInfoPage extends StatelessWidget {
                       BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
                   ),
-                  child: Selector<ActiveDeviceProvider, (String, String, String, String)>(
-                    selector: (_, vm) => (
-                      vm.currentDevice?.wifiSsid ?? '',
-                      vm.currentDevice?.wifiRssi ?? '',
-                      vm.currentDevice?.wifiIp ?? '',
-                      vm.currentDevice?.wifiMac ?? '',
-                    ),
+                  child: Selector<LitterBoxViewModel, (String, String, String, String)>(
+                    selector: (_, vm) => (vm.wifiSsid, vm.wifiRssi, vm.wifiIp, vm.wifiMac),
                     builder: (context, info, _) {
                       return Column(
                         children: [
@@ -86,7 +81,7 @@ class WifiInfoPage extends StatelessWidget {
                 const Spacer(),
 
                 // 重置 Wi-Fi 按钮（局部监听 Loading）
-                Selector<ActiveDeviceProvider, bool>(
+                Selector<LitterBoxViewModel, bool>(
                   selector: (_, vm) => vm.isLoading,
                   builder: (context, isLoading, _) {
                     return SizedBox(

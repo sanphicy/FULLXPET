@@ -6,7 +6,7 @@ import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart';
-import 'package:fullxpet/features/device/models/device_dto.dart';
+import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class DeviceUsagePage extends StatefulWidget {
@@ -81,7 +81,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                       ),
                     ],
                   ),
-                  child: Selector<DeviceUsageProvider, (List<DeviceDto>, int)>(
+                  child: Selector<DeviceUsageProvider, (List<DeviceItemDto>, int)>(
                     selector: (_, vm) => (vm.deviceList, vm.selectedDeviceIndex),
                     builder: (context, data, _) {
                       final deviceList = data.$1;
@@ -150,7 +150,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                                       color: isSelected ? _primaryPurple : _subTextColor,
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                     ),
-                                    child: Text(device.deviceName),
+                                    child: Text(device.nickname.isNotEmpty ? device.nickname : 'FULLXPET'),
                                   ),
                                 ],
                               ),

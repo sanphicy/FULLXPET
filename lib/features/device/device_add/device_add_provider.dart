@@ -1,99 +1,143 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 新增持久化库
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/locator.dart';
+import 'package:fullxpet/common/providers/user_provider.dart';
 import 'package:fullxpet/core/hardware/bluetooth_manager.dart';
-import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/network/http_client.dart';
+import 'package:fullxpet/locator.dart';
 import 'models/discovered_device.dart';
 import 'repositories/device_add_repository.dart';
-import 'package:fullxpet/features/device/repositories/device_repository.dart';
+import 'package:fullxpet/features/device/device_add/models/ble_packet_codec.dart';
 
-class DeviceAddProvider extends BaseProvider {
-  final _bleManager = locator<BluetoothManager>();
+typedef ScanResultList = List<ScanResult>;
+
+class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
+  static const String kBleDisconnectedPrompt = "蓝牙断开，请返回列表重新配对";
+
+  final BluetoothManager _bleManager = locator<BluetoothManager>();
   final DeviceAddRepository _repository = DeviceAddRepository();
+
+  DeviceAddProvider() {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   // ================= 设置项持久化 =================
   bool _hasLoadedSettings = false;
   bool _filterUnknown = true;
-  String _filterName = 'FULLXPET, PETLUX';
+  String _filterName = 'pet, junvine';
   bool _autoFetchWifi = true;
-
-  bool _isFactoryDebugMode = false; //工厂调试
-  bool get isFactoryDebugMode => _isFactoryDebugMode;
 
   bool get filterUnknown => _filterUnknown;
   String get filterName => _filterName;
   bool get autoFetchWifi => _autoFetchWifi;
 
-  // 加载本地配网设置
   Future<void> loadSettings() async {
     if (_hasLoadedSettings) return;
     final prefs = await SharedPreferences.getInstance();
     _filterUnknown = prefs.getBool('pref_filter_unknown') ?? true;
-    _filterName = prefs.getString('pref_filter_name') ?? 'FULLXPET';
+    _filterName = prefs.getString('pref_filter_name') ?? 'pet, junvine';
     _autoFetchWifi = prefs.getBool('pref_auto_fetch_wifi') ?? true;
     _hasLoadedSettings = true;
-    _isFactoryDebugMode = prefs.getBool('pref_factory_debug_mode') ?? false;
   }
 
-  // 保存设置并重新应用
   Future<void> saveSettings({
     required bool filterUnknown,
     required String filterName,
     required bool autoFetchWifi,
-    required bool isFactoryDebugMode,
   }) async {
     _filterUnknown = filterUnknown;
     _filterName = filterName;
     _autoFetchWifi = autoFetchWifi;
-    _isFactoryDebugMode = isFactoryDebugMode;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('pref_filter_unknown', filterUnknown);
     await prefs.setString('pref_filter_name', filterName);
     await prefs.setBool('pref_auto_fetch_wifi', autoFetchWifi);
-    await prefs.setBool('pref_factory_debug_mode', isFactoryDebugMode);
-    await startSearchDevices(); // 设置更改后自动重新搜索
+    await startSearchDevices();
   }
   // ================================================
 
   bool _isScanning = false;
   List<DiscoveredDevice> _discoveredDevices = [];
-  StreamSubscription<List<ScanResult>>? _scanResultsSub;
+  StreamSubscription<ScanResultList>? _scanResultsSub;
   StreamSubscription<bool>? _scanStateSub;
+  StreamSubscription<BluetoothConnectionState>? _connectionStateSub;
+  final Set<String> _printedDeviceIds = {};
 
   bool get isScanning => _isScanning;
   List<DiscoveredDevice> get discoveredDevices => _discoveredDevices;
 
+  DiscoveredDevice? _activeTargetDevice;
   String? _connectingDeviceId;
   String? get connectingDeviceId => _connectingDeviceId;
 
   String? _boundDeviceId;
   String? get boundDeviceId => _boundDeviceId;
 
+  bool _isBleConnected = false;
+  bool get isBleConnected => _isBleConnected;
+
   int _configStep = 0;
   bool _isFetchingWifi = false;
-  List<Map<String, dynamic>> _deviceWifiList = [];
+  List<WifiMap> _deviceWifiList = [];
   bool _isWifiTimeout = false;
-
   bool _isReadyForWifi = false;
-  bool get isReadyForWifi => _isReadyForWifi;
-
   double _progress = 0.0;
-  double get progress => _progress;
 
-  bool get isWifiTimeout => _isWifiTimeout;
   int get configStep => _configStep;
   bool get isFetchingWifi => _isFetchingWifi;
-  List<Map<String, dynamic>> get deviceWifiList => _deviceWifiList;
+  List<WifiMap> get deviceWifiList => _deviceWifiList;
+  bool get isWifiTimeout => _isWifiTimeout;
+  bool get isReadyForWifi => _isReadyForWifi;
+  double get progress => _progress;
 
   final List<String> _provisionLogs = [];
   List<String> get provisionLogs => _provisionLogs;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      if (_activeTargetDevice != null && _configStep == 0) {
+        final rawDevice = _activeTargetDevice!.device;
+        if (rawDevice != null && !rawDevice.isConnected && _isBleConnected) {
+          _handleUnexpectedBleDisconnect();
+        }
+      }
+    }
+  }
+
+  void _handleUnexpectedBleDisconnect() {
+    _isBleConnected = false;
+    if (_configStep == 0) {
+      _isFetchingWifi = false;
+      _isReadyForWifi = true;
+      _addLog(kBleDisconnectedPrompt, isError: true);
+      setError(kBleDisconnectedPrompt);
+      notifyListeners();
+    }
+  }
+
+  String _formatBleError(Object error) {
+    final raw = error.toString();
+    final lower = raw.toLowerCase();
+    if (raw.contains("未连接") ||
+        raw.contains("断开") ||
+        lower.contains("not connected") ||
+        lower.contains("disconnected") ||
+        lower.contains("fbp-code: 6") ||
+        lower.contains("gatt")) {
+      return kBleDisconnectedPrompt;
+    }
+    if (raw.contains("Exception:")) {
+      return raw.split("Exception:").last.trim();
+    }
+    return "配网异常或超时";
+  }
 
   void _addLog(String msg, {bool isHighlight = false, bool isError = false}) {
     final now = DateTime.now();
@@ -107,8 +151,7 @@ class DeviceAddProvider extends BaseProvider {
       prefix = "🟢 ";
     }
 
-    final logText = "[$timeStr] $prefix$msg";
-    _provisionLogs.insert(0, logText);
+    _provisionLogs.insert(0, "[$timeStr] $prefix$msg");
     notifyListeners();
   }
 
@@ -134,7 +177,9 @@ class DeviceAddProvider extends BaseProvider {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cancelSubscriptions();
+    _connectionStateSub?.cancel();
     _bleManager.stopScan();
     if (_configStep != 4) {
       _bleManager.disconnectActiveDevice();
@@ -144,8 +189,12 @@ class DeviceAddProvider extends BaseProvider {
   }
 
   void resetStateForRescan() {
+    _connectionStateSub?.cancel();
+    _connectionStateSub = null;
+    _activeTargetDevice = null;
     _connectingDeviceId = null;
     _boundDeviceId = null;
+    _isBleConnected = false;
     _configStep = 0;
     _progress = 0.0;
     _isFetchingWifi = false;
@@ -168,11 +217,24 @@ class DeviceAddProvider extends BaseProvider {
   }
 
   Future<void> startSearchDevices() async {
-    await loadSettings(); // 确保开始扫描前设置已加载[cite: 2]
+    await loadSettings();
 
     clearError();
     _discoveredDevices.clear();
+    _printedDeviceIds.clear();
     _cancelSubscriptions();
+
+    _repository.fetchProductList().then((products) {
+      if (products.isNotEmpty && _discoveredDevices.isNotEmpty) {
+        _discoveredDevices = _discoveredDevices.map((d) {
+          final matched = d.hasShortPid
+              ? _repository.findProductByShortId(d.shortPid)
+              : _repository.findProductByFullId(d.pid);
+          return d.applyProductInfo(matched);
+        }).toList();
+        notifyListeners();
+      }
+    });
 
     final hasPermission = await _bleManager.checkAndRequestPermissions();
     if (!hasPermission) {
@@ -209,24 +271,58 @@ class DeviceAddProvider extends BaseProvider {
     }
 
     _scanResultsSub = _bleManager.scanResults.listen((results) {
+      final Map<String, ScanResult> rawResultMap = {};
       final Map<String, DiscoveredDevice> map = {};
+
       for (final r in results) {
         final id = r.device.remoteId.toString();
-        map[id] = DiscoveredDevice(
+        final name = r.device.platformName.isNotEmpty
+            ? r.device.platformName
+            : (r.advertisementData.advName.isNotEmpty ? r.advertisementData.advName : "Unknown Device");
+
+        rawResultMap[id] = r;
+
+        String parsedMac = '';
+        String parsedShortPid = '';
+
+        r.advertisementData.manufacturerData.forEach((vendorId, bytes) {
+          final int b1 = vendorId & 0xFF;
+          final int b2 = (vendorId >> 8) & 0xFF;
+          final List<int> fullAdvBytes = [b1, b2, ...bytes];
+
+          if (fullAdvBytes.length >= 11) {
+            try {
+              parsedShortPid = fullAdvBytes
+                  .sublist(3, 5)
+                  .map((b) => b.toRadixString(16).padLeft(2, '0'))
+                  .join('')
+                  .toLowerCase();
+              parsedMac = fullAdvBytes
+                  .sublist(5, 11)
+                  .map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
+                  .join(':');
+            } catch (_) {}
+          }
+        });
+
+        if (parsedMac.isEmpty && RegExp(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$').hasMatch(id)) {
+          parsedMac = id.toUpperCase();
+        }
+
+        map[id] = _repository.buildDiscoveredDevice(
           id: id,
-          name: r.device.platformName.isNotEmpty ? r.device.platformName : "Unknown Device",
+          name: name,
           rssi: r.rssi,
           device: r.device,
+          parsedMac: parsedMac,
+          parsedShortPid: parsedShortPid,
         );
       }
 
-      // 应用动态过滤规则
       _discoveredDevices = map.values.where((d) {
-        // 规则1：过滤未知设备
         if (_filterUnknown && (d.name == "Unknown Device" || d.name.isEmpty)) {
           return false;
         }
-        // 规则2：精确名称过滤（包含即可）按名称列表过滤（支持英文逗号 , 和中文逗号 ，）
         if (_filterName.isNotEmpty) {
           final filterKeywords = _filterName
               .replaceAll('，', ',')
@@ -244,6 +340,16 @@ class DeviceAddProvider extends BaseProvider {
         return true;
       }).toList()..sort((a, b) => b.rssi.compareTo(a.rssi));
 
+      for (final device in _discoveredDevices) {
+        if (!_printedDeviceIds.contains(device.id)) {
+          _printedDeviceIds.add(device.id);
+          final rawScanResult = rawResultMap[device.id];
+          if (rawScanResult != null) {
+            _printScanResultDetails(rawScanResult, device);
+          }
+        }
+      }
+
       notifyListeners();
     });
 
@@ -256,38 +362,46 @@ class DeviceAddProvider extends BaseProvider {
     });
   }
 
+  void _printScanResultDetails(ScanResult r, DiscoveredDevice parsedDevice) {
+    final adv = r.advertisementData;
+    debugPrint("╔══════════════════════════════════════════════════════════");
+    debugPrint("║ 【扫描列表设备广播详情】名称: ${parsedDevice.name} | 信号: ${r.rssi} dBm");
+    debugPrint("║ • 标记配网方式 : ${parsedDevice.provisionMode.name}");
+    debugPrint("║ • 短产品ID     : ${parsedDevice.shortPid.isEmpty ? '无(走hooget名称映射)' : parsedDevice.shortPid}");
+    debugPrint("║ • 完整产品PID  : ${parsedDevice.pid.isEmpty ? '暂未匹配' : parsedDevice.pid}");
+    debugPrint("║ • 广播解析MAC  : ${parsedDevice.mac}");
+    debugPrint("║ • 网络图标URL  : ${parsedDevice.iconUrl ?? '未命中(使用保底图标)'}");
+    if (adv.manufacturerData.isNotEmpty) {
+      adv.manufacturerData.forEach((vendorId, bytes) {
+        final int b1 = vendorId & 0xFF;
+        final int b2 = (vendorId >> 8) & 0xFF;
+        final List<int> fullAdvBytes = [b1, b2, ...bytes];
+        final String fullHex = fullAdvBytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
+        debugPrint("║ • 完整广播HEX  : [$fullHex]");
+      });
+    }
+    debugPrint("╚══════════════════════════════════════════════════════════");
+  }
+
   Future<void> _stopSearchDevices() async {
     if (_isScanning) {
       await _bleManager.stopScan();
     }
   }
 
-  Future<void> _send0x86Data(String deviceId, Map<String, dynamic> jsonMap) async {
-    final String jsonStr = jsonEncode(jsonMap);
-    final List<int> jsonData = utf8.encode(jsonStr);
-    final int totalLength = jsonData.length;
-
-    if (totalLength > 255) throw Exception("JSON 长度超过 255 字节限制");
-
-    List<List<int>> packets = [];
-    int firstPacketDataLen = totalLength > 18 ? 18 : totalLength;
-    List<int> firstPacket = [0x86, totalLength];
-    firstPacket.addAll(jsonData.sublist(0, firstPacketDataLen));
-    packets.add(firstPacket);
-
-    int offset = firstPacketDataLen;
-    while (offset < totalLength) {
-      int remaining = totalLength - offset;
-      int chunkLen = remaining > 20 ? 20 : remaining;
-      packets.add(jsonData.sublist(offset, offset + chunkLen));
-      offset += chunkLen;
+  Future<void> _sendBleJson(DiscoveredDevice targetDevice, WifiMap jsonMap, BlePacketCodec codec) async {
+    if (targetDevice.device == null || !_isBleConnected) {
+      throw Exception(kBleDisconnectedPrompt);
     }
 
-    for (List<int> packet in packets) {
-      await _bleManager.writeData(deviceId: deviceId, data: packet);
+    final packets = codec.encode(jsonMap);
+    if (packets.isEmpty) return;
+
+    _addLog("下发数据(${targetDevice.provisionMode.name}): 共 ${packets.length} 包");
+    for (final packet in packets) {
+      await _bleManager.writeData(deviceId: targetDevice.id, data: packet);
       await Future.delayed(const Duration(milliseconds: 15));
     }
-    _addLog("Bk7238NoticeEnum.BLE_WRITE_SUCCESS");
   }
 
   Future<bool> prepareAndFetchWifi(DiscoveredDevice targetDevice) async {
@@ -297,118 +411,121 @@ class DeviceAddProvider extends BaseProvider {
     clearError();
     _configStep = 0;
     _progress = 0.05;
+    _activeTargetDevice = targetDevice;
     _connectingDeviceId = targetDevice.id;
     _isFetchingWifi = true;
     _isReadyForWifi = false;
+    _isBleConnected = false;
     _deviceWifiList.clear();
     notifyListeners();
 
+    _addLog(
+      "配网方式: ${targetDevice.provisionMode.name} (短ID:${targetDevice.shortPid}, PID:${targetDevice.pid})",
+      isHighlight: true,
+    );
     _addLog("设备开始连接");
-    final connectSuccess = await _bleManager.connectToDevice(targetDevice.device!);
 
+    final connectSuccess = await _bleManager.connectToDevice(targetDevice.device!);
     if (!connectSuccess) {
       _connectingDeviceId = null;
       _isFetchingWifi = false;
       _isReadyForWifi = true;
       _progress = 0.0;
-      _addLog("设备状态变化: 断开", isError: true);
-      _addLog("蓝牙连接失败，请靠近设备重试", isError: true);
-      setError("连接蓝牙失败");
+      _addLog(kBleDisconnectedPrompt, isError: true);
+      setError(kBleDisconnectedPrompt);
       notifyListeners();
       return false;
     }
 
+    _isBleConnected = true;
     _progress = 0.15;
-    _addLog("设备状态变化: 已连接");
     _addLog("蓝牙底层连接成功", isHighlight: true);
 
-    StreamSubscription<List<int>>? notifySub;
+    _connectionStateSub?.cancel();
+    _connectionStateSub = targetDevice.device!.connectionState.listen((state) {
+      if (state == BluetoothConnectionState.disconnected) {
+        if (_isBleConnected) {
+          _handleUnexpectedBleDisconnect();
+        }
+      } else if (state == BluetoothConnectionState.connected) {
+        _isBleConnected = true;
+      }
+    });
+
+    StreamSubscription<BlePacket>? notifySub;
     bool isSuccess = false;
 
     try {
-      List<BluetoothService> services = await targetDevice.device!.discoverServices();
-      for (var service in services) {
-        String sUuid = _shortUuid(service.uuid.toString());
+      final List<BluetoothService> services = await targetDevice.device!.discoverServices();
+      for (final service in services) {
+        final String sUuid = _shortUuid(service.uuid.toString());
         _addLog("寻找到服务$sUuid");
-        for (var characteristic in service.characteristics) {
-          String cUuid = _shortUuid(characteristic.uuid.toString());
+        for (final characteristic in service.characteristics) {
+          final String cUuid = _shortUuid(characteristic.uuid.toString());
           _addLog("寻找到子服务${cUuid}true");
         }
       }
       _addLog("获取服务成功");
 
       final stream = await _bleManager.subscribeToNotifications(deviceId: _connectingDeviceId!);
-
       _progress = 0.25;
       _addLog("特征值订阅成功", isHighlight: true);
 
-      Completer<void> completer = Completer();
-      List<int> receiveBuffer = [];
-      int expectedLength = 0;
+      final Completer<void> wifiCompleter = Completer();
+      final BlePacketCodec codec = BlePacketCodec(mode: targetDevice.provisionMode);
 
       notifySub = stream.listen((value) {
-        if (value.isEmpty) return;
+        final completeBytes = codec.onReceiveChunk(value);
+        if (completeBytes == null) return;
 
-        if (expectedLength == 0 && value[0] == 0x86 && value.length >= 2) {
-          expectedLength = value[1];
-          receiveBuffer.clear();
-          receiveBuffer.addAll(value.sublist(2));
-        } else {
-          receiveBuffer.addAll(value);
-        }
+        try {
+          final String jsonStr = utf8.decode(completeBytes);
+          final data = jsonDecode(jsonStr);
 
-        if (receiveBuffer.length >= expectedLength && expectedLength > 0) {
-          final validBytes = receiveBuffer.sublist(0, expectedLength);
-          try {
-            final data = jsonDecode(utf8.decode(validBytes));
+          if (data['method'] == 'devConfSsidRsp') {
+            if (data['list'] != null) {
+              final List list = data['list'];
+              _deviceWifiList = list
+                  .map((item) => {"ssid": item[0].toString(), "channel": item[1] as int, "rssi": item[2] as int})
+                  .toList();
 
-            if (data['method'] == 'devConfSsidRsp') {
-              if (data['list'] != null) {
-                final List list = data['list'];
-                _deviceWifiList = list
-                    .map((item) => {"ssid": item[0].toString(), "channel": item[1] as int, "rssi": item[2] as int})
-                    .toList();
+              _deviceWifiList.sort((a, b) => (b['rssi'] as int).compareTo(a['rssi'] as int));
+              final ssidNames = _deviceWifiList.map((e) => e['ssid']).join(', ');
+              _addLog("共解析出 ${_deviceWifiList.length} 条可用网络: $ssidNames");
 
-                _deviceWifiList.sort((a, b) => (b['rssi'] as int).compareTo(a['rssi'] as int));
-
-                final ssidNames = _deviceWifiList.map((e) => e['ssid']).join(', ');
-                _addLog("共解析出 ${_deviceWifiList.length} 条可用网络: $ssidNames");
-
-                if (!completer.isCompleted) completer.complete();
-              } else {
-                if (!completer.isCompleted) {
-                  completer.completeError(Exception("获取 Wi-Fi 列表格式异常"));
-                }
-              }
+              if (!wifiCompleter.isCompleted) wifiCompleter.complete();
             } else {
-              _addLog("来自ff01 [${_decodeLogBytes(validBytes)}]");
+              if (!wifiCompleter.isCompleted) wifiCompleter.completeError(Exception("获取 Wi-Fi 列表格式异常"));
             }
-          } catch (e) {
-            _isWifiTimeout = true;
-          } finally {
-            receiveBuffer.clear();
-            expectedLength = 0;
+          } else {
+            _addLog("来自ff01 [${_decodeLogBytes(completeBytes)}]");
           }
+        } catch (e) {
+          _addLog("JSON解析异常: $e", isError: true);
+          _isWifiTimeout = true;
         }
       });
 
-      // 根据设置动态决定是否下发周边Wi-Fi扫描指令[cite: 2]
       if (_autoFetchWifi) {
         _addLog("正在获取设备WiFi列表...");
-        await _send0x86Data(_connectingDeviceId!, {"method": "devConfSsidGet"});
-
-        await completer.future.timeout(const Duration(seconds: 30));
+        await _sendBleJson(targetDevice, {"method": "devConfSsidGet"}, codec);
+        await wifiCompleter.future.timeout(const Duration(seconds: 30));
         _progress = 0.35;
         _addLog("周边网络列表获取成功，等待确认", isHighlight: true);
       } else {
         _progress = 0.35;
         _addLog("已关闭设备扫描，跳过获取，使用当前手机Wi-Fi", isHighlight: true);
-        await Future.delayed(const Duration(milliseconds: 500)); // 缓冲体验
+        await Future.delayed(const Duration(milliseconds: 500));
       }
       isSuccess = true;
     } catch (e) {
-      _addLog("特征值交互或 Wi-Fi 列表拉取超时", isError: true);
-      _isWifiTimeout = true;
+      if (!_isBleConnected || (targetDevice.device != null && !targetDevice.device!.isConnected)) {
+        _addLog(kBleDisconnectedPrompt, isError: true);
+        setError(kBleDisconnectedPrompt);
+      } else {
+        _addLog("特征值交互或 Wi-Fi 列表拉取超时", isError: true);
+        _isWifiTimeout = true;
+      }
     } finally {
       notifySub?.cancel();
       _isFetchingWifi = false;
@@ -425,20 +542,39 @@ class DeviceAddProvider extends BaseProvider {
       return false;
     }
 
+    if (targetDevice.device == null || !_isBleConnected) {
+      _configStep = 0;
+      _isReadyForWifi = true;
+      _addLog(kBleDisconnectedPrompt, isError: true);
+      setError(kBleDisconnectedPrompt);
+      notifyListeners();
+      return false;
+    }
+
     clearError();
     _configStep = 1;
     _isReadyForWifi = false;
     notifyListeners();
 
-    _addLog("拉取云端 MQTT Token 与加密配置");
-    final mqttUrl = await _repository.getDeviceMqttRui();
-    if (mqttUrl == null) {
-      _addLog("获取云端 MQTT 参数失败", isError: true);
+    if (_repository.cachedProducts.isEmpty) {
+      await _repository.fetchProductList();
+    }
+
+    _addLog("拉取云端注册配置");
+    final cloudRegisterUrl = await _repository.getDeviceMqttRui(mode: targetDevice.provisionMode);
+    _addLog("下发请求地址:$cloudRegisterUrl");
+
+    if (cloudRegisterUrl == null) {
+      _addLog("获取云端注册参数失败", isError: true);
       _configStep = 0;
       _isReadyForWifi = true;
-      setError("获取 MQTT 配置失败");
+      setError("获取云端配置失败");
       return false;
     }
+
+    final currentUser = locator<UserProvider>().user;
+    final currentUserId = currentUser.userId.trim();
+    final String provisionUuid = currentUserId.isNotEmpty ? currentUserId : "9527";
 
     int channel = 1;
     try {
@@ -449,173 +585,211 @@ class DeviceAddProvider extends BaseProvider {
     final int timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final int timeOffset = DateTime.now().timeZoneOffset.inSeconds;
 
-    StreamSubscription<List<int>>? notifySub;
-    Completer<bool> completer = Completer();
+    StreamSubscription<BlePacket>? notifySub;
+    final Completer<bool> completer = Completer();
+    final BlePacketCodec codec = BlePacketCodec(mode: targetDevice.provisionMode);
+
+    bool isBindingStarted = false;
+    Timer? stage0DelayTimer;
+
+    void triggerJunvineBind({required String mac, required String pid, required String deviceId}) {
+      if (isBindingStarted) return;
+      if (mac.isEmpty || pid.isEmpty) {
+        _addLog("无法绑定：未获取到有效 MAC($mac) 或 产品ID($pid)", isError: true);
+        if (!completer.isCompleted) {
+          completer.completeError(Exception("未匹配到有效的产品ID，无法绑定设备"));
+        }
+        return;
+      }
+      isBindingStarted = true;
+      _progress = 0.8;
+      _configStep = 3;
+      _boundDeviceId = deviceId.isNotEmpty ? deviceId : mac;
+      notifyListeners();
+
+      final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";
+      _addLog("开始向云端轮询绑定设备 (MAC: $mac, PID: $pid)", isHighlight: true);
+
+      _repository.bindDeviceToCloud(mac: mac, pid: pid, nickname: defaultNickname, mode: ProvisionMode.junvine).then((
+        isBindSuccess,
+      ) {
+        if (isBindSuccess) {
+          clearError();
+          _progress = 1.0;
+          _configStep = 3;
+          _addLog("设备云端注册绑定完成！", isHighlight: true);
+          if (!completer.isCompleted) completer.complete(true);
+        } else {
+          if (!completer.isCompleted) {
+            completer.completeError(Exception("绑定设备超时或失败，请重试"));
+          }
+        }
+      });
+    }
 
     try {
       final stream = await _bleManager.subscribeToNotifications(deviceId: targetDevice.id);
-      List<int> receiveBuffer = [];
-      int expectedLength = 0;
 
       notifySub = stream.listen((value) async {
-        if (value.isEmpty) return;
+        final completeBytes = codec.onReceiveChunk(value);
+        if (completeBytes == null) return;
 
-        if (expectedLength == 0 && value[0] == 0x86 && value.length >= 2) {
-          expectedLength = value[1];
-          receiveBuffer.clear();
-          receiveBuffer.addAll(value.sublist(2));
-        } else {
-          receiveBuffer.addAll(value);
-        }
+        try {
+          final String jsonStr = utf8.decode(completeBytes);
+          final dynamic decodedJson = jsonDecode(jsonStr);
 
-        if (receiveBuffer.length >= expectedLength && expectedLength > 0) {
-          try {
-            final validBytes = receiveBuffer.sublist(0, expectedLength);
-            final dynamic decodedJson = jsonDecode(utf8.decode(validBytes));
+          final WifiMap? data = (decodedJson is List && decodedJson.isNotEmpty)
+              ? decodedJson.first as WifiMap
+              : (decodedJson is Map ? Map<String, dynamic>.from(decodedJson) : null);
 
-            final Map<String, dynamic>? data = (decodedJson is List && decodedJson.isNotEmpty)
-                ? decodedJson.first as Map<String, dynamic>
-                : (decodedJson is Map ? decodedJson as Map<String, dynamic> : null);
+          if (data == null) return;
 
-            if (data != null) {
-              if (data['payload'] != null && data['payload']['msg'] != null) {
-                final String deviceMsg = data['payload']['msg'].toString();
-                _addLog("来自ff01 设备消息: $deviceMsg");
-              }
+          if (data['payload'] != null && data['payload']['msg'] != null) {
+            _addLog("来自ff01 设备消息: ${data['payload']['msg']}");
+          }
 
-              if (data['method'] == 'confNotify' && data['payload'] != null) {
-                final payload = data['payload'];
-                final int stage = payload['stage'] ?? 0;
-                final int code = payload['code'] ?? -1;
+          if (data['method'] == 'confNotify' && data['payload'] != null) {
+            final payload = data['payload'];
+            final int stage = payload['stage'] ?? 0;
+            final int code = payload['code'] ?? -1;
 
-                if (stage == 1 && code == 0) {
-                  _progress = 0.6;
-                  _addLog("Bk7238NoticeEnum.WIFICONNECTING");
-                  _addLog("设备正在尝试连接路由器", isHighlight: true);
-                  _configStep = 2;
-                  notifyListeners();
-                } else if (stage == 2 && code == 0) {
-                  _progress = 0.8;
-                  _addLog("Bk7238NoticeEnum.WIFICONNECTED");
-                  _addLog("路由器连接成功！正在向云端注册设备", isHighlight: true);
-                  _configStep = 3;
-                  notifyListeners();
+            // =================== 1. hooget 原版配网方式 ===================
+            if (targetDevice.provisionMode == ProvisionMode.hooget) {
+              if (stage == 1 && code == 0) {
+                _progress = 0.6;
+                _addLog("Bk7238NoticeEnum.WIFICONNECTING");
+                _addLog("设备正在尝试连接路由器", isHighlight: true);
+                _configStep = 2;
+                notifyListeners();
+              } else if (stage == 2 && code == 0) {
+                if (isBindingStarted) return;
 
-                  final String mac = payload['mac']?.toString() ?? '';
-                  final String pid = payload['pid']?.toString() ?? '';
+                final String mac = payload['mac']?.toString().trim() ?? '';
+                final String callbackPid = payload['pid']?.toString().trim() ?? '';
+                final String finalPid = callbackPid.isNotEmpty ? callbackPid : targetDevice.pid;
+                final String realDeviceId = payload['deviceId']?.toString().trim() ?? mac;
 
-                  final String realDeviceId = payload['deviceId']?.toString() ?? '';
-                  _boundDeviceId = realDeviceId;
-
-                  final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";
-
-                  _bindDeviceToCloud(mac, pid, defaultNickname).then((isBindSuccess) {
-                    if (isBindSuccess) {
-                      _progress = 1.0;
-                      _addLog("设备云端注册完成！", isHighlight: true);
-
-                      final device = locator<DeviceRepository>().getDevice(realDeviceId);
-                      device.productId = pid;
-                      device.deviceName = defaultNickname;
-
-                      if (!completer.isCompleted) completer.complete(true);
-                    } else {
-                      if (!completer.isCompleted) completer.completeError(Exception("绑定设备失败，请重试"));
-                    }
-                  });
-                } else if (stage == 2 && code != 0) {
+                if (mac.isEmpty || finalPid.isEmpty) {
+                  _addLog("无法绑定：未获取到有效 MAC($mac) 或 产品ID($finalPid)", isError: true);
                   if (!completer.isCompleted) {
-                    String errMsg = payload['msg'] == 'password_error' ? "Wi-Fi 密码错误或信号极弱" : "网络连接中断";
-                    completer.completeError(Exception(errMsg));
+                    completer.completeError(Exception("未获取到有效的产品ID，无法绑定设备"));
                   }
+                  return;
+                }
+
+                isBindingStarted = true;
+                _progress = 0.8;
+                _addLog("Bk7238NoticeEnum.WIFICONNECTED");
+                _addLog("路由器连接成功！正在向云端注册设备 (MAC: $mac, PID: $finalPid)", isHighlight: true);
+                _configStep = 3;
+                _boundDeviceId = realDeviceId;
+                notifyListeners();
+
+                final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";
+
+                _repository
+                    .bindDeviceToCloud(mac: mac, pid: finalPid, nickname: defaultNickname, mode: ProvisionMode.hooget)
+                    .then((isBindSuccess) {
+                      if (isBindSuccess) {
+                        clearError();
+                        _progress = 1.0;
+                        _configStep = 3;
+                        _addLog("设备云端注册完成！", isHighlight: true);
+                        if (!completer.isCompleted) completer.complete(true);
+                      } else {
+                        if (!completer.isCompleted) completer.completeError(Exception("绑定设备失败，请重试"));
+                      }
+                    });
+              } else if (stage == 2 && code != 0) {
+                if (!completer.isCompleted) {
+                  final String errMsg = payload['msg'] == 'password_error' ? "Wi-Fi 密码错误或信号极弱" : "网络连接中断";
+                  completer.completeError(Exception(errMsg));
                 }
               }
             }
-          } catch (_) {
-          } finally {
-            receiveBuffer.clear();
-            expectedLength = 0;
+            // =================== 2. junvine 骏云配网方式 ===================
+            else {
+              final String notifyMac = payload['mac']?.toString().trim() ?? '';
+              final String notifyPid = payload['pid']?.toString().trim() ?? '';
+              final String realDeviceId = payload['deviceId']?.toString().trim() ?? '';
+
+              final String finalMac = notifyMac.isNotEmpty ? notifyMac : targetDevice.mac;
+              String finalPid = notifyPid.isNotEmpty ? notifyPid : targetDevice.pid;
+              if (finalPid.isEmpty && targetDevice.hasShortPid) {
+                finalPid = _repository.findProductByShortId(targetDevice.shortPid)?.productId ?? '';
+              }
+
+              if (stage == 1 && code == 0) {
+                stage0DelayTimer?.cancel();
+                if (!isBindingStarted) {
+                  _progress = 0.6;
+                  _configStep = 2;
+                }
+                _addLog("设备正在尝试连接路由器", isHighlight: true);
+                notifyListeners();
+              } else if (stage == 2 && code == 0) {
+                stage0DelayTimer?.cancel();
+                triggerJunvineBind(mac: finalMac, pid: finalPid, deviceId: realDeviceId);
+              } else if (stage == 0 && code == 0) {
+                if (notifyMac.isNotEmpty) {
+                  triggerJunvineBind(mac: finalMac, pid: finalPid, deviceId: realDeviceId);
+                } else {
+                  _addLog("设备已确认接收配网参数，准备向云端注册...", isHighlight: true);
+                  stage0DelayTimer?.cancel();
+                  stage0DelayTimer = Timer(const Duration(milliseconds: 1500), () {
+                    triggerJunvineBind(mac: finalMac, pid: finalPid, deviceId: realDeviceId);
+                  });
+                }
+              } else if (code != 0) {
+                stage0DelayTimer?.cancel();
+                if (!completer.isCompleted) {
+                  final String errMsg = payload['msg'] == 'password_error' ? "Wi-Fi 密码错误或信号极弱" : "网络连接中断";
+                  completer.completeError(Exception(errMsg));
+                }
+              }
+            }
           }
+        } catch (e) {
+          _addLog("配网响应解析异常: $e", isError: true);
         }
       });
 
       _progress = 0.45;
       _addLog("下发配网数据");
-      await _send0x86Data(targetDevice.id, {
+
+      await _sendBleJson(targetDevice, {
         "method": "devConf",
         "payload": {
           "ssid": ssid,
           "pssw": password,
           "ch": channel,
-          "uuid": "9527",
+          "uuid": provisionUuid,
           "tsmp": timestamp,
-          "bsid": "xxxxx",
-          "url": mqttUrl,
+          "bsid": targetDevice.provisionMode == ProvisionMode.hooget ? "xxxxx" : "",
+          "url": cloudRegisterUrl,
           "timeOffset": timeOffset,
         },
-      });
+      }, codec);
 
-      return await completer.future.timeout(const Duration(seconds: 40));
+      return await completer.future.timeout(const Duration(seconds: 60));
     } catch (e) {
       _configStep = 0;
       _isReadyForWifi = true;
-      String errorMsg = e.toString().contains("Exception:") ? e.toString().split("Exception: ").last : "配网异常或超时";
-      _addLog("配网中断: $errorMsg", isError: true);
-      setError(errorMsg);
+      final String friendlyError = _formatBleError(e);
+      _addLog("配网中断: $friendlyError", isError: true);
+      setError(friendlyError);
       return false;
     } finally {
+      stage0DelayTimer?.cancel();
       notifySub?.cancel();
-      await _bleManager.unsubscribeFromNotifications(deviceId: targetDevice.id);
+      try {
+        await _bleManager.unsubscribeFromNotifications(deviceId: targetDevice.id);
+      } catch (_) {}
 
       if (!hasError && _configStep == 3) {
         _configStep = 4;
         notifyListeners();
       }
-    }
-  }
-
-  Future<bool> _bindDeviceToCloud(String mac, String pid, String nickname) async {
-    try {
-      final homeListRes = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.homeList);
-      final items = homeListRes.data?['items'] as List?;
-      if (items == null || items.isEmpty) return false;
-
-      final homeId = items[0]['id']?.toString() ?? '';
-      final homeInfo = await locator<HttpClient>().get<Map<String, dynamic>>(ApiEndpoints.homeInfo(homeId));
-
-      String roomId = "";
-      final responseData = homeInfo.data?['data'] ?? homeInfo.data;
-      if (responseData != null && responseData['rooms'] != null) {
-        final List rooms = responseData['rooms'];
-        if (rooms.isNotEmpty) {
-          roomId = rooms[0]['id']?.toString() ?? "";
-        }
-      }
-
-      final Map<String, dynamic> bindPayload = {
-        "hardwareId": mac,
-        "productId": pid,
-        "roomId": roomId,
-        "nickname": nickname,
-        "bindSource": Platform.isAndroid ? "android" : "ios",
-        "locallyBound": false,
-      };
-
-      final DateTime endTime = DateTime.now().add(const Duration(minutes: 1));
-      const Duration pollInterval = Duration(seconds: 3);
-
-      while (DateTime.now().isBefore(endTime)) {
-        try {
-          final bindResult = await locator<HttpClient>().post(ApiEndpoints.deviceBind(homeId), data: bindPayload);
-          if (bindResult.code == 0 || bindResult.code == 200) {
-            return true;
-          }
-        } catch (_) {}
-        await Future.delayed(pollInterval);
-      }
-      return false;
-    } catch (e) {
-      return false;
     }
   }
 }

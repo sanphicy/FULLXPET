@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/http_client.dart';
-import 'package:fullxpet/features/device/models/device_dto.dart';
+import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/locator.dart';
 
 class DailyUsageData {
@@ -49,18 +48,18 @@ class DeviceUsageProvider extends BaseProvider {
   int _selectedDeviceIndex = 0;
   int _selectedDayIndex = 6;
 
-  List<DeviceDto> _deviceList = [];
+  List<DeviceItemDto> _deviceList = [];
   List<DailyUsageData> _weekDays = [];
 
   int get selectedDeviceIndex => _selectedDeviceIndex;
   int get selectedDayIndex => _selectedDayIndex;
-  List<DeviceDto> get deviceList => _deviceList;
+  List<DeviceItemDto> get deviceList => _deviceList;
   List<DailyUsageData> get weekDays => _weekDays;
 
   DailyUsageData? get selectedDayData =>
       _weekDays.isNotEmpty && _selectedDayIndex < _weekDays.length ? _weekDays[_selectedDayIndex] : null;
 
-  void syncDevices(List<DeviceDto> devices) {
+  void syncDevices(List<DeviceItemDto> devices) {
     _deviceList = devices;
     if (_selectedDeviceIndex >= _deviceList.length) {
       _selectedDeviceIndex = 0;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:fullxpet/features/pet/pet_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'package:fullxpet/common/config/app_config.dart';
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider.value(value: locator<UserProvider>()),
         ChangeNotifierProvider.value(value: locator<DeviceProvider>()),
+        ChangeNotifierProvider.value(value: locator<PetProvider>()),
       ],
       child: ScreenUtilInit(
         designSize: Dimens.designSize,

@@ -81,6 +81,7 @@ dependencies:
   # iOS 风格图标库
   cupertino_icons: ^1.0.8
   agora_rtc_engine: ^6.6.4
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
