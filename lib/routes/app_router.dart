@@ -36,14 +36,12 @@ import 'package:fullxpet/features/device/device_add/pages/device_add_search_page
 import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
 import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/device_manager_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/device_setting_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/time_zone_search_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/timer_mode_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/weighing_calibration_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/pages/device_manager/wifi_info_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v4/pages/v4_manager_page.dart';
-import 'package:fullxpet/features/device/products/litter_box/v4/pages/v4_setting_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/pages/litter_box_manager_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/pages/litter_box_setting_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/pages/time_zone_search_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/pages/timer_mode_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/pages/weighing_calibration_page.dart';
+import 'package:fullxpet/features/device/products/litter_box/pages/wifi_info_page.dart';
 import 'package:fullxpet/features/device/products/feeder/pages/feeder_manager_page.dart';
 import 'package:fullxpet/features/device/products/feeder/pages/feeder_setting_page.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
@@ -105,8 +103,13 @@ class AppRouter {
     routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
   );
 
-  /// 为猫砂盆二级工具页注入当前设备的 LitterBoxViewModel
-  static Widget _withLitterBoxVm(String deviceId, Widget child) {
+  /// 优先复用上一页传入的 LitterBoxViewModel 实例，保证二级工具页与设置页状态实时同步
+  static Widget _withLitterBoxVm(GoRouterState state, Widget child) {
+    final extra = state.extra;
+    if (extra is LitterBoxViewModel) {
+      return ChangeNotifierProvider.value(value: extra, child: child);
+    }
+    final deviceId = state.pathParameters['id'] ?? '';
     return ChangeNotifierProvider(create: (_) => LitterBoxViewModel()..initDevice(deviceId), child: child);
   }
 
@@ -171,69 +174,34 @@ class AppRouter {
       path: AppRoutes.deviceManager,
       builder: (context, state) {
         final id = state.pathParameters['id'] ?? '';
-        final repo = locator<DeviceRepository>();
-        final basic = repo.getDeviceBasic(id);
-        final prod = basic != null ? repo.getProduct(basic.productId) : null;
-
+        final basic = locator<DeviceRepository>().getDeviceBasic(id);
         final pid = basic?.productId ?? '';
-        final cat = (prod?.categoryCode.isNotEmpty == true ? prod!.categoryCode : (basic?.category ?? ''))
-            .toLowerCase();
-        final prodName = prod?.name ?? '';
 
-        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.pidFeederTest || cat.contains('feeder')) {
+        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.junvineFeeder) {
           return FeederManagerPage(deviceId: id);
         }
-
-        if (pid == ProductConstants.pidLitterBoxV4 ||
-            prodName.contains('4.0') ||
-            (prod?.modelCode.toUpperCase().contains('V4') ?? false)) {
-          return V4ManagerPage(deviceId: id);
-        }
-
-        return DeviceManagerPage(deviceId: id);
+        return LitterBoxManagerPage(deviceId: id);
       },
     ),
     GoRoute(
       path: AppRoutes.deviceSetting,
       builder: (context, state) {
         final String deviceId = state.pathParameters['id'] ?? '';
-        final repo = locator<DeviceRepository>();
-        final basic = repo.getDeviceBasic(deviceId);
-        final prod = basic != null ? repo.getProduct(basic.productId) : null;
-
+        final basic = locator<DeviceRepository>().getDeviceBasic(deviceId);
         final pid = basic?.productId ?? '';
-        final cat = (prod?.categoryCode.isNotEmpty == true ? prod!.categoryCode : (basic?.category ?? ''))
-            .toLowerCase();
-        final prodName = prod?.name ?? '';
 
-        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.pidFeederTest || cat.contains('feeder')) {
+        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.junvineFeeder) {
           return FeederSettingPage(deviceId: deviceId);
         }
-
-        if (pid == ProductConstants.pidLitterBoxV4 ||
-            prodName.contains('4.0') ||
-            (prod?.modelCode.toUpperCase().contains('V4') ?? false)) {
-          return V4SettingPage(deviceId: deviceId);
-        }
-
-        return DeviceSettingPage(deviceId: deviceId);
+        return LitterBoxSettingPage(deviceId: deviceId);
       },
     ),
-    GoRoute(
-      path: AppRoutes.timezone,
-      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const TimeZoneSearchPage()),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceTimer,
-      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const TimerModePage()),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceWifi,
-      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const WifiInfoPage()),
-    ),
+    GoRoute(path: AppRoutes.timezone, builder: (context, state) => _withLitterBoxVm(state, const TimeZoneSearchPage())),
+    GoRoute(path: AppRoutes.deviceTimer, builder: (context, state) => _withLitterBoxVm(state, const TimerModePage())),
+    GoRoute(path: AppRoutes.deviceWifi, builder: (context, state) => _withLitterBoxVm(state, const WifiInfoPage())),
     GoRoute(
       path: AppRoutes.deviceWeighing,
-      builder: (context, state) => _withLitterBoxVm(state.pathParameters['id'] ?? '', const WeighingCalibrationPage()),
+      builder: (context, state) => _withLitterBoxVm(state, const WeighingCalibrationPage()),
     ),
     GoRoute(
       path: AppRoutes.deviceAddSearch,

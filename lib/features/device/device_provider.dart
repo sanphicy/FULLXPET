@@ -3,21 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/hardware/mqtt_manager.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
 import 'package:fullxpet/features/device/products/feeder/models/feeder_thing_model.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/models/device_thing_model.dart';
+import 'package:fullxpet/features/device/products/litter_box/models/device_thing_model.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
 
 /// 已知特定产品 ID 常量
 class ProductConstants {
-  static const String pidLitterBoxV3 = 'nocifq6kc7lpak68';
+  static const String pidLitterBoxV3 = 'f7k2m9xplq8n3v6w';
   static const String pidLitterBoxV4 = '1a731d3e68cca08b';
   static const String pidFeeder = '9c2608de680bf9b6';
-  static const String pidFeederTest = '2a2aeb52999d2a16';
+  static const String junvineFeeder = '2a2aeb52999d2a16';
 }
 
 /// 通用筛选胶囊模型（一级大类与二级子型号）
@@ -253,16 +254,10 @@ class DeviceProvider extends BaseProvider {
     if (dpidMap.isEmpty) return const [];
 
     final CardBadgeList badges = [];
-    final String catCode = resolveCategoryCode(item);
     final bool isFeeder =
-        item.productId == ProductConstants.pidFeeder ||
-        item.productId == ProductConstants.pidFeederTest ||
-        catCode.contains('feeder');
+        item.productId == ProductConstants.pidFeeder || item.productId == ProductConstants.junvineFeeder;
     final bool isLitterBox =
-        item.productId == ProductConstants.pidLitterBoxV4 ||
-        item.productId == ProductConstants.pidLitterBoxV3 ||
-        catCode.contains('litter') ||
-        resolveProductName(item).contains('猫砂');
+        item.productId == ProductConstants.pidLitterBoxV3 || item.productId == ProductConstants.pidLitterBoxV4;
 
     if (isFeeder) {
       final rawTimes = dpidMap[FeederThingModel.excretionTimesDay.dpid];
@@ -293,10 +288,8 @@ class DeviceProvider extends BaseProvider {
         badges.add(DeviceCardBadge(icon: Icons.pets_rounded, text: '今日 $times 次', isHighlight: true));
       }
 
-      final bool isV4Model =
-          item.productId == ProductConstants.pidLitterBoxV4 ||
-          resolveProductName(item).contains('4.0') ||
-          resolveModelCode(item).toUpperCase().contains('V4');
+      // 严格通过 productId 判断是否为 V4
+      final bool isV4Model = item.productId == ProductConstants.pidLitterBoxV4;
 
       if (!isV4Model) {
         final rawLitterWeight = dpidMap[DeviceThingModel.litterWeight.dpid];
@@ -337,17 +330,13 @@ class DeviceProvider extends BaseProvider {
     setLoading(true);
     clearError();
     try {
-      final result = await _deviceRepo.getDeviceList();
-      if (result.data != null) {
-        _ensureSelectionValid();
-        unawaited(_prefetchAllDeviceProperties());
-        unawaited(_checkAndSyncMqttSubscriptions());
-      } else {
-        setError(result.message);
-      }
+      await _deviceRepo.getDeviceList();
+      _ensureSelectionValid();
+      unawaited(_prefetchAllDeviceProperties());
+      unawaited(_checkAndSyncMqttSubscriptions());
       notifyListeners();
-    } catch (_) {
-      setError(_s?.networkError ?? '网络连接失败，请检查网络设置');
+    } catch (e) {
+      setError(ApiException.from(e).message);
     } finally {
       if (isLoading) setLoading(false);
     }
@@ -449,22 +438,25 @@ class DeviceProvider extends BaseProvider {
   }
 
   Future<void> _initGlobalMqttAndSubscribe() async {
-    final credResult = await _deviceRepo.fetchMqttCredentials();
-    if (credResult.data == null) return;
-    final mqttData = credResult.data!['mqtt'];
-    if (mqttData is! Map) return;
+    try {
+      final credMap = await _deviceRepo.fetchMqttCredentials();
+      final mqttData = credMap['mqtt'];
+      if (mqttData is! Map) return;
 
-    final bool isConnected = await locator.get<MqttManager>().connect(
-      endpoint: mqttData['endpoint']?.toString() ?? '',
-      port: int.tryParse(mqttData['port'].toString()) ?? 8883,
-      username: mqttData['username']?.toString() ?? '',
-      password: mqttData['password']?.toString() ?? '',
-      clientId: mqttData['clientIdHint']?.toString() ?? '',
-      subscribeTopic: mqttData['subscribeTopic']?.toString() ?? '',
-      useTls: mqttData['tls'].toString() == 'true',
-    );
-    if (isConnected) {
-      await _deviceRepo.syncMqttSubscriptions();
+      final bool isConnected = await locator.get<MqttManager>().connect(
+        endpoint: mqttData['endpoint']?.toString() ?? '',
+        port: int.tryParse(mqttData['port'].toString()) ?? 8883,
+        username: mqttData['username']?.toString() ?? '',
+        password: mqttData['password']?.toString() ?? '',
+        clientId: mqttData['clientIdHint']?.toString() ?? '',
+        subscribeTopic: mqttData['subscribeTopic']?.toString() ?? '',
+        useTls: mqttData['tls'].toString() == 'true',
+      );
+      if (isConnected) {
+        await _deviceRepo.syncMqttSubscriptions();
+      }
+    } catch (e) {
+      debugPrint('初始化 MQTT 凭证及连接失败: $e');
     }
   }
 }

@@ -1,17 +1,17 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fullxpet/core/hardware/mqtt_manager.dart';
+import 'package:fullxpet/core/network/api_client.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/network/http_client.dart';
-import 'package:fullxpet/core/network/result_model.dart';
 import 'package:fullxpet/core/utils/uuids_tool.dart';
 import 'package:fullxpet/features/device/models/device_hardware_info.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/features/device/models/device_properties_dto.dart';
 import 'package:fullxpet/features/device/models/mqtt_attr_report_dto.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
-import 'package:fullxpet/features/device/products/feeder/models/feeder_live_info.dart';
+import 'package:fullxpet/features/device/models/feeder_live_info.dart';
 import 'package:fullxpet/locator.dart';
 
 typedef JsonMap = Map<String, dynamic>;
@@ -26,8 +26,8 @@ typedef DeviceItemDtoList = List<DeviceItemDto>;
 typedef CommandAttrList = List<JsonMap>;
 
 class DeviceRepository {
-  final HttpClient _httpClient = locator.get();
-  final MqttManager _mqttManager = locator.get();
+  final Dio _dio = locator<ApiClient>().dio;
+  final MqttManager _mqttManager = locator<MqttManager>();
 
   /// 底表 1：产品列表缓存表 (key = productId)
   final ProductCacheMap _productCache = {};
@@ -42,7 +42,7 @@ class DeviceRepository {
   final DeviceHardwareCacheMap _deviceHardwareCache = {};
 
   /// 设备数据变更广播流（发送变更的 deviceId；若列表整体刷新则发送 'ALL'）
-  final StreamController<String> _deviceUpdateController = StreamController.broadcast();
+  final StreamController<String> _deviceUpdateController = StreamController<String>.broadcast();
   Stream<String> get onDeviceUpdated => _deviceUpdateController.stream;
 
   StreamSubscription? _mqttSub;
@@ -111,70 +111,64 @@ class DeviceRepository {
   // ------------------- HTTP 请求并自动写表方法 -------------------
 
   /// 拉取产品列表 -> 自动存入 _productCache
-  Future<ResultEntity<ProductDtoList>> fetchProducts({bool forceRefresh = false}) async {
+  Future<ProductDtoList> fetchProducts({bool forceRefresh = false}) async {
     if (_productCache.isNotEmpty && !forceRefresh) {
-      return ResultEntity.success(cachedProducts);
+      return cachedProducts;
     }
-    try {
-      final response = await _httpClient.get(ApiEndpoints.products);
-      final data = response.data;
-      if ((response.code == 0 || response.code == 200) && data is Map) {
-        final items = data['items'];
-        if (items is List) {
-          _productCache.clear();
-          for (final raw in items) {
-            if (raw is Map) {
-              final dto = ProductDto.fromJson(JsonMap.from(raw));
-              if (dto.productId.isNotEmpty) {
-                _productCache[dto.productId] = dto;
-              }
+    final res = await _dio.get(ApiEndpoints.products);
+    final data = res.data;
+    if (data is Map) {
+      final items = data['items'];
+      if (items is List) {
+        _productCache.clear();
+        for (final raw in items) {
+          if (raw is Map) {
+            final dto = ProductDto.fromJson(JsonMap.from(raw));
+            if (dto.productId.isNotEmpty) {
+              _productCache[dto.productId] = dto;
             }
           }
         }
-        return ResultEntity.success(cachedProducts);
       }
-      return ResultEntity.error(response.message);
-    } catch (e) {
-      return ResultEntity.error('拉取产品列表失败: $e');
     }
+    return cachedProducts;
   }
 
   /// 拉取设备列表 -> 自动存入 _deviceBasicCache
-  Future<ResultEntity<DeviceItemDtoList>> getDeviceList() async {
-    try {
-      if (_productCache.isEmpty) {
+  Future<DeviceItemDtoList> getDeviceList() async {
+    if (_productCache.isEmpty) {
+      try {
         await fetchProducts();
+      } catch (e) {
+        debugPrint('预拉取产品列表失败: $e');
       }
-      final result = await _httpClient.get(ApiEndpoints.devices);
-      final data = result.data;
-      if (data is Map && (result.code == 0 || result.code == 200)) {
-        final items = data['items'];
-        if (items is List) {
-          _deviceBasicCache.clear();
-          for (final raw in items) {
-            if (raw is Map) {
-              final dto = DeviceItemDto.fromJson(JsonMap.from(raw));
-              if (dto.deviceId.isNotEmpty) {
-                _deviceBasicCache[dto.deviceId] = dto;
-              }
+    }
+    final res = await _dio.get(ApiEndpoints.devices);
+    final data = res.data;
+    if (data is Map) {
+      final items = data['items'];
+      if (items is List) {
+        _deviceBasicCache.clear();
+        for (final raw in items) {
+          if (raw is Map) {
+            final dto = DeviceItemDto.fromJson(JsonMap.from(raw));
+            if (dto.deviceId.isNotEmpty) {
+              _deviceBasicCache[dto.deviceId] = dto;
             }
           }
         }
-        _notify('ALL');
-        return ResultEntity.success(cachedDeviceList);
       }
-      return ResultEntity.error(result.message);
-    } catch (e) {
-      return ResultEntity.error('拉取设备列表失败: $e');
     }
+    _notify('ALL');
+    return cachedDeviceList;
   }
 
   /// 拉取单台设备全量属性 -> 自动存入 _deviceDpidCache 与 _deviceHardwareCache
-  Future<ResultEntity<DevicePropertiesDto>> fetchDeviceProperties(String deviceId) async {
+  Future<DevicePropertiesDto?> fetchDeviceProperties(String deviceId) async {
     try {
-      final result = await _httpClient.get(ApiEndpoints.deviceProperties(deviceId));
-      final data = result.data;
-      if (data is Map && (result.code == 0 || result.code == 200)) {
+      final res = await _dio.get(ApiEndpoints.deviceProperties(deviceId));
+      final data = res.data;
+      if (data is Map) {
         final dto = DevicePropertiesDto.fromJson(data);
 
         final existingBasic = _deviceBasicCache[deviceId];
@@ -186,19 +180,19 @@ class DeviceRepository {
         _deviceDpidCache[deviceId] = dto.toDpidMap();
 
         _notify(deviceId);
-        return ResultEntity.success(dto);
+        return dto;
       }
-      return ResultEntity.error(result.message);
     } catch (e) {
-      return ResultEntity.error('拉取设备属性失败 [$deviceId]:$e');
+      debugPrint('拉取设备属性失败 [$deviceId]:$e');
     }
+    return null;
   }
 
   /// 下发 DPID 控制指令
   Future<bool> sendDeviceCommand(String deviceId, CommandAttrList attributes) async {
     try {
-      final result = await _httpClient.post(ApiEndpoints.deviceInvoke(deviceId), data: {'attributes': attributes});
-      return result.code == 0 || result.code == 200;
+      await _dio.post(ApiEndpoints.deviceInvoke(deviceId), data: {'attributes': attributes});
+      return true;
     } catch (e) {
       debugPrint('发送指令失败 [$deviceId]:$e');
       return false;
@@ -208,16 +202,13 @@ class DeviceRepository {
   /// 修改设备名称 -> 成功后直接更新底表 2 并广播
   Future<bool> renameDevice(String deviceId, String newName) async {
     try {
-      final result = await _httpClient.patch(ApiEndpoints.deviceName(deviceId), data: {'nickname': newName});
-      if (result.code == 0 || result.code == 200) {
-        final existing = _deviceBasicCache[deviceId];
-        if (existing != null) {
-          _deviceBasicCache[deviceId] = existing.copyWith(nickname: newName);
-        }
-        _notify(deviceId);
-        return true;
+      await _dio.patch(ApiEndpoints.deviceName(deviceId), data: {'nickname': newName});
+      final existing = _deviceBasicCache[deviceId];
+      if (existing != null) {
+        _deviceBasicCache[deviceId] = existing.copyWith(nickname: newName);
       }
-      return false;
+      _notify(deviceId);
+      return true;
     } catch (e) {
       debugPrint('重命名失败 [$deviceId]:$e');
       return false;
@@ -229,7 +220,7 @@ class DeviceRepository {
     try {
       String homeId = _deviceBasicCache[deviceId]?.homeId ?? '';
       if (homeId.isEmpty) {
-        final homeList = await _httpClient.get(ApiEndpoints.homeList);
+        final homeList = await _dio.get(ApiEndpoints.homeList);
         final listData = homeList.data;
         if (listData is Map && listData['items'] is List && (listData['items'] as List).isNotEmpty) {
           homeId = listData['items'][0]['id']?.toString() ?? '';
@@ -237,14 +228,12 @@ class DeviceRepository {
       }
       if (homeId.isEmpty) return false;
 
-      final res = await _httpClient.delete(ApiEndpoints.deviceUnBind(homeId, deviceId));
-      if (res.code == 0 || res.code == 200) {
-        _deviceBasicCache.remove(deviceId);
-        _deviceDpidCache.remove(deviceId);
-        _deviceHardwareCache.remove(deviceId);
-        _notify('ALL');
-        return true;
-      }
+      await _dio.delete(ApiEndpoints.deviceUnBind(homeId, deviceId));
+      _deviceBasicCache.remove(deviceId);
+      _deviceDpidCache.remove(deviceId);
+      _deviceHardwareCache.remove(deviceId);
+      _notify('ALL');
+      return true;
     } catch (e) {
       debugPrint('删除设备失败 [$deviceId]:$e');
     }
@@ -252,7 +241,7 @@ class DeviceRepository {
   }
 
   /// 通用日志拉取
-  Future<ResultEntity<JsonMap>> fetchDeviceLogsRaw(
+  Future<JsonMap> fetchDeviceLogsRaw(
     String deviceId, {
     required String dpidFilter,
     required String fromIsoUtc,
@@ -261,38 +250,32 @@ class DeviceRepository {
     String sort = 'desc',
     String? pageToken,
   }) async {
-    try {
-      final JsonMap query = {
-        'from': fromIsoUtc,
-        'to': toIsoUtc,
-        'dpid': dpidFilter,
-        'pageSize': pageSize.toString(),
-        'sort': sort,
-      };
-      if (pageToken != null && pageToken.isNotEmpty) {
-        query['pageToken'] = pageToken;
-      }
-      final result = await _httpClient.get(ApiEndpoints.deviceLogs(deviceId), query: query);
-      if (result.data is Map && (result.code == 0 || result.code == 200)) {
-        return ResultEntity.success(JsonMap.from(result.data as Map));
-      }
-      return ResultEntity.error(result.message);
-    } catch (e) {
-      return ResultEntity.error('获取设备日志失败: $e');
+    final JsonMap query = {
+      'from': fromIsoUtc,
+      'to': toIsoUtc,
+      'dpid': dpidFilter,
+      'pageSize': pageSize.toString(),
+      'sort': sort,
+    };
+    if (pageToken != null && pageToken.isNotEmpty) {
+      query['pageToken'] = pageToken;
     }
+    final res = await _dio.get(ApiEndpoints.deviceLogs(deviceId), queryParameters: query);
+    if (res.data is Map) {
+      return JsonMap.from(res.data as Map);
+    }
+    return {};
   }
 
   /// 检查设备是否有待升级固件
   Future<JsonMap?> checkPendingFirmware(String deviceId) async {
     try {
-      final res = await _httpClient.get(ApiEndpoints.checkFirmware(deviceId));
-      if ((res.code == 0 || res.code == 200) && res.data != null) {
-        final rawData = res.data;
-        if (rawData is List && rawData.isNotEmpty) {
-          return JsonMap.from(rawData.first as Map);
-        } else if (rawData is Map) {
-          return JsonMap.from(rawData);
-        }
+      final res = await _dio.get(ApiEndpoints.checkFirmware(deviceId));
+      final rawData = res.data;
+      if (rawData is List && rawData.isNotEmpty) {
+        return JsonMap.from(rawData.first as Map);
+      } else if (rawData is Map) {
+        return JsonMap.from(rawData);
       }
     } catch (_) {}
     return null;
@@ -301,8 +284,8 @@ class DeviceRepository {
   /// 下发固件升级指令
   Future<bool> dispatchFirmwareUpgrade(String deviceId, String recordId) async {
     try {
-      final result = await _httpClient.post(ApiEndpoints.upgradeFirmware(deviceId, recordId));
-      return result.code == 0 || result.code == 200;
+      await _dio.post(ApiEndpoints.upgradeFirmware(deviceId, recordId));
+      return true;
     } catch (e) {
       debugPrint('下发固件升级指令失败 [$deviceId]:$e');
       return false;
@@ -310,51 +293,40 @@ class DeviceRepository {
   }
 
   /// 获取设备视频直播参数
-  Future<ResultEntity<FeederLiveInfo>> fetchLiveInfo(String deviceId, {int camera = 0, int resolution = 0}) async {
-    try {
-      final String platform = Platform.isIOS ? 'ios' : 'android';
-      final String clientInstanceId = _getValidClientInstanceId();
-      final JsonMap payload = {
-        'clientInstanceId': clientInstanceId,
-        'platform': platform,
-        'camera': camera,
-        'resolution': resolution,
-      };
-      final res = await _httpClient.post(ApiEndpoints.deviceLiveVideo(deviceId), data: payload);
-      if (res.data is Map && (res.code == 0 || res.code == 200)) {
-        return ResultEntity.success(FeederLiveInfo.fromJson(JsonMap.from(res.data as Map)));
-      }
-      return ResultEntity.error(res.message);
-    } catch (e) {
-      return ResultEntity.error('获取视频直播参数异常: $e');
-    }
+  Future<FeederLiveInfo> fetchLiveInfo(String deviceId, {int camera = 0, int resolution = 0}) async {
+    final String platform = Platform.isIOS ? 'ios' : 'android';
+    final String clientInstanceId = _getValidClientInstanceId();
+    final JsonMap payload = {
+      'clientInstanceId': clientInstanceId,
+      'platform': platform,
+      'camera': camera,
+      'resolution': resolution,
+    };
+    final res = await _dio.post(ApiEndpoints.deviceLiveVideo(deviceId), data: payload);
+    return FeederLiveInfo.fromJson(JsonMap.from(res.data as Map));
   }
 
   /// 获取 MQTT 凭证
-  Future<ResultEntity<JsonMap>> fetchMqttCredentials() async {
-    try {
-      final res = await _httpClient.post(ApiEndpoints.mqttCredentials);
-      if (res.data is Map && (res.code == 0 || res.code == 200)) {
-        return ResultEntity.success(JsonMap.from(res.data as Map));
-      }
-      return ResultEntity.error(res.message);
-    } catch (e) {
-      return ResultEntity.error('获取 MQTT 凭证异常: $e');
+  Future<JsonMap> fetchMqttCredentials() async {
+    final res = await _dio.post(ApiEndpoints.mqttCredentials);
+    if (res.data is Map) {
+      return JsonMap.from(res.data as Map);
     }
+    return {};
   }
 
   /// 一键同步 MQTT 订阅
   Future<bool> syncMqttSubscriptions() async {
     try {
-      final res = await _httpClient.post(ApiEndpoints.mqttSubscribeSync);
-      return res.code == 0 || res.code == 200;
+      await _dio.post(ApiEndpoints.mqttSubscribeSync);
+      return true;
     } catch (e) {
       debugPrint('一键同步订阅失败: $e');
       return false;
     }
   }
 
-  /// 清空三张底表（退出登录时调用）
+  /// 清空四张底表（退出登录时调用）
   void clearPool() {
     _productCache.clear();
     _deviceBasicCache.clear();

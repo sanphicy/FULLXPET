@@ -26,7 +26,6 @@ class DeviceDetailAppBar extends StatelessWidget implements PreferredSizeWidget 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
-  /// 自动剥离 "ID:" 前缀，只复制纯净的设备编码发给客服
   String get _rawCopyId {
     return subtitle.replaceFirst(RegExp(r'^ID:\s*', caseSensitive: false), '').trim();
   }
@@ -37,7 +36,7 @@ class DeviceDetailAppBar extends StatelessWidget implements PreferredSizeWidget 
 
     await Clipboard.setData(ClipboardData(text: textToCopy));
     if (context.mounted) {
-      context.showAppToast(message: '已复制设备 ID: $textToCopy', type: AppToastType.success);
+      context.showAppToast(message: '复制成功', type: AppToastType.success);
     }
   }
 

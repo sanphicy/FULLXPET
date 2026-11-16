@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
-import 'package:fullxpet/features/device/products/feeder/models/feeder_live_info.dart';
+import 'package:fullxpet/features/device/models/feeder_live_info.dart';
 
 class AgoraVideoWidget extends StatefulWidget {
   final FeederLiveInfo? liveInfo;

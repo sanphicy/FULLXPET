@@ -1,20 +1,18 @@
-import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
-import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/network/http_client.dart';
-import 'package:fullxpet/core/network/result_model.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/features/auth/models/auth_request.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
+import 'package:fullxpet/features/user/repositories/user_repository.dart';
 import 'package:fullxpet/locator.dart';
 
 class UserViewModel extends BaseProvider {
   final UserProvider _userProvider = locator<UserProvider>();
   final AuthRepository _authRepo = locator<AuthRepository>();
-  final HttpClient _httpClient = locator<HttpClient>();
+  final UserRepository _userRepo = locator<UserRepository>();
 
   String _appVersion = '';
   String get appVersion => _appVersion;
@@ -38,25 +36,24 @@ class UserViewModel extends BaseProvider {
     if (trimmedName.isEmpty || trimmedName == currentUser.nickname) return false;
 
     setLoading(true);
+    clearError();
     try {
       final payload = {
         "nickname": trimmedName,
         "countryCode": currentUser.countryCode,
         "timezone": currentUser.timezone,
       };
-      final result = await _httpClient.patch<Map<String, dynamic>>(ApiEndpoints.userInfo, data: payload);
-      if (result.code == 0 || result.code == 200) {
-        _userProvider.updateUser(currentUser.copyWith(nickname: trimmedName));
-        return true;
-      } else {
-        setError(result.message);
-      }
+
+      await _userRepo.updateUserInfo(payload);
+
+      _userProvider.updateUser(currentUser.copyWith(nickname: trimmedName));
+      return true;
     } catch (e) {
-      setError("修改昵称失败: $e");
+      setError(ApiException.from(e).message);
+      return false;
     } finally {
       setLoading(false);
     }
-    return false;
   }
 
   // 上传头像
@@ -67,24 +64,23 @@ class UserViewModel extends BaseProvider {
       if (image == null) return false;
 
       setLoading(true);
-      final formData = FormData.fromMap({'file': await MultipartFile.fromFile(image.path, filename: image.name)});
-      final result = await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.uploadAvatar, data: formData);
-      if (result.data != null && (result.code == 0 || result.code == 200)) {
-        final data = result.data!;
-        final newAvatar = data['avatarDisplay']?.toString() ?? data['avatar']?.toString();
-        if (newAvatar != null && newAvatar.isNotEmpty) {
-          _userProvider.updateUser(_userProvider.user.copyWith(avatarUrl: newAvatar));
-          return true;
-        }
+      clearError();
+
+      final newAvatar = await _userRepo.uploadAvatar(image);
+
+      if (newAvatar != null && newAvatar.isNotEmpty) {
+        _userProvider.updateUser(_userProvider.user.copyWith(avatarUrl: newAvatar));
+        return true;
       } else {
-        setError(result.message);
+        setError("头像上传返回数据异常");
+        return false;
       }
     } catch (e) {
-      setError("头像上传失败，请检查相机/相册权限及网络连接");
+      setError(ApiException.from(e).message);
+      return false;
     } finally {
       setLoading(false);
     }
-    return false;
   }
 
   // 发送注销验证码
@@ -94,25 +90,36 @@ class UserViewModel extends BaseProvider {
       setError("未获取到当前账号");
       return 0;
     }
-    final bool isEmail = currentUser.account.contains('@');
-    ResultEntity<int> result;
 
-    if (isEmail) {
-      result = await _authRepo.sendEmailVerifyCode(
-        SendEmailCodeRequest(email: currentUser.account, purpose: "delete_account"),
-      );
-    } else {
-      final phonePrefix = _userProvider.user.phoneCountryCode;
-      result = await _authRepo.sendPhoneVerifyCode(
-        SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: currentUser.account, purpose: "delete_account"),
-      );
-    }
+    setLoading(true);
+    clearError();
 
-    if (result.data != null && result.data! > 0) {
-      return result.data!;
-    } else {
-      setError(result.message);
+    try {
+      final bool isEmail = currentUser.account.contains('@');
+      int cooldown = 0;
+
+      if (isEmail) {
+        cooldown = await _authRepo.sendEmailVerifyCode(
+          SendEmailCodeRequest(email: currentUser.account, purpose: "delete_account"),
+        );
+      } else {
+        final phonePrefix = _userProvider.user.phoneCountryCode;
+        cooldown = await _authRepo.sendPhoneVerifyCode(
+          SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: currentUser.account, purpose: "delete_account"),
+        );
+      }
+
+      if (cooldown > 0) {
+        return cooldown;
+      } else {
+        setError("发送验证码失败");
+        return 0;
+      }
+    } catch (e) {
+      setError(ApiException.from(e).message);
       return 0;
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -128,17 +135,12 @@ class UserViewModel extends BaseProvider {
       final bool isEmail = _userProvider.user.account.contains('@');
       final channel = isEmail ? "email" : "sms";
 
-      final result = await _authRepo.deleteAccount(DeleteAccountRequest(channel: channel, verificationCode: code));
+      await _authRepo.deleteAccount(DeleteAccountRequest(channel: channel, verificationCode: code));
 
-      if (result.data == true) {
-        await _userProvider.logout();
-        return true;
-      } else {
-        setError(result.message);
-        return false;
-      }
-    } catch (_) {
-      setError("注销失败，请稍后重试");
+      await _userProvider.logout();
+      return true;
+    } catch (e) {
+      setError(ApiException.from(e).message);
       return false;
     } finally {
       setLoading(false);

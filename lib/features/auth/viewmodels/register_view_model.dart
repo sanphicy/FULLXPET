@@ -1,6 +1,6 @@
 import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/region_service.dart';
-import 'package:fullxpet/core/network/result_model.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/features/auth/models/auth_request.dart';
 import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 import 'package:fullxpet/locator.dart';
@@ -13,41 +13,30 @@ class RegisterViewModel extends BaseProvider {
   CountryDto? get currentCountry => _regionService.currentCountry;
 
   Future<void> switchCountry(CountryDto country) async {
-    // 立即通知 UI 乐观渲染新选中的国家
-    notifyListeners();
-
-    // 后台异步执行 BaseURL 切换与缓存
     final success = await _regionService.switchCountry(country);
     if (!success) {
-      // 若失败则重绘回退
       notifyListeners();
     }
   }
 
   Future<int> sendVerifyCode(String account, bool isPhoneMode) async {
     if (account.trim().isEmpty) {
-      setError("请输入账号");
+      setError("账号不能为空");
       return 0;
     }
-    ResultEntity<int> result;
-    if (isPhoneMode) {
-      final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
-      result = await _authRepo.sendPhoneVerifyCode(
-        SendPhoneCodeRequest(
-          phoneCountryCode: phonePrefix,
-          phone: account,
-          purpose: "register",
-        ),
-      );
-    } else {
-      result = await _authRepo.sendEmailVerifyCode(
-        SendEmailCodeRequest(email: account, purpose: "register"),
-      );
-    }
-    if (result.data != null && result.data! > 0) {
-      return result.data!;
-    } else {
-      setError(result.message);
+    try {
+      int cooldown = 60;
+      if (isPhoneMode) {
+        final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
+        cooldown = await _authRepo.sendPhoneVerifyCode(
+          SendPhoneCodeRequest(phoneCountryCode: phonePrefix, phone: account, purpose: "register"),
+        );
+      } else {
+        cooldown = await _authRepo.sendEmailVerifyCode(SendEmailCodeRequest(email: account, purpose: "register"));
+      }
+      return cooldown;
+    } catch (e) {
+      setError(ApiException.from(e).message);
       return 0;
     }
   }
@@ -58,46 +47,39 @@ class RegisterViewModel extends BaseProvider {
     required String code,
     required bool isPhoneMode,
   }) async {
-    if (account.trim().isEmpty ||
-        password.trim().isEmpty ||
-        code.trim().isEmpty) {
-      setError("请填写完整注册信息");
+    if (account.trim().isEmpty || password.trim().isEmpty || code.trim().isEmpty) {
+      setError("请填写完整信息");
       return false;
     }
     setLoading(true);
     clearError();
 
-    final countryCode = currentCountry?.countryCode ?? "CN";
-    final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
+    try {
+      final countryCode = currentCountry?.countryCode ?? "CN";
+      final phonePrefix = currentCountry?.phoneCountryCode ?? "+86";
+      bool success = false;
 
-    ResultEntity<bool> result;
-    if (isPhoneMode) {
-      result = await _authRepo.registerByPhone(
-        PhoneRegisterRequest(
-          phoneCountryCode: phonePrefix,
-          phone: account,
-          password: password,
-          verificationCode: code,
-          countryCode: countryCode,
-        ),
-      );
-    } else {
-      result = await _authRepo.registerByEmail(
-        RegisterRequest(
-          email: account,
-          password: password,
-          verificationCode: code,
-          countryCode: countryCode,
-        ),
-      );
-    }
-
-    setLoading(false);
-    if (result.data == true) {
-      return true;
-    } else {
-      setError(result.message);
+      if (isPhoneMode) {
+        success = await _authRepo.registerByPhone(
+          PhoneRegisterRequest(
+            phoneCountryCode: phonePrefix,
+            phone: account,
+            password: password,
+            verificationCode: code,
+            countryCode: countryCode,
+          ),
+        );
+      } else {
+        success = await _authRepo.registerByEmail(
+          RegisterRequest(email: account, password: password, verificationCode: code, countryCode: countryCode),
+        );
+      }
+      return success;
+    } catch (e) {
+      setError(ApiException.from(e).message);
       return false;
+    } finally {
+      setLoading(false);
     }
   }
 }

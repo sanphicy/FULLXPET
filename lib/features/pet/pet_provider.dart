@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/locator.dart';
 import 'models/pet_dto.dart';
 import 'repositories/pet_repository.dart';
@@ -23,20 +24,15 @@ class PetProvider extends BaseProvider {
     setLoading(true);
     clearError();
     try {
-      final result = await _petRepo.getPetList(locale: locale);
-      if (result.data != null) {
-        _pets = result.data!;
-        if (_selectedPet != null) {
-          final idx = _pets.indexWhere((p) => p.id == _selectedPet!.id);
-          _selectedPet = idx != -1 ? _pets[idx] : (_pets.isNotEmpty ? _pets.first : null);
-        } else if (_pets.isNotEmpty) {
-          _selectedPet = _pets.first;
-        }
-      } else {
-        setError(result.message);
+      _pets = await _petRepo.getPetList(locale: locale);
+      if (_selectedPet != null) {
+        final idx = _pets.indexWhere((p) => p.id == _selectedPet!.id);
+        _selectedPet = idx != -1 ? _pets[idx] : (_pets.isNotEmpty ? _pets.first : null);
+      } else if (_pets.isNotEmpty) {
+        _selectedPet = _pets.first;
       }
     } catch (e) {
-      setError(e.toString());
+      setError(ApiException.from(e).message);
     } finally {
       setLoading(false);
       notifyListeners();
@@ -44,7 +40,7 @@ class PetProvider extends BaseProvider {
   }
 
   /// 上传头像返回 path 与 完整 display url
-  Future<Map<String, dynamic>?> uploadAvatar(ImageSource source) async {
+  Future? uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 800);
@@ -52,18 +48,13 @@ class PetProvider extends BaseProvider {
 
       setLoading(true);
       clearError();
-      final result = await _petRepo.uploadPetAvatar(image);
-      if (result.data != null) {
-        return result.data;
-      } else {
-        setError(result.message);
-      }
+      return await _petRepo.uploadPetAvatar(image);
     } catch (e) {
-      setError('头像上传失败，请检查相机/相册权限及网络连接');
+      setError(ApiException.from(e).message);
+      return null;
     } finally {
       setLoading(false);
     }
-    return null;
   }
 
   /// 新增宠物
@@ -71,7 +62,7 @@ class PetProvider extends BaseProvider {
     required String petType,
     required String name,
     required String avatarPath,
-    List<String>? photoKeys, // 新增：宠物其他图片 key 列表
+    List<String>? photoKeys,
     required int sex,
     required int activeness,
     required int? birth,
@@ -83,7 +74,6 @@ class PetProvider extends BaseProvider {
     setLoading(true);
     clearError();
     try {
-      // 组装 photos 字段：优先使用上传的宠物照片列表，为空时若存在头像则用头像兜底
       final List photosList = (photoKeys != null && photoKeys.isNotEmpty)
           ? photoKeys.map((k) => {'key': k}).toList()
           : (avatarPath.isNotEmpty
@@ -106,17 +96,13 @@ class PetProvider extends BaseProvider {
         if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
       };
 
-      final result = await _petRepo.createPet(payload);
-      if (result.data != null) {
-        _pets.insert(0, result.data!);
-        _selectedPet = result.data!;
-        notifyListeners();
-        return true;
-      }
-      setError(result.message);
-      return false;
+      final createdPet = await _petRepo.createPet(payload);
+      _pets.insert(0, createdPet);
+      _selectedPet = createdPet;
+      notifyListeners();
+      return true;
     } catch (e) {
-      setError(e.toString());
+      setError(ApiException.from(e).message);
       return false;
     } finally {
       setLoading(false);
@@ -151,22 +137,18 @@ class PetProvider extends BaseProvider {
         'extInfo': extInfo,
       };
 
-      final result = await _petRepo.updatePet(petId, payload);
-      if (result.data != null) {
-        final index = _pets.indexWhere((p) => p.id == petId);
-        if (index != -1) {
-          _pets[index] = result.data!;
-          if (_selectedPet?.id == petId) {
-            _selectedPet = result.data!;
-          }
-          notifyListeners();
+      final updatedPet = await _petRepo.updatePet(petId, payload);
+      final index = _pets.indexWhere((p) => p.id == petId);
+      if (index != -1) {
+        _pets[index] = updatedPet;
+        if (_selectedPet?.id == petId) {
+          _selectedPet = updatedPet;
         }
-        return true;
+        notifyListeners();
       }
-      setError(result.message);
-      return false;
+      return true;
     } catch (e) {
-      setError(e.toString());
+      setError(ApiException.from(e).message);
       return false;
     } finally {
       setLoading(false);
@@ -178,19 +160,15 @@ class PetProvider extends BaseProvider {
     setLoading(true);
     clearError();
     try {
-      final result = await _petRepo.deletePet(petId);
-      if (result.data == true) {
-        _pets.removeWhere((p) => p.id == petId);
-        if (_selectedPet?.id == petId) {
-          _selectedPet = _pets.isNotEmpty ? _pets.first : null;
-        }
-        notifyListeners();
-        return true;
+      await _petRepo.deletePet(petId);
+      _pets.removeWhere((p) => p.id == petId);
+      if (_selectedPet?.id == petId) {
+        _selectedPet = _pets.isNotEmpty ? _pets.first : null;
       }
-      setError(result.message);
-      return false;
+      notifyListeners();
+      return true;
     } catch (e) {
-      setError(e.toString());
+      setError(ApiException.from(e).message);
       return false;
     } finally {
       setLoading(false);

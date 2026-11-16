@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'package:fullxpet/core/utils/time_utils.dart';
 import 'package:fullxpet/features/device/models/device_hardware_info.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
-import 'package:fullxpet/features/device/products/feeder/models/feeder_live_info.dart';
+import 'package:fullxpet/features/device/models/feeder_live_info.dart';
 import 'package:fullxpet/features/device/products/feeder/models/feeder_thing_model.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
@@ -79,7 +80,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
-  // ================= 1. 从  底表 1、底表 2、硬件表读取基础信息 =================
+  // ================= 1. 从底表 1、底表 2、硬件表读取基础信息 =================
 
   DeviceItemDto? get basicInfo => _deviceRepo.getDeviceBasic(_deviceId);
 
@@ -207,7 +208,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     return null;
   }
 
-  // ================= 3. 初始化与控制指令下发（全面接入 ） =================
+  // ================= 3. 初始化与控制指令下发 =================
 
   Future<void> initDevice(String id) async {
     _deviceId = id;
@@ -398,19 +399,31 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     _liveErrorMsg = '';
     notifyListeners();
 
-    final res = await _deviceRepo.fetchLiveInfo(_deviceId, camera: camera, resolution: resolution);
-
-    if (res.data != null && res.data!.isValid) {
-      _liveInfo = res.data;
-      _isLiveLoading = false;
-      notifyListeners();
-    } else if (retryCount > 0) {
-      await Future.delayed(const Duration(milliseconds: 800));
-      await fetchLiveStreamInfo(camera: camera, resolution: resolution, retryCount: retryCount - 1);
-    } else {
-      _isLiveLoading = false;
-      _liveErrorMsg = res.message.isNotEmpty ? res.message : '获取直播参数失败';
-      notifyListeners();
+    try {
+      final info = await _deviceRepo.fetchLiveInfo(_deviceId, camera: camera, resolution: resolution);
+      if (info.isValid) {
+        _liveInfo = info;
+        _isLiveLoading = false;
+        notifyListeners();
+        return;
+      }
+      if (retryCount > 0) {
+        await Future.delayed(const Duration(milliseconds: 800));
+        await fetchLiveStreamInfo(camera: camera, resolution: resolution, retryCount: retryCount - 1);
+      } else {
+        _isLiveLoading = false;
+        _liveErrorMsg = '获取直播参数失败';
+        notifyListeners();
+      }
+    } catch (e) {
+      if (retryCount > 0) {
+        await Future.delayed(const Duration(milliseconds: 800));
+        await fetchLiveStreamInfo(camera: camera, resolution: resolution, retryCount: retryCount - 1);
+      } else {
+        _isLiveLoading = false;
+        _liveErrorMsg = ApiException.from(e).message;
+        notifyListeners();
+      }
     }
   }
 
@@ -483,7 +496,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     _isOtaUpdating = false;
   }
 
-  /// 重命名设备（直接更新  底表 2）
+  /// 重命名设备（直接更新底表 2）
   Future<bool> updateDeviceName(String newName) async {
     if (_deviceId.isEmpty) return false;
     setLoading(true);
@@ -493,7 +506,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     return success;
   }
 
-  /// 解绑并删除设备（直接清理  底表 2 & 底表 3）
+  /// 解绑并删除设备（直接清理底表 2 & 底表 3）
   Future<bool> deleteCurrentDevice() async {
     if (_deviceId.isEmpty) return false;
     setLoading(true);

@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/network/http_client.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
+import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
 
 class DailyUsageData {
@@ -43,7 +44,7 @@ class DailyUsageData {
 }
 
 class DeviceUsageProvider extends BaseProvider {
-  final HttpClient _httpClient = locator<HttpClient>();
+  final DeviceRepository _deviceRepo = locator<DeviceRepository>();
 
   int _selectedDeviceIndex = 0;
   int _selectedDayIndex = 6;
@@ -111,38 +112,44 @@ class DeviceUsageProvider extends BaseProvider {
       final fromStr = "${fromDate.toIso8601String().split('.').first}Z";
       final toStr = "${toDate.toIso8601String().split('.').first}Z";
 
-      final query = {"from": fromStr, "to": toStr, "dpid": "207,208", "pageSize": "100", "sort": "asc"};
-      final result = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.deviceLogs(deviceId), query: query);
+      final logData = await _deviceRepo.fetchDeviceLogsRaw(
+        deviceId,
+        dpidFilter: '207,208',
+        fromIsoUtc: fromStr,
+        toIsoUtc: toStr,
+        pageSize: 100,
+        sort: 'asc',
+      );
 
-      if (result.data != null) {
-        final List<dynamic> items = result.data!['items'] ?? [];
-        for (var item in items) {
-          final String tsStr = item['ts'] ?? '';
-          final List<dynamic> values = item['values'] ?? [];
-          if (tsStr.isEmpty || values.isEmpty) continue;
+      final List<dynamic> items = logData['items'] is List ? logData['items'] as List : [];
+      for (var item in items) {
+        if (item is! Map) continue;
+        final String tsStr = item['ts']?.toString() ?? '';
+        final List<dynamic> values = item['values'] is List ? item['values'] as List : [];
+        if (tsStr.isEmpty || values.isEmpty) continue;
 
-          final logTime = DateTime.parse(tsStr).toLocal();
+        final logTime = DateTime.parse(tsStr).toLocal();
 
-          for (var dayData in _weekDays) {
-            if (logTime.year == dayData.date.year &&
-                logTime.month == dayData.date.month &&
-                logTime.day == dayData.date.day) {
-              for (var valObj in values) {
-                final dpid = valObj['dpid']?.toString();
-                final val = int.tryParse(valObj['value']?.toString() ?? '0') ?? 0;
+        for (var dayData in _weekDays) {
+          if (logTime.year == dayData.date.year &&
+              logTime.month == dayData.date.month &&
+              logTime.day == dayData.date.day) {
+            for (var valObj in values) {
+              if (valObj is! Map) continue;
+              final dpid = valObj['dpid']?.toString();
+              final val = int.tryParse(valObj['value']?.toString() ?? '0') ?? 0;
 
-                if (dpid == '207') {
-                  dayData.times = val;
-                } else if (dpid == '208') {
-                  dayData.duration = val;
-                }
+              if (dpid == '207') {
+                dayData.times = val;
+              } else if (dpid == '208') {
+                dayData.duration = val;
               }
             }
           }
         }
       }
-    } catch (_) {
-      setError("网络请求失败，请稍后重试");
+    } catch (e) {
+      setError(ApiException.from(e).message);
     } finally {
       setLoading(false);
       notifyListeners();

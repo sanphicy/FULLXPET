@@ -8,11 +8,12 @@ import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'package:fullxpet/core/utils/time_utils.dart';
+import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/models/device_hardware_info.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/features/device/models/device_log.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
-import 'package:fullxpet/features/device/products/litter_box/v3/models/device_thing_model.dart';
+import 'package:fullxpet/features/device/products/litter_box/models/device_thing_model.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
 
@@ -87,10 +88,15 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   DeviceItemDto? get basicInfo => _deviceRepo.getDeviceBasic(_deviceId);
 
-  ProductDto? get productInfo {
-    final pid = basicInfo?.productId ?? '';
-    return _deviceRepo.getProduct(pid);
-  }
+  String get productId => basicInfo?.productId ?? '';
+
+  /// 严格通过 productId 判断型号与硬件特性
+  bool get isV4 => productId == ProductConstants.pidLitterBoxV4;
+  String get modelBadge => isV4 ? 'V4' : 'V3';
+  bool get supportPlasma => !isV4;
+  bool get supportWeighing => !isV4;
+
+  ProductDto? get productInfo => _deviceRepo.getProduct(productId);
 
   DeviceHardwareInfo get hardwareInfo => _deviceRepo.getDeviceHardwareInfo(_deviceId);
 
@@ -215,7 +221,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     return {'start': start, 'end': end};
   }
 
-  String get dndRangeText => '${dndTimeRange['start']} -${dndTimeRange['end']}';
+  String get dndRangeText => '${dndTimeRange['start']} - ${dndTimeRange['end']}';
 
   IntMap get plasmaSchedule {
     final val = _getDpid(DeviceThingModel.plasmaSchedule);
@@ -635,46 +641,44 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
       final toStr = "${now.toUtc().toIso8601String().split('.').first}Z";
       final targetDpids = [DeviceThingModel.deviceExecute.dpid, DeviceThingModel.excretionTimeDay.dpid].join(',');
 
-      final res = await _deviceRepo.fetchDeviceLogsRaw(
+      final logData = await _deviceRepo.fetchDeviceLogsRaw(
         _deviceId,
         dpidFilter: targetDpids,
         fromIsoUtc: fromStr,
         toIsoUtc: toStr,
       );
 
-      if (res.data != null) {
-        final List items = (res.data!['items'] is List) ? res.data!['items'] as List : [];
-        final DeviceLogList loaded = [];
+      final List items = (logData['items'] is List) ? logData['items'] as List : [];
+      final DeviceLogList loaded = [];
 
-        for (final item in items) {
-          if (item is! Map) continue;
-          final String tsStr = item['ts']?.toString() ?? '';
-          final List values = (item['values'] is List) ? item['values'] as List : [];
-          if (tsStr.isEmpty || values.isEmpty) continue;
-          final time = DateTime.parse(tsStr).toLocal();
+      for (final item in items) {
+        if (item is! Map) continue;
+        final String tsStr = item['ts']?.toString() ?? '';
+        final List values = (item['values'] is List) ? item['values'] as List : [];
+        if (tsStr.isEmpty || values.isEmpty) continue;
+        final time = DateTime.parse(tsStr).toLocal();
 
-          for (final valObj in values) {
-            if (valObj is! Map) continue;
-            final dpid = valObj['dpid']?.toString();
-            final value = valObj['value'];
-            if (dpid == DeviceThingModel.deviceExecute.dpid) {
-              final act = ExecuteAction.fromValue(int.tryParse(value.toString()) ?? 0);
-              if (act != ExecuteAction.idle && act != ExecuteAction.resetting) {
-                loaded.add(DeviceLog(time: time, content: act.name, isAction: true));
-              }
-            } else if (dpid == DeviceThingModel.excretionTimeDay.dpid) {
-              final sec = int.tryParse(value.toString()) ?? 0;
-              if (sec > 0) {
-                loaded.add(DeviceLog(time: time, content: sec.toString(), isAction: false));
-              }
+        for (final valObj in values) {
+          if (valObj is! Map) continue;
+          final dpid = valObj['dpid']?.toString();
+          final value = valObj['value'];
+          if (dpid == DeviceThingModel.deviceExecute.dpid) {
+            final act = ExecuteAction.fromValue(int.tryParse(value.toString()) ?? 0);
+            if (act != ExecuteAction.idle && act != ExecuteAction.resetting) {
+              loaded.add(DeviceLog(time: time, content: act.name, isAction: true));
+            }
+          } else if (dpid == DeviceThingModel.excretionTimeDay.dpid) {
+            final sec = int.tryParse(value.toString()) ?? 0;
+            if (sec > 0) {
+              loaded.add(DeviceLog(time: time, content: sec.toString(), isAction: false));
             }
           }
         }
-        _logs
-          ..clear()
-          ..addAll(loaded);
-        notifyListeners();
       }
+      _logs
+        ..clear()
+        ..addAll(loaded);
+      notifyListeners();
     } catch (e) {
       debugPrint('获取猫砂盆今日日志异常: $e');
     }

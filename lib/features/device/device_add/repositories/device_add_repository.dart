@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
+import 'package:fullxpet/core/network/api_client.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/network/http_client.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
@@ -14,7 +15,7 @@ typedef ProductDtoList = List<ProductDto>;
 typedef JsonMap = Map<String, dynamic>;
 
 class DeviceAddRepository {
-  final HttpClient _httpClient = locator<HttpClient>();
+  final Dio _dio = locator<ApiClient>().dio;
   final DeviceRepository _deviceRepo = locator<DeviceRepository>();
 
   String? _cachedHomeId;
@@ -25,8 +26,12 @@ class DeviceAddRepository {
 
   /// 1. 复用全局 DeviceRepository 拉取并缓存产品列表
   Future<ProductDtoList> fetchProductList({bool forceRefresh = false}) async {
-    final res = await _deviceRepo.fetchProducts(forceRefresh: forceRefresh);
-    return res.data ?? _deviceRepo.cachedProducts;
+    try {
+      return await _deviceRepo.fetchProducts(forceRefresh: forceRefresh);
+    } catch (e) {
+      debugPrint("拉取产品列表失败: $e");
+      return _deviceRepo.cachedProducts;
+    }
   }
 
   /// 2. 复用底表 1：拿骏云广播 2 字节短 ID (productShortId) 查找产品 DTO
@@ -84,9 +89,9 @@ class DeviceAddRepository {
     final String countryCode = locator<UserProvider>().user.countryCode;
     try {
       final payload = {"countryCode": countryCode, "clientAppId": "fullxpet"};
-      final response = await _httpClient.get(ApiEndpoints.mqttUri, query: payload);
+      final response = await _dio.get(ApiEndpoints.mqttUri, queryParameters: payload);
       final data = response.data;
-      if ((response.code == 0 || response.code == 200) && data is Map) {
+      if (data is Map) {
         if (data['deviceMqttEndpoint'] != null && data['deviceMqttPort'] != null) {
           final endpoint = data['deviceMqttEndpoint'];
           final port = data['deviceMqttPort'];
@@ -96,7 +101,6 @@ class DeviceAddRepository {
           return "$endpoint:$port";
         }
       }
-      debugPrint("获取设备MQTT配置失败: ${response.message}");
       return null;
     } catch (e) {
       debugPrint("获取设备MQTT配置异常: $e");
@@ -142,18 +146,17 @@ class DeviceAddRepository {
 
     try {
       if (_cachedHomeId == null || _cachedHomeId!.isEmpty) {
-        final homeListRes = await _httpClient.get(ApiEndpoints.homeList);
+        final homeListRes = await _dio.get(ApiEndpoints.homeList);
         final listData = homeListRes.data;
         final items = (listData is Map) ? listData['items'] as List? : null;
         if (items == null || items.isEmpty) return false;
 
         _cachedHomeId = items[0]['id']?.toString() ?? '';
-        final homeInfo = await _httpClient.get(ApiEndpoints.homeInfo(_cachedHomeId!));
+        final homeInfo = await _dio.get(ApiEndpoints.homeInfo(_cachedHomeId!));
 
         final infoData = homeInfo.data;
-        final responseData = (infoData is Map) ? (infoData['data'] ?? infoData) : null;
-        if (responseData is Map && responseData['rooms'] is List) {
-          final List rooms = responseData['rooms'];
+        if (infoData is Map && infoData['rooms'] is List) {
+          final List rooms = infoData['rooms'];
           if (rooms.isNotEmpty) {
             _cachedRoomId = rooms[0]['id']?.toString() ?? '';
           }
@@ -179,10 +182,8 @@ class DeviceAddRepository {
         final DateTime endTime = DateTime.now().add(const Duration(minutes: 1));
         while (DateTime.now().isBefore(endTime)) {
           try {
-            final bindResult = await _httpClient.post(ApiEndpoints.deviceBind(homeId), data: bindPayload);
-            if (bindResult.code == 0 || bindResult.code == 200) {
-              return true;
-            }
+            await _dio.post(ApiEndpoints.deviceBind(homeId), data: bindPayload);
+            return true;
           } catch (_) {}
           await Future.delayed(const Duration(seconds: 3));
         }
@@ -208,11 +209,9 @@ class DeviceAddRepository {
             "locallyBound": false,
           };
 
-          final bindResult = await _httpClient.post(ApiEndpoints.deviceBind(homeId), data: bindPayload);
-          if (bindResult.code == 0 || bindResult.code == 200) {
-            debugPrint("【绑定成功】生效 hardwareId: $currentMac, productId:$cleanPid");
-            return true;
-          }
+          await _dio.post(ApiEndpoints.deviceBind(homeId), data: bindPayload);
+          debugPrint("【绑定成功】生效 hardwareId: $currentMac, productId:$cleanPid");
+          return true;
         } catch (_) {}
 
         attempt++;

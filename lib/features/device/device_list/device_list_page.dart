@@ -388,26 +388,8 @@ class _DeviceListPageState extends State<DeviceListPage> {
     );
   }
 
+  /// 顶部一级分类栏：文字自适应宽度不截断，支持横向滑动 + 右侧常驻快速筛选抽屉按钮
   Widget _buildAdaptiveCategoryBar(BuildContext context, DeviceProvider provider, FilterTabList tabs) {
-    final bool isFewTabs = tabs.length <= 4;
-
-    if (isFewTabs) {
-      return Row(
-        children: [
-          for (int i = 0; i < tabs.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(
-              child: _buildChipPill(
-                tab: tabs[i],
-                isSelected: provider.selectedCategoryKey == tabs[i].key,
-                onTap: () => provider.selectCategory(tabs[i].key),
-              ),
-            ),
-          ],
-        ],
-      );
-    }
-
     return SizedBox(
       height: 36,
       child: Row(
@@ -428,20 +410,23 @@ class _DeviceListPageState extends State<DeviceListPage> {
               },
             ),
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _openCategoryDrawer(context, provider, tabs),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E5EC)),
+          // 只要有多个分类（除“全部”外 >= 2 个大类），右侧常驻快速筛选网格抽屉入口
+          if (tabs.length > 2) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _openCategoryDrawer(context, provider, tabs),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5E5EC)),
+                ),
+                child: const Icon(Icons.tune_rounded, size: 16, color: _primaryPurple),
               ),
-              child: const Icon(Icons.tune_rounded, size: 16, color: _primaryPurple),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -489,7 +474,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected ? _primaryPurple : Colors.white,
           borderRadius: BorderRadius.circular(17),
@@ -499,19 +484,15 @@ class _DeviceListPageState extends State<DeviceListPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: Text(
-                tab.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected ? Colors.white : _textSub,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Text(
+              tab.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : _textSub,
               ),
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(

@@ -1,7 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:fullxpet/common/models/user_dto.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
+import 'package:fullxpet/core/network/api_client.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
-import 'package:fullxpet/core/network/http_client.dart';
+import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/storage/token_manager.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
@@ -12,7 +14,7 @@ class UserProvider extends BaseProvider {
   UserDto _user = const UserDto();
   UserDto get user => _user;
 
-  final HttpClient _httpClient = locator<HttpClient>();
+  final Dio _dio = locator<ApiClient>().dio;
 
   // 手动更新全局用户数据
   void updateUser(UserDto newUser) {
@@ -26,18 +28,17 @@ class UserProvider extends BaseProvider {
       setLoading(true);
     }
     try {
-      final result = await _httpClient.get<Map<String, dynamic>>(ApiEndpoints.userInfo);
-      if (result.data != null && (result.code == 0 || result.code == 200)) {
-        _user = UserDto.fromJson(result.data!);
+      final res = await _dio.get(ApiEndpoints.userInfo);
+      if (res.data is Map<String, dynamic>) {
+        _user = UserDto.fromJson(res.data as Map<String, dynamic>);
         notifyListeners();
-      } else if (result.code == 401 || (result.code != null && result.code.toString().startsWith('401'))) {
-        await logout();
-      } else if (!isSilent) {
-        setError(result.message);
       }
     } catch (e) {
-      if (!isSilent) {
-        setError("获取用户信息失败: $e");
+      final err = ApiException.from(e);
+      if (err.code != null && err.code.toString().startsWith('401')) {
+        await logout();
+      } else if (!isSilent) {
+        setError(err.message);
       }
     } finally {
       if (isLoading) setLoading(false);
@@ -47,7 +48,7 @@ class UserProvider extends BaseProvider {
   // 全局退出登录并清理状态
   Future<void> logout() async {
     try {
-      await _httpClient.post<Map<String, dynamic>>(ApiEndpoints.logout);
+      await _dio.post(ApiEndpoints.logout);
     } catch (_) {
     } finally {
       locator<DeviceRepository>().clearPool();

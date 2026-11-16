@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'package:fullxpet/locator.dart';
@@ -5,10 +7,18 @@ import 'package:fullxpet/app.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
+class _AppHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
 void main() async {
   //确保引擎已绑定
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-
+  HttpOverrides.global = _AppHttpOverrides();
   // 保持原生启动图
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   // 初始化时区数据

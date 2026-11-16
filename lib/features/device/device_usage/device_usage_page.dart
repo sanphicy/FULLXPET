@@ -66,7 +66,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. 顶部设备切换列表卡片 (局部监听设备列表与选中索引)
+                // 1. 顶部设备切换列表卡片
                 Container(
                   height: 95,
                   padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
@@ -120,6 +120,8 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
 
                           final isSelected = selectedIndex == index;
                           final device = deviceList[index];
+                          final imageUrl = deviceProvider.resolveImageUrl(device);
+
                           return GestureDetector(
                             onTap: () => usageProvider.selectDevice(index),
                             child: Padding(
@@ -140,7 +142,14 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                                       ),
                                       color: Colors.white,
                                     ),
-                                    child: Image.asset('assets/images/product-pic.png', fit: BoxFit.contain),
+                                    child: imageUrl.isNotEmpty
+                                        ? Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_, __, ___) =>
+                                                Icon(Icons.devices_other_rounded, size: 22, color: _primaryPurple),
+                                          )
+                                        : Icon(Icons.devices_other_rounded, size: 22, color: _primaryPurple),
                                   ),
                                   const SizedBox(height: 5),
                                   AnimatedDefaultTextStyle(
@@ -163,7 +172,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                 ),
                 const SizedBox(height: 20),
 
-                // 2. 7天选择卡片 (局部监听 7天列表与选中索引)
+                // 2. 7天选择卡片
                 Container(
                   height: 64,
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -232,7 +241,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                 ),
                 const SizedBox(height: 20),
 
-                // 3. 核心统计指标卡片 (局部监听选中日数据)
+                // 3. 核心统计指标卡片
                 Selector<DeviceUsageProvider, DailyUsageData?>(
                   selector: (_, vm) => vm.selectedDayData,
                   builder: (context, selectedData, _) {
@@ -252,7 +261,7 @@ class _DeviceUsagePageState extends State<DeviceUsagePage> {
                 ),
                 const SizedBox(height: 25),
 
-                // 4. 趋势图表区（平板/横屏双列，手机单列排布）
+                // 4. 趋势图表区
                 if (isLargeScreen)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
