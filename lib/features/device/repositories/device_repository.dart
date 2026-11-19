@@ -44,7 +44,10 @@ class DeviceRepository {
   /// 设备数据变更广播流（发送变更的 deviceId；若列表整体刷新则发送 'ALL'）
   final StreamController<String> _deviceUpdateController = StreamController<String>.broadcast();
   Stream<String> get onDeviceUpdated => _deviceUpdateController.stream;
+  final StreamController<({String deviceId, Set<String> dpids})> _dpidUpdateController =
+      StreamController<({String deviceId, Set<String> dpids})>.broadcast();
 
+  Stream<({String deviceId, Set<String> dpids})> get onDpidUpdated => _dpidUpdateController.stream;
   StreamSubscription? _mqttSub;
   String? _cachedClientInstanceId;
   static final RegExp _clientInstanceIdRegex = RegExp(
@@ -178,7 +181,10 @@ class DeviceRepository {
 
         _deviceHardwareCache[deviceId] = dto.deviceInfo;
         _deviceDpidCache[deviceId] = dto.toDpidMap();
-
+        final dpidMap = dto.toDpidMap();
+        _deviceDpidCache[deviceId] = dpidMap;
+        _dpidUpdateController.add((deviceId: deviceId, dpids: dpidMap.keys.toSet()));
+        _notify(deviceId);
         _notify(deviceId);
         return dto;
       }
@@ -361,10 +367,20 @@ class DeviceRepository {
 
       final report = MqttAttrReportDto.fromJson(JsonMap.from(data));
       if (report.deviceId.isNotEmpty && report.effectiveChanges.isNotEmpty) {
+        // 收到设备主动上报，说明设备当前在线，修正离线缓存
+        final existingBasic = _deviceBasicCache[report.deviceId];
+        if (existingBasic != null && !existingBasic.online) {
+          _deviceBasicCache[report.deviceId] = existingBasic.copyWith(online: true);
+        }
+
         final dpidMap = _deviceDpidCache.putIfAbsent(report.deviceId, () => {});
+        final Set<String> updatedKeys = {};
         report.effectiveChanges.forEach((dpid, value) {
           dpidMap[dpid] = value;
+          updatedKeys.add(dpid);
         });
+
+        _dpidUpdateController.add((deviceId: report.deviceId, dpids: updatedKeys));
         _notify(report.deviceId);
       }
     });
@@ -372,6 +388,7 @@ class DeviceRepository {
 
   void dispose() {
     _mqttSub?.cancel();
+    _dpidUpdateController.close();
     _deviceUpdateController.close();
   }
 }

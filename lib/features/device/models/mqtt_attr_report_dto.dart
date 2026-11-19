@@ -32,5 +32,5 @@ class MqttAttrReportDto {
   }
 
   /// 取出本次 MQTT 真正变更的 {dpid: value} 字典，直接用来覆盖仓库底表
-  Map<String, dynamic> get effectiveChanges => changedAttributes.isNotEmpty ? changedAttributes : functionalAttributes;
+  Map<String, dynamic> get effectiveChanges => {...functionalAttributes, ...changedAttributes};
 }

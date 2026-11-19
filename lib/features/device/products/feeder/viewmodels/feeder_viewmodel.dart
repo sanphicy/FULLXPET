@@ -54,8 +54,16 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   bool get isOtaUpdating => _isOtaUpdating;
 
   StreamSubscription? _repoSub;
-
+  StreamSubscription? _dpidSub;
+  Timer? _optimisticResetTimer;
   FeederViewModel() {
+    _dpidSub = _deviceRepo.onDpidUpdated.listen((event) {
+      if (_deviceId.isNotEmpty && event.deviceId == _deviceId && _optimisticOverrides.isNotEmpty) {
+        for (final dpid in event.dpids) {
+          _optimisticOverrides.remove(dpid);
+        }
+      }
+    });
     _repoSub = _deviceRepo.onDeviceUpdated.listen((updatedId) {
       if (_deviceId.isNotEmpty && (updatedId == _deviceId || updatedId == 'ALL')) {
         notifyListeners();
@@ -63,11 +71,12 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     });
     WidgetsBinding.instance.addObserver(this);
   }
-
   @override
   void dispose() {
+    _optimisticResetTimer?.cancel();
     stopOtaPolling();
     WidgetsBinding.instance.removeObserver(this);
+    _dpidSub?.cancel();
     _repoSub?.cancel();
     super.dispose();
   }
@@ -231,11 +240,21 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
+  bool _checkOnline() {
+    if (!isOnline) {
+      setError('设备已离线，无法执行此操作');
+      return false;
+    }
+    return true;
+  }
+
   Future<bool> _executeOptimistic({
     required DpidValueMap optimisticChanges,
     required CommandAttrList commandPayload,
     required String errorMsg,
   }) async {
+    if (!_checkOnline()) return false;
+
     final Map prev = Map.from(_optimisticOverrides);
     optimisticChanges.forEach((k, v) => _optimisticOverrides[k] = v);
     notifyListeners();
@@ -254,8 +273,23 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
       await _deviceRepo.fetchDeviceProperties(_deviceId);
       setError(errorMsg);
       notifyListeners();
+      return false;
     }
-    return success;
+
+    final pendingKeys = optimisticChanges.keys.toSet();
+    _optimisticResetTimer?.cancel();
+    _optimisticResetTimer = Timer(const Duration(seconds: 6), () {
+      if (_deviceId.isEmpty) return;
+      bool removed = false;
+      for (final key in pendingKeys) {
+        if (_optimisticOverrides.remove(key) != null) removed = true;
+      }
+      if (removed) {
+        _deviceRepo.fetchDeviceProperties(_deviceId);
+        notifyListeners();
+      }
+    });
+    return true;
   }
 
   /// 切换模式（敞开 / 红外(半自动) / 猫脸识别(自动)），同时将其他模式（含定时）置为 false
@@ -385,6 +419,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
 
   /// 重置设备网络 (DP 1)
   Future<bool> resetWifi() async {
+    if (!_checkOnline()) return false;
     if (_deviceId.isEmpty) return false;
     return await _deviceRepo.sendDeviceCommand(_deviceId, [
       {'dpid': FeederThingModel.resetWlan.dpid, 'value': true},
@@ -445,6 +480,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
+    if (!_checkOnline()) return false;
     if (_deviceId.isEmpty || _pendingOtaRecordId.isEmpty) {
       setError('没有要升级的固件');
       return false;

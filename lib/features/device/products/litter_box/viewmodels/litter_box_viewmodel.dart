@@ -53,8 +53,21 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   final StringList autoModeOptions = const ['1', '2', '3', '4', '5'];
 
   StreamSubscription? _repoSub;
-
+  StreamSubscription? _dpidSub;
+  Timer? _optimisticResetTimer;
   LitterBoxViewModel() {
+    _dpidSub = _deviceRepo.onDpidUpdated.listen((event) {
+      if (_deviceId.isNotEmpty && event.deviceId == _deviceId && _optimisticOverrides.isNotEmpty) {
+        for (final dpid in event.dpids) {
+          _optimisticOverrides.remove(dpid);
+        }
+        if (event.dpids.contains(DeviceThingModel.deviceStatus.dpid) ||
+            event.dpids.contains(DeviceThingModel.deviceExecute.dpid)) {
+          _optimisticOverrides.remove(DeviceThingModel.deviceExecute.dpid);
+          _optimisticOverrides.remove(DeviceThingModel.deviceStatus.dpid);
+        }
+      }
+    });
     _repoSub = _deviceRepo.onDeviceUpdated.listen((updatedId) {
       if (_deviceId.isNotEmpty && (updatedId == _deviceId || updatedId == 'ALL')) {
         notifyListeners();
@@ -65,8 +78,10 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _optimisticResetTimer?.cancel();
     stopOtaPolling();
     WidgetsBinding.instance.removeObserver(this);
+    _dpidSub?.cancel();
     _repoSub?.cancel();
     super.dispose();
   }
@@ -160,17 +175,28 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   ExecuteAction get currentAction {
     if (!isOnline) return ExecuteAction.idle;
-    final val = _getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '0';
-    if (val == '5') return ExecuteAction.idle;
-    return ExecuteAction.fromValue(int.tryParse(val) ?? 0);
+    final rawExec = _getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '0';
+    switch (rawExec) {
+      case '1':
+        return ExecuteAction.cleaning;
+      case '2':
+        return ExecuteAction.smoothing;
+      case '3':
+        return ExecuteAction.emptying;
+      case '5':
+        return ExecuteAction.resetting;
+      default:
+        return ExecuteAction.idle;
+    }
   }
+
+  bool get isPaused => isOnline && (_getDpid(DeviceThingModel.deviceStatus)?.toString() == '2');
 
   bool get isOperating {
     if (!isOnline) return false;
-    final dpid8 = _getDpid(DeviceThingModel.deviceStatus)?.toString() ?? '0';
-    final dpid9 = _getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '0';
-    if (dpid9 == '5') return false;
-    return dpid8 != '0' || dpid9 != '0';
+    final status = _getDpid(DeviceThingModel.deviceStatus)?.toString() ?? '0';
+    final exec = _getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '0';
+    return status != '0' || exec != '0';
   }
 
   WorkMode get workMode {
@@ -277,6 +303,9 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   Future<void> initDevice(String id) async {
     _deviceId = id;
+    _optimisticResetTimer?.cancel();
+    _optimisticOverrides.clear();
+    clearError();
     try {
       final prefs = await SharedPreferences.getInstance();
       _savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
@@ -324,6 +353,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
+  // ③ _executeOptimistic 末尾增加 6 秒超时定点释放 + 拉取兜底：
   Future<void> _executeOptimistic({
     required DpidValueMap optimisticChanges,
     required CommandAttrList commandPayload,
@@ -334,14 +364,29 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     notifyListeners();
 
     final bool success = await _executeWithTimeout(() => _deviceRepo.sendDeviceCommand(_deviceId, commandPayload));
-
     if (!success) {
       _optimisticOverrides
         ..clear()
         ..addAll(previousOverrides.cast());
       setError(errorMsg ?? (_s?.operationFailed ?? '操作失败'));
       notifyListeners();
+      return;
     }
+
+    // 指令下发成功后，若 6 秒内未收到 MQTT 对应 DP 确认，仅移除本次乐观项并拉取最新状态兜底
+    final pendingKeys = optimisticChanges.keys.toSet();
+    _optimisticResetTimer?.cancel();
+    _optimisticResetTimer = Timer(const Duration(seconds: 6), () {
+      if (_deviceId.isEmpty) return;
+      bool removed = false;
+      for (final key in pendingKeys) {
+        if (_optimisticOverrides.remove(key) != null) removed = true;
+      }
+      if (removed) {
+        _deviceRepo.fetchDeviceProperties(_deviceId);
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> setWorkMode(WorkMode mode) async {
