@@ -15,10 +15,7 @@ class FeederManagerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => FeederViewModel()..initDevice(deviceId),
-      child: const _FeederManagerView(),
-    );
+    return const _FeederManagerView();
   }
 }
 
@@ -44,7 +41,7 @@ class _FeederManagerView extends StatelessWidget {
         subtitle: 'ID: ${vm.displayId}',
         onSettingTap: () {
           if (vm.deviceId.isNotEmpty) {
-            context.push(AppRoutes.deviceSettingPath(vm.deviceId));
+            context.push(AppRoutes.feederSettingPath(vm.deviceId));
           }
         },
       ),

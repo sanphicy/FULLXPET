@@ -52,7 +52,10 @@ class _DeviceAddWifiPageState extends State<DeviceAddWifiPage> {
   void _onProviderStateChanged() {
     if (_provider.configStep == 4 && _provider.boundDeviceId != null) {
       _provider.removeListener(_onProviderStateChanged);
-      context.pushReplacement(AppRoutes.deviceAddSuccessPath(_provider.boundDeviceId!));
+      if (!mounted) return;
+      context.pushReplacement(
+        AppRoutes.deviceAddSuccessPath(_provider.boundDeviceId!, productId: _provider.boundProductId ?? ''),
+      );
     }
   }
 

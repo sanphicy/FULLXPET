@@ -221,6 +221,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
 
   Future<void> initDevice(String id) async {
     _deviceId = id;
+    _optimisticResetTimer?.cancel();
     _optimisticOverrides.clear();
     clearError();
     notifyListeners();
@@ -231,6 +232,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     if (!hasCache) setLoading(true);
 
     try {
+      await _deviceRepo.ensureDeviceBasicLoaded(id);
       await Future.wait([_deviceRepo.fetchDeviceProperties(id), checkFirmwareUpdate()]);
     } catch (e) {
       setError(e.toString());

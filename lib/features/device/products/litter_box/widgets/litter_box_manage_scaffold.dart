@@ -41,7 +41,7 @@ class LitterBoxManageScaffold extends StatelessWidget {
         modelBadge: modelBadge,
         subtitle: 'ID: ${vm.displayId}',
         onSettingTap: () {
-          context.push(AppRoutes.deviceSettingPath(deviceId));
+          context.push(AppRoutes.litterBoxSettingPath(deviceId));
         },
       ),
       body: SafeArea(

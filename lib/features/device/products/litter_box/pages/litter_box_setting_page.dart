@@ -9,17 +9,14 @@ class LitterBoxSettingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => LitterBoxViewModel()..initDevice(deviceId),
-      child: Consumer<LitterBoxViewModel>(
-        builder: (context, vm, _) {
-          return LitterBoxSettingView(
-            deviceId: deviceId,
-            showPlasmaOption: vm.supportPlasma,
-            showWeighingOption: vm.supportWeighing,
-          );
-        },
-      ),
+    return Consumer<LitterBoxViewModel>(
+      builder: (context, vm, _) {
+        return LitterBoxSettingView(
+          deviceId: deviceId,
+          showPlasmaOption: vm.supportPlasma,
+          showWeighingOption: vm.supportWeighing,
+        );
+      },
     );
   }
 }

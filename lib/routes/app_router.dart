@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import 'package:fullxpet/common/widgets/web_view_page.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
-import 'package:fullxpet/locator.dart';
 
 // Splash
 import 'package:fullxpet/features/splash/pages/splash_page.dart';
@@ -29,7 +28,7 @@ import 'package:fullxpet/features/device/device_usage/device_usage_provider.dart
 import 'package:fullxpet/features/user/pages/user_page.dart';
 
 // Device
-import 'package:fullxpet/features/device/device_provider.dart';
+import 'package:fullxpet/features/device/constants/product_constants.dart';
 import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
 import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
@@ -42,9 +41,9 @@ import 'package:fullxpet/features/device/products/litter_box/pages/time_zone_sea
 import 'package:fullxpet/features/device/products/litter_box/pages/timer_mode_page.dart';
 import 'package:fullxpet/features/device/products/litter_box/pages/weighing_calibration_page.dart';
 import 'package:fullxpet/features/device/products/litter_box/pages/wifi_info_page.dart';
+import 'package:fullxpet/features/device/products/feeder/viewmodels/feeder_viewmodel.dart';
 import 'package:fullxpet/features/device/products/feeder/pages/feeder_manager_page.dart';
 import 'package:fullxpet/features/device/products/feeder/pages/feeder_setting_page.dart';
-import 'package:fullxpet/features/device/repositories/device_repository.dart';
 
 // User
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
@@ -66,25 +65,51 @@ class AppRoutes {
   static const tabUsage = '/home/usage';
   static const tabUser = '/home/user';
 
-  // Device Detail
-  static const deviceManager = '/device_manager/:id';
-  static const deviceSetting = '/device_setting/:id';
-  static const timezone = '/device_setting/:id/timezone';
-  static const deviceTimer = '/device_setting/:id/timer';
-  static const deviceWifi = '/device_setting/:id/wifi';
-  static const deviceWeighing = '/device_setting/:id/weighing';
+  // Device - LitterBox 域
+  static const litterBoxManager = '/device/litter_box/:id';
+  static const litterBoxSetting = 'setting';
+  static const litterBoxTimezone = 'timezone';
+  static const litterBoxTimer = 'timer';
+  static const litterBoxWifi = 'wifi';
+  static const litterBoxWeighing = 'weighing';
+
+  // Device - Feeder 域
+  static const feederManager = '/device/feeder/:id';
+  static const feederSetting = 'setting';
+
+  // Device - 未登记品类拦截页
+  static const deviceUnsupported = '/device/unsupported';
+
+  // Device - Add
   static const deviceAddSearch = '/device_add_search';
   static const deviceAddWifi = '/device_add_wifi';
   static const deviceAddSuccess = '/device_add_success/:id';
 
-  static String deviceManagerPath(String id) => '/device_manager/$id';
-  static String deviceSettingPath(String id) => '/device_setting/$id';
-  static String timezonePath(String id) => '/device_setting/$id/timezone';
-  static String deviceTimerPath(String id) => '/device_setting/$id/timer';
-  static String deviceWifiPath(String id) => '/device_setting/$id/wifi';
-  static String deviceWeighingPath(String id) => '/device_setting/$id/weighing';
-  static String deviceAddSuccessPath(String id) => '/device_add_success/$id';
+  /// 外部入口（设备列表、配网成功页等）统一按 productId 映射外壳路径
+  static String deviceManagerPath(String id, {required String productId}) {
+    switch (ProductConstants.resolveCategory(productId)) {
+      case DeviceCategory.litterBox:
+        return '/device/litter_box/$id';
+      case DeviceCategory.feeder:
+        return '/device/feeder/$id';
+      case DeviceCategory.unknown:
+        return deviceUnsupported;
+    }
+  }
 
+  // 猫砂盆内部跳转路径
+  static String litterBoxSettingPath(String id) => '/device/litter_box/$id/setting';
+  static String timezonePath(String id) => '/device/litter_box/$id/setting/timezone';
+  static String deviceTimerPath(String id) => '/device/litter_box/$id/setting/timer';
+  static String deviceWifiPath(String id) => '/device/litter_box/$id/setting/wifi';
+  static String deviceWeighingPath(String id) => '/device/litter_box/$id/setting/weighing';
+
+  // 喂食器内部跳转路径
+  static String feederSettingPath(String id) => '/device/feeder/$id/setting';
+
+  // 配网成功路径
+  static String deviceAddSuccessPath(String id, {required String productId}) =>
+      Uri(path: '/device_add_success/$id', queryParameters: {'pid': productId}).toString();
   // User & Common
   static const personalInfo = '/personal_info';
   static const aboutUs = '/about_us';
@@ -102,16 +127,6 @@ class AppRouter {
     initialLocation: AppRoutes.splash,
     routes: [..._splashRoutes, ..._authRoutes, _homeShellRoute, ..._deviceRoutes, ..._userRoutes, ..._commonRoutes],
   );
-
-  /// 优先复用上一页传入的 LitterBoxViewModel 实例，保证二级工具页与设置页状态实时同步
-  static Widget _withLitterBoxVm(GoRouterState state, Widget child) {
-    final extra = state.extra;
-    if (extra is LitterBoxViewModel) {
-      return ChangeNotifierProvider.value(value: extra, child: child);
-    }
-    final deviceId = state.pathParameters['id'] ?? '';
-    return ChangeNotifierProvider(create: (_) => LitterBoxViewModel()..initDevice(deviceId), child: child);
-  }
 
   static final List<GoRoute> _splashRoutes = [
     GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashPage()),
@@ -169,40 +184,74 @@ class AppRouter {
     ],
   );
 
-  static final List<GoRoute> _deviceRoutes = [
-    GoRoute(
-      path: AppRoutes.deviceManager,
-      builder: (context, state) {
+  static final List<RouteBase> _deviceRoutes = [
+    // 1. 猫砂盆独立会话外壳：管理页 -> 设置页 -> 4 个工具子页共享同一个 LitterBoxViewModel
+    ShellRoute(
+      builder: (context, state, child) {
         final id = state.pathParameters['id'] ?? '';
-        final basic = locator<DeviceRepository>().getDeviceBasic(id);
-        final pid = basic?.productId ?? '';
-
-        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.junvineFeeder) {
-          return FeederManagerPage(deviceId: id);
-        }
-        return LitterBoxManagerPage(deviceId: id);
+        return ChangeNotifierProvider<LitterBoxViewModel>(
+          key: ValueKey('litter_box_session_$id'),
+          create: (_) => LitterBoxViewModel()..initDevice(id),
+          child: child,
+        );
       },
+      routes: [
+        GoRoute(
+          path: AppRoutes.litterBoxManager,
+          builder: (context, state) => LitterBoxManagerPage(deviceId: state.pathParameters['id'] ?? ''),
+          routes: [
+            GoRoute(
+              path: AppRoutes.litterBoxSetting,
+              builder: (context, state) => LitterBoxSettingPage(deviceId: state.pathParameters['id'] ?? ''),
+              routes: [
+                GoRoute(path: AppRoutes.litterBoxTimezone, builder: (context, state) => const TimeZoneSearchPage()),
+                GoRoute(path: AppRoutes.litterBoxTimer, builder: (context, state) => const TimerModePage()),
+                GoRoute(path: AppRoutes.litterBoxWifi, builder: (context, state) => const WifiInfoPage()),
+                GoRoute(
+                  path: AppRoutes.litterBoxWeighing,
+                  builder: (context, state) => const WeighingCalibrationPage(),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     ),
-    GoRoute(
-      path: AppRoutes.deviceSetting,
-      builder: (context, state) {
-        final String deviceId = state.pathParameters['id'] ?? '';
-        final basic = locator<DeviceRepository>().getDeviceBasic(deviceId);
-        final pid = basic?.productId ?? '';
 
-        if (pid == ProductConstants.pidFeeder || pid == ProductConstants.junvineFeeder) {
-          return FeederSettingPage(deviceId: deviceId);
-        }
-        return LitterBoxSettingPage(deviceId: deviceId);
+    // 2. 喂食器独立会话外壳：管理页 -> 设置页共享同一个 FeederViewModel
+    ShellRoute(
+      builder: (context, state, child) {
+        final id = state.pathParameters['id'] ?? '';
+        return ChangeNotifierProvider<FeederViewModel>(
+          key: ValueKey('feeder_session_$id'),
+          create: (_) => FeederViewModel()..initDevice(id),
+          child: child,
+        );
       },
+      routes: [
+        GoRoute(
+          path: AppRoutes.feederManager,
+          builder: (context, state) => FeederManagerPage(deviceId: state.pathParameters['id'] ?? ''),
+          routes: [
+            GoRoute(
+              path: AppRoutes.feederSetting,
+              builder: (context, state) => FeederSettingPage(deviceId: state.pathParameters['id'] ?? ''),
+            ),
+          ],
+        ),
+      ],
     ),
-    GoRoute(path: AppRoutes.timezone, builder: (context, state) => _withLitterBoxVm(state, const TimeZoneSearchPage())),
-    GoRoute(path: AppRoutes.deviceTimer, builder: (context, state) => _withLitterBoxVm(state, const TimerModePage())),
-    GoRoute(path: AppRoutes.deviceWifi, builder: (context, state) => _withLitterBoxVm(state, const WifiInfoPage())),
+
+    // 3. 未登记品类显式拦截页
     GoRoute(
-      path: AppRoutes.deviceWeighing,
-      builder: (context, state) => _withLitterBoxVm(state, const WeighingCalibrationPage()),
+      path: AppRoutes.deviceUnsupported,
+      builder: (context, state) => Scaffold(
+        appBar: AppBar(title: const Text('暂不支持该设备')),
+        body: const Center(child: Text('当前版本暂不支持该型号设备，请升级 App 后重试')),
+      ),
     ),
+
+    // 4. 配网路由（第 15 项在第五批再统一修）
     GoRoute(
       path: AppRoutes.deviceAddSearch,
       builder: (context, state) =>
@@ -226,8 +275,9 @@ class AppRouter {
     GoRoute(
       path: AppRoutes.deviceAddSuccess,
       builder: (context, state) {
-        final String deviceId = state.pathParameters['id'] ?? '';
-        return DeviceAddSuccessPage(deviceId: deviceId);
+        final deviceId = state.pathParameters['id'] ?? '';
+        final productId = state.uri.queryParameters['pid'] ?? '';
+        return DeviceAddSuccessPage(deviceId: deviceId, productId: productId);
       },
     ),
   ];

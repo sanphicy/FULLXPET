@@ -10,19 +10,16 @@ class LitterBoxManagerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => LitterBoxViewModel()..initDevice(deviceId),
-      child: Consumer<LitterBoxViewModel>(
-        builder: (context, vm, _) {
-          return LitterBoxManageScaffold(
-            deviceId: deviceId,
-            modelBadge: vm.modelBadge,
-            showPlasmaFeature: vm.supportPlasma,
-            showEmptyAction: true,
-            sensorSlots: vm.supportWeighing ? const [LitterBoxWeighingCard()] : const [],
-          );
-        },
-      ),
+    return Consumer<LitterBoxViewModel>(
+      builder: (context, vm, _) {
+        return LitterBoxManageScaffold(
+          deviceId: deviceId,
+          modelBadge: vm.modelBadge,
+          showPlasmaFeature: vm.supportPlasma,
+          showEmptyAction: true,
+          sensorSlots: vm.supportWeighing ? const [LitterBoxWeighingCard()] : const [],
+        );
+      },
     );
   }
 }

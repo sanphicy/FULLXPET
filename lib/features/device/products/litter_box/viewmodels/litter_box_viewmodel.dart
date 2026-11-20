@@ -8,7 +8,6 @@ import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'package:fullxpet/core/utils/time_utils.dart';
-import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/models/device_hardware_info.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/features/device/models/device_log.dart';
@@ -16,6 +15,7 @@ import 'package:fullxpet/features/device/models/product_dto.dart';
 import 'package:fullxpet/features/device/products/litter_box/models/device_thing_model.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
+import 'package:fullxpet/features/device/constants/product_constants.dart';
 
 typedef DeviceLogList = List<DeviceLog>;
 typedef StringList = List<String>;
@@ -328,6 +328,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   Future<void> _refreshAll(String id, {required bool showLoading}) async {
     if (showLoading) setLoading(true);
     try {
+      await _deviceRepo.ensureDeviceBasicLoaded(id);
       await Future.wait([_deviceRepo.fetchDeviceProperties(id), fetchTodayLogs(), checkFirmwareUpdate()]);
     } catch (e) {
       setError(e.toString());
@@ -354,11 +355,12 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   // ③ _executeOptimistic 末尾增加 6 秒超时定点释放 + 拉取兜底：
-  Future<void> _executeOptimistic({
+  Future<bool> _executeOptimistic({
     required DpidValueMap optimisticChanges,
     required CommandAttrList commandPayload,
     String? errorMsg,
   }) async {
+    clearError();
     final Map previousOverrides = Map.from(_optimisticOverrides);
     optimisticChanges.forEach((k, v) => _optimisticOverrides[k] = v);
     notifyListeners();
@@ -370,7 +372,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
         ..addAll(previousOverrides.cast());
       setError(errorMsg ?? (_s?.operationFailed ?? '操作失败'));
       notifyListeners();
-      return;
+      return false;
     }
 
     // 指令下发成功后，若 6 秒内未收到 MQTT 对应 DP 确认，仅移除本次乐观项并拉取最新状态兜底
@@ -387,6 +389,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
         notifyListeners();
       }
     });
+    return true;
   }
 
   Future<void> setWorkMode(WorkMode mode) async {
@@ -505,35 +508,18 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void addTimer(String timeStr) {
-    final list = StringList.from(timerList);
-    list.add(timeStr);
-    list.sort();
-    final jsonStr = jsonEncode(list.map((t) => TimeUtils.timeToSeconds(t).toString()).toList());
-    _optimisticOverrides[DeviceThingModel.timerModeSchedule.dpid] = jsonStr;
-    notifyListeners();
-  }
+  Future<bool> submitTimers(StringList timers) async {
+    if (!_checkOnline()) return false;
+    final sorted = timers.toSet().toList()..sort();
+    final timersJsonString = jsonEncode(sorted.map((time) => TimeUtils.timeToSeconds(time).toString()).toList());
 
-  void removeTimer(int index) {
-    final list = StringList.from(timerList);
-    if (index < 0 || index >= list.length) return;
-    list.removeAt(index);
-    final jsonStr = jsonEncode(list.map((t) => TimeUtils.timeToSeconds(t).toString()).toList());
-    _optimisticOverrides[DeviceThingModel.timerModeSchedule.dpid] = jsonStr;
-    notifyListeners();
-  }
-
-  Future<void> submitTimers() async {
-    if (!_checkOnline()) return;
-    setLoading(true);
-    final timersJsonString = jsonEncode(timerList.map((time) => TimeUtils.timeToSeconds(time).toString()).toList());
-    final success = await _executeWithTimeout(
-      () => _deviceRepo.sendDeviceCommand(_deviceId, [
+    return await _executeOptimistic(
+      optimisticChanges: {DeviceThingModel.timerModeSchedule.dpid: timersJsonString},
+      commandPayload: [
         {'dpid': DeviceThingModel.timerModeSchedule.dpid, 'value': timersJsonString},
-      ]),
+      ],
+      errorMsg: _s?.operationFailed ?? '定时列表设置失败',
     );
-    setLoading(false);
-    if (!success) setError(_s?.operationFailed ?? '定时列表设置失败');
   }
 
   Future<bool> startCalibrationStep1() async {

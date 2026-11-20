@@ -1,6 +1,6 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:fullxpet/features/device/device_provider.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
+import 'package:fullxpet/features/device/constants/product_constants.dart';
 
 /// 由扫描列表决定的配网方式枚举
 enum ProvisionMode {

@@ -522,7 +522,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
       imageUrl: provider.resolveImageUrl(item),
       badges: provider.resolveDeviceBadges(item),
       isGridMode: isGrid,
-      onTap: () => context.push(AppRoutes.deviceManagerPath(item.deviceId)),
+      onTap: () => context.push(AppRoutes.deviceManagerPath(item.deviceId, productId: item.productId)),
     );
   }
 

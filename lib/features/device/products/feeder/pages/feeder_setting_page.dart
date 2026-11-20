@@ -13,10 +13,7 @@ class FeederSettingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => FeederViewModel()..initDevice(deviceId),
-      child: _FeederSettingView(deviceId: deviceId),
-    );
+    return _FeederSettingView(deviceId: deviceId);
   }
 }
 

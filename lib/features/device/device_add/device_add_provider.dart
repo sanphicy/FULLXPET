@@ -77,7 +77,8 @@ class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
 
   String? _boundDeviceId;
   String? get boundDeviceId => _boundDeviceId;
-
+  String? _boundProductId;
+  String? get boundProductId => _boundProductId;
   bool _isBleConnected = false;
   bool get isBleConnected => _isBleConnected;
 
@@ -194,6 +195,7 @@ class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
     _activeTargetDevice = null;
     _connectingDeviceId = null;
     _boundDeviceId = null;
+    _boundProductId = null;
     _isBleConnected = false;
     _configStep = 0;
     _progress = 0.0;
@@ -605,6 +607,7 @@ class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
       _progress = 0.8;
       _configStep = 3;
       _boundDeviceId = deviceId.isNotEmpty ? deviceId : mac;
+      _boundProductId = pid;
       notifyListeners();
 
       final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";
@@ -683,6 +686,7 @@ class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
                 _addLog("路由器连接成功！正在向云端注册设备 (MAC: $mac, PID: $finalPid)", isHighlight: true);
                 _configStep = 3;
                 _boundDeviceId = realDeviceId;
+                _boundProductId = finalPid;
                 notifyListeners();
 
                 final defaultNickname = targetDevice.name.isNotEmpty ? targetDevice.name : "FULLXPET";

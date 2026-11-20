@@ -8,7 +8,9 @@ import 'package:fullxpet/features/device/device_provider.dart';
 
 class DeviceAddSuccessPage extends StatelessWidget {
   final String deviceId;
-  const DeviceAddSuccessPage({super.key, required this.deviceId});
+  final String productId;
+
+  const DeviceAddSuccessPage({super.key, required this.deviceId, required this.productId});
 
   static const Color _primaryPurple = Color(0xFF917CEE);
 
@@ -47,10 +49,12 @@ class DeviceAddSuccessPage extends StatelessWidget {
                     backgroundColor: _primaryPurple,
                   ),
                   onPressed: () {
-                    // 1. 触发刷新 API
+                    final router = GoRouter.of(context);
+                    // 1. 触发刷新首页设备列表
                     context.read<DeviceProvider>().fetchDevices();
-                    // 2. 跳转进入管理设备页
-                    context.go(AppRoutes.deviceManagerPath(deviceId));
+                    // 2. 先将底栈切回首页，再 push 进入对应品类外壳（保证管理页点返回能正常退回首页）
+                    router.go(AppRoutes.tabDevice);
+                    router.push(AppRoutes.deviceManagerPath(deviceId, productId: productId));
                   },
                   child: const Text(
                     "管理设备",
@@ -64,9 +68,7 @@ class DeviceAddSuccessPage extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   onPressed: () {
-                    // 1. 触发刷新 API
                     context.read<DeviceProvider>().fetchDevices();
-                    // 2. 切回首页，首页 UI 会因为 fetchDevices 内的 notifyListeners 自动重绘并展示最新设备
                     context.go(AppRoutes.home);
                   },
                   child: const Text("返回首页", style: TextStyle(color: Color(0xFF333333))),

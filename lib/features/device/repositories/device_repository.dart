@@ -166,6 +166,13 @@ class DeviceRepository {
     return cachedDeviceList;
   }
 
+  Future<DeviceItemDto?> ensureDeviceBasicLoaded(String deviceId) async {
+    final cached = getDeviceBasic(deviceId);
+    if (cached != null) return cached;
+    await getDeviceList();
+    return getDeviceBasic(deviceId);
+  }
+
   /// 拉取单台设备全量属性 -> 自动存入 _deviceDpidCache 与 _deviceHardwareCache
   Future<DevicePropertiesDto?> fetchDeviceProperties(String deviceId) async {
     try {
@@ -180,11 +187,9 @@ class DeviceRepository {
         }
 
         _deviceHardwareCache[deviceId] = dto.deviceInfo;
-        _deviceDpidCache[deviceId] = dto.toDpidMap();
         final dpidMap = dto.toDpidMap();
         _deviceDpidCache[deviceId] = dpidMap;
         _dpidUpdateController.add((deviceId: deviceId, dpids: dpidMap.keys.toSet()));
-        _notify(deviceId);
         _notify(deviceId);
         return dto;
       }
