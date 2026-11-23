@@ -47,7 +47,22 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   bool get isOtaUpdating => _isOtaUpdating;
   int get savedCalibrationWeight => _savedCalibrationWeight;
   String get currentTimeZoneId => _currentTimeZoneId;
-  String get currentTimeZoneOffset => _currentTimeZoneOffset;
+  String get currentTimeZoneOffset {
+    final dpVal = _getDpid(DeviceThingModel.timeZone)?.toString().trim() ?? '';
+    if (dpVal.isNotEmpty) {
+      final hours = double.tryParse(dpVal);
+      if (hours != null) {
+        final totalMinutes = (hours * 60).round();
+        final sign = totalMinutes >= 0 ? '+' : '-';
+        final absH = (totalMinutes.abs() ~/ 60).toString().padLeft(2, '0');
+        final absM = (totalMinutes.abs() % 60).toString().padLeft(2, '0');
+        return 'UTC$sign$absH:$absM';
+      }
+      return dpVal;
+    }
+    return _currentTimeZoneOffset;
+  }
+
   bool get isNetworkGood => true;
 
   final StringList autoModeOptions = const ['1', '2', '3', '4', '5'];
@@ -502,10 +517,29 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     );
   }
 
-  void setTimeZone(String tzId, String offsetStr) {
-    _currentTimeZoneId = tzId;
-    _currentTimeZoneOffset = offsetStr;
-    notifyListeners();
+  String _formatTimeZoneDpValue(Duration offset) {
+    return (offset.inMinutes / 60.0).toString();
+  }
+
+  Future<bool> setTimeZone({required String tzId, required String offsetStr, required Duration offset}) async {
+    if (!_checkOnline()) return false;
+
+    final dpValue = _formatTimeZoneDpValue(offset);
+
+    final ok = await _executeOptimistic(
+      optimisticChanges: {DeviceThingModel.timeZone.dpid: dpValue},
+      commandPayload: [
+        {'dpid': DeviceThingModel.timeZone.dpid, 'value': dpValue},
+      ],
+      errorMsg: _s?.operationFailed ?? '设置时区失败',
+    );
+
+    if (ok) {
+      _currentTimeZoneId = tzId;
+      _currentTimeZoneOffset = offsetStr;
+      notifyListeners();
+    }
+    return ok;
   }
 
   Future<bool> submitTimers(StringList timers) async {

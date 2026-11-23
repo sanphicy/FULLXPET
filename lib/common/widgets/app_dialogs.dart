@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
@@ -6,7 +7,20 @@ enum AppToastType { success, error, warning, info }
 
 enum AppToastPosition { top, center, bottom }
 
-OverlayEntry? _currentToastEntry;
+OverlayEntry? _toastEntry;
+ValueNotifier<bool>? _toastVisible;
+Timer? _toastTimer;
+
+void _clearToast() {
+  _toastTimer?.cancel();
+  _toastTimer = null;
+  try {
+    _toastEntry?.remove();
+  } catch (_) {}
+  _toastEntry = null;
+  _toastVisible?.dispose();
+  _toastVisible = null;
+}
 
 extension AppDialogExtension on BuildContext {
   Future<bool?> showAppDialog({
@@ -15,112 +29,108 @@ extension AppDialogExtension on BuildContext {
     String? confirmText,
     String? cancelText,
   }) {
-    final String actualConfirmText = confirmText ?? S.of(this)!.confirm;
-    final String actualCancelText = cancelText ?? S.of(this)!.cancel;
+    final confirmLabel = confirmText ?? S.of(this)!.confirm;
+    final cancelLabel = cancelText ?? S.of(this)!.cancel;
     return showDialog<bool>(
       context: this,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: Text(content, style: const TextStyle(fontSize: 15, color: Colors.black87)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(actualCancelText, style: const TextStyle(color: Colors.grey)),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        content: Text(content, style: const TextStyle(fontSize: 14, color: Color(0xFF555555), height: 1.4)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(cancelLabel, style: const TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              confirmLabel,
+              style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(
-                actualConfirmText,
-                style: const TextStyle(color: Color(0xFF917CEE), fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
   void showAppToast({
     required String message,
     required AppToastType type,
-    AppToastPosition position = AppToastPosition.center,
+    AppToastPosition position = AppToastPosition.bottom,
     Duration duration = const Duration(seconds: 2),
   }) {
-    IconData iconData;
-    Color iconColor;
-    Color bgColor;
+    final dotColor = switch (type) {
+      AppToastType.success => const Color(0xFF8CC152),
+      AppToastType.error => const Color(0xFFE56B6F),
+      AppToastType.warning => const Color(0xFFE6A23C),
+      AppToastType.info => const Color(0xFF917CEE),
+    };
 
-    switch (type) {
-      case AppToastType.success:
-        iconData = Icons.check_circle;
-        iconColor = const Color(0xFF5A784A);
-        bgColor = const Color(0xFFF1F4EE);
-        break;
-      case AppToastType.error:
-        iconData = Icons.cancel;
-        iconColor = const Color(0xFFA63232);
-        bgColor = const Color(0xFFF8EDED);
-        break;
-      case AppToastType.warning:
-        iconData = Icons.warning_amber;
-        iconColor = const Color(0xFFDA8B33);
-        bgColor = const Color(0xFFFFF8EE);
-        break;
-      case AppToastType.info:
-        iconData = Icons.info_outline;
-        iconColor = const Color(0xFF5B7A8C);
-        bgColor = const Color(0xFFF0F4F8);
-        break;
-    }
+    final overlay = Overlay.maybeOf(this, rootOverlay: true) ?? NavService.rootNavigatorKey.currentState?.overlay;
+    if (overlay == null) return;
 
-    Alignment alignment = Alignment.center;
-    EdgeInsets margin = EdgeInsets.zero;
+    _clearToast();
 
-    final overlayState = Overlay.maybeOf(this) ?? NavService.rootNavigatorKey.currentState?.overlay;
-    if (overlayState == null) return;
+    final visible = ValueNotifier<bool>(false);
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (ctx) {
+        final kb = MediaQuery.viewInsetsOf(ctx).bottom;
+        final (alignment, padding) = switch (position) {
+          AppToastPosition.top => (Alignment.topCenter, const EdgeInsets.fromLTRB(24, kToolbarHeight + 12, 24, 0)),
+          AppToastPosition.center => (Alignment.center, const EdgeInsets.symmetric(horizontal: 28)),
+          AppToastPosition.bottom => (Alignment.bottomCenter, EdgeInsets.fromLTRB(24, 0, 24, 84 + kb)),
+        };
 
-    if (_currentToastEntry != null && _currentToastEntry!.mounted) {
-      _currentToastEntry!.remove();
-      _currentToastEntry = null;
-    }
-
-    _currentToastEntry = OverlayEntry(
-      builder: (context) {
         return SafeArea(
           child: IgnorePointer(
             child: Align(
               alignment: alignment,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  margin: margin,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: iconColor.withValues(alpha: 0.2)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
+              child: Padding(
+                padding: padding,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: visible,
+                  builder: (_, show, child) =>
+                      AnimatedOpacity(opacity: show ? 1 : 0, duration: const Duration(milliseconds: 180), child: child),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.96),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 0.8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(iconData, color: iconColor, size: 22),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Text(
-                          message,
-                          style: TextStyle(color: iconColor, fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 9),
+                          Flexible(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                color: Color(0xFF333333),
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -130,12 +140,26 @@ extension AppDialogExtension on BuildContext {
       },
     );
 
-    overlayState.insert(_currentToastEntry!);
-    Future.delayed(duration, () {
-      if (_currentToastEntry != null && _currentToastEntry!.mounted) {
-        _currentToastEntry!.remove();
-        _currentToastEntry = null;
-      }
+    try {
+      overlay.insert(entry);
+    } catch (_) {
+      visible.dispose();
+      return;
+    }
+
+    _toastEntry = entry;
+    _toastVisible = visible;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (identical(_toastEntry, entry)) visible.value = true;
+    });
+
+    _toastTimer = Timer(duration, () {
+      if (!identical(_toastEntry, entry)) return;
+      visible.value = false;
+      _toastTimer = Timer(const Duration(milliseconds: 200), () {
+        if (identical(_toastEntry, entry)) _clearToast();
+      });
     });
   }
 }

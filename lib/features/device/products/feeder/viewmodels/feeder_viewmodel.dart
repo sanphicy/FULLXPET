@@ -30,17 +30,21 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   String _deviceId = '';
   String get deviceId => _deviceId;
 
+  bool _isDisposed = false;
+
   /// 乐观更新覆盖层
   final DpidValueMap _optimisticOverrides = {};
 
   FeederLiveInfo? _liveInfo;
   FeederLiveInfo? get liveInfo => _liveInfo;
 
-  bool _isLiveLoading = true;
+  bool _isLiveLoading = false;
   bool get isLiveLoading => _isLiveLoading;
 
   String _liveErrorMsg = '';
   String get liveErrorMsg => _liveErrorMsg;
+
+  int _liveRequestSeq = 0;
 
   // --- OTA 升级相关状态 ---
   bool _hasNewFirmware = false;
@@ -56,8 +60,10 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   StreamSubscription? _repoSub;
   StreamSubscription? _dpidSub;
   Timer? _optimisticResetTimer;
+
   FeederViewModel() {
     _dpidSub = _deviceRepo.onDpidUpdated.listen((event) {
+      if (_isDisposed) return;
       if (_deviceId.isNotEmpty && event.deviceId == _deviceId && _optimisticOverrides.isNotEmpty) {
         for (final dpid in event.dpids) {
           _optimisticOverrides.remove(dpid);
@@ -65,14 +71,32 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
       }
     });
     _repoSub = _deviceRepo.onDeviceUpdated.listen((updatedId) {
+      if (_isDisposed) return;
       if (_deviceId.isNotEmpty && (updatedId == _deviceId || updatedId == 'ALL')) {
+        if (!isOnline) {
+          if (_liveInfo != null || _isLiveLoading || _liveErrorMsg.isNotEmpty) {
+            _clearLiveState();
+          }
+        } else if (_liveInfo == null && !_isLiveLoading && _liveErrorMsg.isEmpty) {
+          unawaited(fetchLiveStreamInfo());
+        }
         notifyListeners();
       }
     });
     WidgetsBinding.instance.addObserver(this);
   }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
+    _liveRequestSeq++;
     _optimisticResetTimer?.cancel();
     stopOtaPolling();
     WidgetsBinding.instance.removeObserver(this);
@@ -173,7 +197,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   String get firmwareVersion {
     if (hardwareInfo.mcuVersion.isNotEmpty) return hardwareInfo.mcuVersion;
     if (hardwareInfo.wifiVersion.isNotEmpty) return hardwareInfo.wifiVersion;
-    return '';
+    return _getDpid(FeederThingModel.deviceVersion)?.toString() ?? '';
   }
 
   String get wifiSsid {
@@ -194,6 +218,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   String get wifiChannel => hardwareInfo.channel.isNotEmpty ? hardwareInfo.channel : '-';
+
   String get hardwareAddress {
     if (basicInfo != null && basicInfo!.hardwareId.isNotEmpty) {
       return basicInfo!.hardwareId;
@@ -219,14 +244,25 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
 
   // ================= 3. 初始化与控制指令下发 =================
 
+  void _clearLiveState() {
+    _liveRequestSeq++;
+    _liveInfo = null;
+    _isLiveLoading = false;
+    _liveErrorMsg = '';
+  }
+
   Future<void> initDevice(String id) async {
     _deviceId = id;
     _optimisticResetTimer?.cancel();
     _optimisticOverrides.clear();
+    _clearLiveState();
     clearError();
     notifyListeners();
 
-    unawaited(fetchLiveStreamInfo());
+    // 仅当已知在线时提前并行拉流；离线禁止发无效拉流请求
+    if (isOnline) {
+      unawaited(fetchLiveStreamInfo());
+    }
 
     final bool hasCache = _deviceRepo.getDeviceDpidMap(id).isNotEmpty;
     if (!hasCache) setLoading(true);
@@ -237,8 +273,15 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     } catch (e) {
       setError(e.toString());
     } finally {
-      if (isLoading) setLoading(false);
-      notifyListeners();
+      if (!_isDisposed) {
+        if (isLoading) setLoading(false);
+        if (isOnline && _liveInfo == null && !_isLiveLoading) {
+          unawaited(fetchLiveStreamInfo());
+        } else if (!isOnline) {
+          _clearLiveState();
+        }
+        notifyListeners();
+      }
     }
   }
 
@@ -255,6 +298,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     required CommandAttrList commandPayload,
     required String errorMsg,
   }) async {
+    clearError();
     if (!_checkOnline()) return false;
 
     final Map prev = Map.from(_optimisticOverrides);
@@ -267,6 +311,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     } catch (_) {
       success = false;
     }
+    if (_isDisposed) return false;
 
     if (!success) {
       _optimisticOverrides
@@ -281,7 +326,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     final pendingKeys = optimisticChanges.keys.toSet();
     _optimisticResetTimer?.cancel();
     _optimisticResetTimer = Timer(const Duration(seconds: 6), () {
-      if (_deviceId.isEmpty) return;
+      if (_isDisposed || _deviceId.isEmpty) return;
       bool removed = false;
       for (final key in pendingKeys) {
         if (_optimisticOverrides.remove(key) != null) removed = true;
@@ -295,9 +340,9 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   /// 切换模式（敞开 / 红外(半自动) / 猫脸识别(自动)），同时将其他模式（含定时）置为 false
-  Future<void> switchMode(FeederMode mode) async {
-    if (_deviceId.isEmpty) return;
-    if (currentMode == mode && !isTimerEnabled) return;
+  Future<bool> switchMode(FeederMode mode) async {
+    if (_deviceId.isEmpty) return false;
+    if (currentMode == mode && !isTimerEnabled) return true;
 
     final bool isAuto = mode == FeederMode.faceAi;
     final bool isOpen = mode == FeederMode.open;
@@ -310,7 +355,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
       {'dpid': FeederThingModel.semiautomode.dpid, 'type': 1, 'value': isSemiAuto},
     ];
 
-    await _executeOptimistic(
+    return await _executeOptimistic(
       optimisticChanges: {
         FeederThingModel.autoMode.dpid: isAuto,
         FeederThingModel.delayMode.dpid: false,
@@ -361,11 +406,11 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   /// 敞开模式下手动控制出粮推杆开关 (DP 9)
-  Future<void> toggleFeedSwitch() async {
-    if (_deviceId.isEmpty || currentMode != FeederMode.open) return;
+  Future<bool> toggleFeedSwitch() async {
+    if (_deviceId.isEmpty || currentMode != FeederMode.open) return false;
     final targetState = !isDoorDispensed;
 
-    await _executeOptimistic(
+    return await _executeOptimistic(
       optimisticChanges: {FeederThingModel.gapingState.dpid: targetState},
       commandPayload: [
         {'dpid': FeederThingModel.gapingState.dpid, 'value': targetState},
@@ -375,11 +420,11 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   /// 切换童锁 (DP 6)
-  Future<void> toggleChildLock() async {
-    if (_deviceId.isEmpty) return;
+  Future<bool> toggleChildLock() async {
+    if (_deviceId.isEmpty) return false;
     final targetState = !isChildLock;
 
-    await _executeOptimistic(
+    return await _executeOptimistic(
       optimisticChanges: {FeederThingModel.childLockSwitch.dpid: targetState},
       commandPayload: [
         {'dpid': FeederThingModel.childLockSwitch.dpid, 'type': 1, 'value': targetState},
@@ -421,41 +466,65 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
 
   /// 重置设备网络 (DP 1)
   Future<bool> resetWifi() async {
-    if (!_checkOnline()) return false;
-    if (_deviceId.isEmpty) return false;
-    return await _deviceRepo.sendDeviceCommand(_deviceId, [
+    clearError();
+    if (!_checkOnline() || _deviceId.isEmpty) return false;
+    final ok = await _deviceRepo.sendDeviceCommand(_deviceId, [
       {'dpid': FeederThingModel.resetWlan.dpid, 'value': true},
     ]);
+    if (!ok) setError('重置网络指令发送失败');
+    return ok;
   }
 
   // ================= 4. 直播流、OTA、改名、解绑删除 =================
 
   Future<void> fetchLiveStreamInfo({int camera = 0, int resolution = 0, int retryCount = 1}) async {
-    if (_deviceId.isEmpty) return;
+    if (_isDisposed || _deviceId.isEmpty) return;
+    if (!isOnline) {
+      _clearLiveState();
+      notifyListeners();
+      return;
+    }
+
+    final int seq = ++_liveRequestSeq;
     _isLiveLoading = true;
     _liveErrorMsg = '';
     notifyListeners();
 
+    await _fetchLiveInternal(seq: seq, camera: camera, resolution: resolution, retryCount: retryCount);
+  }
+
+  Future<void> _fetchLiveInternal({
+    required int seq,
+    required int camera,
+    required int resolution,
+    required int retryCount,
+  }) async {
+    if (_isDisposed || seq != _liveRequestSeq || !isOnline) return;
+
     try {
       final info = await _deviceRepo.fetchLiveInfo(_deviceId, camera: camera, resolution: resolution);
+      if (_isDisposed || seq != _liveRequestSeq || !isOnline) return;
+
       if (info.isValid) {
         _liveInfo = info;
         _isLiveLoading = false;
         notifyListeners();
         return;
       }
+
       if (retryCount > 0) {
         await Future.delayed(const Duration(milliseconds: 800));
-        await fetchLiveStreamInfo(camera: camera, resolution: resolution, retryCount: retryCount - 1);
+        await _fetchLiveInternal(seq: seq, camera: camera, resolution: resolution, retryCount: retryCount - 1);
       } else {
         _isLiveLoading = false;
         _liveErrorMsg = '获取直播参数失败';
         notifyListeners();
       }
     } catch (e) {
+      if (_isDisposed || seq != _liveRequestSeq || !isOnline) return;
       if (retryCount > 0) {
         await Future.delayed(const Duration(milliseconds: 800));
-        await fetchLiveStreamInfo(camera: camera, resolution: resolution, retryCount: retryCount - 1);
+        await _fetchLiveInternal(seq: seq, camera: camera, resolution: resolution, retryCount: retryCount - 1);
       } else {
         _isLiveLoading = false;
         _liveErrorMsg = ApiException.from(e).message;
@@ -465,9 +534,10 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   Future<void> checkFirmwareUpdate() async {
-    if (_deviceId.isEmpty) return;
+    if (_isDisposed || _deviceId.isEmpty) return;
     try {
       final otaData = await _deviceRepo.checkPendingFirmware(_deviceId);
+      if (_isDisposed) return;
       if (otaData != null && otaData['recordId'] != null) {
         _hasNewFirmware = true;
         _newFirmwareVersion = otaData['version']?.toString() ?? '最新';
@@ -482,6 +552,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
   }
 
   Future<bool> startFirmwareUpgrade({int timeoutSeconds = 120}) async {
+    clearError();
     if (!_checkOnline()) return false;
     if (_deviceId.isEmpty || _pendingOtaRecordId.isEmpty) {
       setError('没有要升级的固件');
@@ -510,6 +581,10 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
     final startTime = DateTime.now();
 
     _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_isDisposed) {
+        stopOtaPolling();
+        return;
+      }
       if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
         stopOtaPolling();
         setError('OTA 升级超时');
@@ -518,6 +593,7 @@ class FeederViewModel extends BaseProvider with WidgetsBindingObserver {
       }
       try {
         await _deviceRepo.fetchDeviceProperties(id);
+        if (_isDisposed) return;
         if (firmwareVersion == targetVersion) {
           stopOtaPolling();
           notifyListeners();

@@ -62,7 +62,6 @@ class _FeederSettingView extends StatelessWidget {
       final ok = await vm.enableTimerWithOpenMode();
       if (!context.mounted) return;
       if (!ok) {
-        context.showAppToast(message: '开启定时模式失败', type: AppToastType.error);
         return;
       }
       context.showAppToast(message: '已开启定时与敞开模式', type: AppToastType.success);
@@ -85,7 +84,7 @@ class _FeederSettingView extends StatelessWidget {
       displayId: vm.displayId,
       imageUrl: vm.imageUrl,
       isOnline: vm.isOnline,
-      firmwareVersion: vm.firmwareVersion.isNotEmpty ? vm.firmwareVersion : 'v1.0.0',
+      firmwareVersion: vm.firmwareVersion,
       showTimezone: false,
       showWifi: true,
       wifiSsid: vm.wifiSsid,
@@ -104,11 +103,7 @@ class _FeederSettingView extends StatelessWidget {
                 value: vm.isTimerEnabled,
                 activeThumbColor: primaryPurple,
                 onChanged: (val) async {
-                  if (val) {
-                    await _handleTimerModeTap(context, vm, openScheduleAfterAgree: false);
-                  } else {
-                    await vm.disableTimerMode();
-                  }
+                  await _handleTimerModeTap(context, vm, openScheduleAfterAgree: false);
                 },
               ),
               onTap: () => _handleTimerModeTap(context, vm, openScheduleAfterAgree: true),

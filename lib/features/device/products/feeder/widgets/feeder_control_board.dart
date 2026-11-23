@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import '../models/feeder_thing_model.dart';
 import '../viewmodels/feeder_viewmodel.dart';
 
@@ -11,6 +12,14 @@ class FeederControlBoard extends StatelessWidget {
   static const Color _cardBg = Colors.white;
   static const Color _textMain = Color(0xFF333333);
   static const Color _textSub = Color(0xFF888888);
+
+  Future<void> _handleSwitchMode(BuildContext context, FeederViewModel vm, FeederMode mode) async {
+    vm.switchMode(mode);
+  }
+
+  Future<void> _handleToggleFeed(BuildContext context, FeederViewModel vm) async {
+    vm.toggleFeedSwitch();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +48,15 @@ class FeederControlBoard extends StatelessWidget {
           Row(
             children: [
               _buildModePill('敞开模式', Icons.lock_open_rounded, vm.currentMode == FeederMode.open, () {
-                vm.switchMode(FeederMode.open);
+                _handleSwitchMode(context, vm, FeederMode.open);
               }),
               const SizedBox(width: 8),
               _buildModePill('红外模式', Icons.sensors_rounded, vm.currentMode == FeederMode.infrared, () {
-                vm.switchMode(FeederMode.infrared);
+                _handleSwitchMode(context, vm, FeederMode.infrared);
               }),
               const SizedBox(width: 8),
               _buildModePill('猫脸识别', Icons.pets_rounded, vm.currentMode == FeederMode.faceAi, () {
-                vm.switchMode(FeederMode.faceAi);
+                _handleSwitchMode(context, vm, FeederMode.faceAi);
               }),
             ],
           ),
@@ -83,7 +92,7 @@ class FeederControlBoard extends StatelessWidget {
                   Switch(
                     value: vm.isDoorDispensed,
                     activeThumbColor: _primary,
-                    onChanged: (_) => vm.toggleFeedSwitch(),
+                    onChanged: (_) => _handleToggleFeed(context, vm),
                   ),
                 ],
               ),
@@ -146,7 +155,7 @@ class FeederControlBoard extends StatelessWidget {
         title = '敞开模式说明';
         desc = '仓口保持常开，可通过上方开关直接推粮或收回';
         linkText = '出粮开关';
-        onLinkTap = () => vm.toggleFeedSwitch();
+        onLinkTap = () => _handleToggleFeed(context, vm);
         break;
       case FeederMode.infrared:
         title = '红外模式说明';
@@ -157,8 +166,8 @@ class FeederControlBoard extends StatelessWidget {
       case FeederMode.faceAi:
         title = '猫脸识别智能出粮';
         desc = '摄像头识别到目标猫咪时自动推开，离开后收回';
-        linkText = '识别灵敏度';
-        onLinkTap = () {};
+        linkText = '';
+        onLinkTap = null;
         break;
     }
 

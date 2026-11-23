@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
-import 'package:fullxpet/features/device/products/feeder/models/feeder_thing_model.dart';
 import 'package:fullxpet/features/device/widgets/device_detail_app_bar.dart';
 import 'package:fullxpet/routes/app_router.dart';
 import '../viewmodels/feeder_viewmodel.dart';
@@ -63,7 +62,7 @@ class _FeederManagerView extends StatelessWidget {
                   const SizedBox(height: 14),
                   const FeederControlBoard(),
                   const SizedBox(height: 14),
-                  _buildQuickToolsCard(vm),
+                  _buildQuickToolsCard(context, vm),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -75,19 +74,6 @@ class _FeederManagerView extends StatelessWidget {
   }
 
   Widget _buildMediaViewport(FeederViewModel vm) {
-    String visionStatus;
-    switch (vm.currentMode) {
-      case FeederMode.open:
-        visionStatus = vm.isTimerEnabled ? 'AI 视觉待命 (敞开+定时)' : 'AI 视觉待命 (敞开)';
-        break;
-      case FeederMode.infrared:
-        visionStatus = '红外感应待命中';
-        break;
-      case FeederMode.faceAi:
-        visionStatus = '猫脸识别实时检测中';
-        break;
-    }
-
     return AspectRatio(
       aspectRatio: 16 / 10,
       child: Container(
@@ -100,66 +86,14 @@ class _FeederManagerView extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: AgoraVideoWidget(
-                  liveInfo: vm.liveInfo,
-                  isLoading: vm.isLiveLoading,
-                  errorMsg: vm.liveErrorMsg,
-                  onRetry: () => vm.fetchLiveStreamInfo(),
-                ),
-              ),
-              Positioned(
-                top: 14,
-                left: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(color: _online, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(visionStatus, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 12,
-                right: 14,
-                child: Row(
-                  children: [
-                    _buildMediaBtn(Icons.camera_alt_outlined, () {}),
-                    const SizedBox(width: 8),
-                    _buildMediaBtn(Icons.fullscreen_rounded, () {}),
-                  ],
-                ),
-              ),
-            ],
+          child: AgoraVideoWidget(
+            isOnline: vm.isOnline,
+            liveInfo: vm.liveInfo,
+            isLoading: vm.isLiveLoading,
+            errorMsg: vm.liveErrorMsg,
+            onRetry: () => vm.fetchLiveStreamInfo(),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildMediaBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.white, size: 16),
       ),
     );
   }
@@ -224,7 +158,7 @@ class _FeederManagerView extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickToolsCard(FeederViewModel vm) {
+  Widget _buildQuickToolsCard(BuildContext context, FeederViewModel vm) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(

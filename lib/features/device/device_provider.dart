@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
-import 'package:fullxpet/core/hardware/mqtt_manager.dart';
 import 'package:fullxpet/core/network/api_exception.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
@@ -44,7 +43,6 @@ class DeviceProvider extends BaseProvider {
   String _selectedProductId = 'ALL';
   bool _isGridView = false;
   StreamSubscription? _repoSub;
-  StringSet _subscribedDeviceIds = {};
 
   String get selectedCategoryKey => _selectedCategoryKey;
   String get selectedProductId => _selectedProductId;
@@ -323,7 +321,7 @@ class DeviceProvider extends BaseProvider {
       await _deviceRepo.getDeviceList();
       _ensureSelectionValid();
       unawaited(_prefetchAllDeviceProperties());
-      unawaited(_checkAndSyncMqttSubscriptions());
+      unawaited(_deviceRepo.ensureMqttReadyForCurrentDevices());
       notifyListeners();
     } catch (e) {
       setError(ApiException.from(e).message);
@@ -354,7 +352,6 @@ class DeviceProvider extends BaseProvider {
     try {
       final success = await _deviceRepo.deleteDevice(deviceId);
       if (success) {
-        _subscribedDeviceIds.remove(deviceId);
         _ensureSelectionValid();
         notifyListeners();
         return true;
@@ -405,48 +402,4 @@ class DeviceProvider extends BaseProvider {
   }
 
   String resolveDisplayId(DeviceItemDto item) => DeviceBatchHelper().getDisplayBatchNo(item.deviceId);
-
-  Future<void> _checkAndSyncMqttSubscriptions() async {
-    final list = devices;
-    if (list.isEmpty) return;
-
-    final currentDeviceIds = list.map((d) => d.deviceId).toSet();
-    final mqttManager = locator.get<MqttManager>();
-
-    if (!mqttManager.isConnected) {
-      await _initGlobalMqttAndSubscribe();
-      _subscribedDeviceIds = currentDeviceIds;
-      return;
-    }
-
-    final bool isListUnchanged =
-        _subscribedDeviceIds.length == currentDeviceIds.length && _subscribedDeviceIds.containsAll(currentDeviceIds);
-    if (isListUnchanged) return;
-
-    await _deviceRepo.syncMqttSubscriptions();
-    _subscribedDeviceIds = currentDeviceIds;
-  }
-
-  Future<void> _initGlobalMqttAndSubscribe() async {
-    try {
-      final credMap = await _deviceRepo.fetchMqttCredentials();
-      final mqttData = credMap['mqtt'];
-      if (mqttData is! Map) return;
-
-      final bool isConnected = await locator.get<MqttManager>().connect(
-        endpoint: mqttData['endpoint']?.toString() ?? '',
-        port: int.tryParse(mqttData['port'].toString()) ?? 8883,
-        username: mqttData['username']?.toString() ?? '',
-        password: mqttData['password']?.toString() ?? '',
-        clientId: mqttData['clientIdHint']?.toString() ?? '',
-        subscribeTopic: mqttData['subscribeTopic']?.toString() ?? '',
-        useTls: mqttData['tls'].toString() == 'true',
-      );
-      if (isConnected) {
-        await _deviceRepo.syncMqttSubscriptions();
-      }
-    } catch (e) {
-      debugPrint('初始化 MQTT 凭证及连接失败: $e');
-    }
-  }
 }

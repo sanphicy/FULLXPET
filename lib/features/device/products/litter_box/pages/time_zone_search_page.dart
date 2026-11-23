@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
+import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/device/products/litter_box/viewmodels/litter_box_viewmodel.dart';
 
@@ -22,8 +23,8 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
   List<String> _filteredTimeZones = [];
 
   String _systemTzId = '';
-  String _systemTzOffset = '';
   bool _isFetchingSystemTz = true;
+  bool _isSubmitting = false;
 
   late String _tempSelectedTzId;
   late String _tempSelectedTzOffset;
@@ -38,7 +39,7 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
     super.initState();
     final provider = context.read<LitterBoxViewModel>();
     _tempSelectedTzId = provider.currentTimeZoneId;
-    _tempSelectedTzOffset = provider.currentTimeZoneOffset;
+    _tempSelectedTzOffset = _getOffsetStr(_tempSelectedTzId);
 
     _allTimeZones = tz.timeZoneDatabase.locations.keys.toList();
     _allTimeZones.sort();
@@ -76,11 +77,9 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
   Future<void> _initSystemTimeZone() async {
     try {
       final String tzId = await FlutterTimezone.getLocalTimezone();
-      final offset = _getOffsetStr(tzId);
       if (mounted) {
         setState(() {
           _systemTzId = tzId;
-          _systemTzOffset = offset;
           _isFetchingSystemTz = false;
         });
       }
@@ -89,17 +88,44 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
     }
   }
 
-  String _getOffsetStr(String tzName) {
+  Duration _getOffsetDuration(String tzName) {
     try {
       final location = tz.getLocation(tzName);
-      final now = tz.TZDateTime.now(location);
-      final offset = now.timeZoneOffset;
+      return tz.TZDateTime.now(location).timeZoneOffset;
+    } catch (_) {
+      return DateTime.now().timeZoneOffset;
+    }
+  }
+
+  String _getOffsetStr(String tzName) {
+    try {
+      final offset = _getOffsetDuration(tzName);
       final hours = offset.inHours;
       final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
-      final sign = hours >= 0 ? '+' : '-';
+      final sign = offset.inMinutes >= 0 ? '+' : '-';
       return 'UTC$sign${hours.abs().toString().padLeft(2, '0')}:$minutes';
     } catch (_) {
       return '';
+    }
+  }
+
+  Future<void> _handleConfirm(S s) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    final vm = context.read<LitterBoxViewModel>();
+    final offset = _getOffsetDuration(_tempSelectedTzId);
+    final offsetStr = _tempSelectedTzOffset.isNotEmpty ? _tempSelectedTzOffset : _getOffsetStr(_tempSelectedTzId);
+
+    final ok = await vm.setTimeZone(tzId: _tempSelectedTzId, offsetStr: offsetStr, offset: offset);
+    if (!mounted) return;
+
+    setState(() => _isSubmitting = false);
+    if (ok) {
+      context.showAppToast(message: '时区设置成功', type: AppToastType.success);
+      context.pop();
+    } else {
+      vm.errorMsg.isNotEmpty ? vm.errorMsg : s.operationFailed;
     }
   }
 
@@ -125,20 +151,23 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
         backgroundColor: _bgColor,
         elevation: 0,
         leading: TextButton(
-          onPressed: () => context.pop(),
+          onPressed: _isSubmitting ? null : () => context.pop(),
           child: Text(s.cancel, style: const TextStyle(color: Colors.grey)),
         ),
         leadingWidth: 70,
         actions: [
           TextButton(
-            onPressed: () {
-              context.read<LitterBoxViewModel>().setTimeZone(_tempSelectedTzId, _tempSelectedTzOffset);
-              context.pop();
-            },
-            child: Text(
-              s.confirm,
-              style: TextStyle(color: _primaryPurple, fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            onPressed: _isSubmitting ? null : () => _handleConfirm(s),
+            child: _isSubmitting
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _primaryPurple),
+                  )
+                : Text(
+                    s.confirm,
+                    style: TextStyle(color: _primaryPurple, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
           ),
         ],
       ),
@@ -166,8 +195,17 @@ class _TimeZoneSearchPageState extends State<TimeZoneSearchPage> {
               if (!_isFetchingSystemTz && _systemTzId.isNotEmpty)
                 GestureDetector(
                   onTap: () {
-                    _searchCtrl.text = _systemTzId;
                     FocusManager.instance.primaryFocus?.unfocus();
+                    if (_searchCtrl.text.isNotEmpty) {
+                      _searchCtrl.clear();
+                    }
+                    setState(() {
+                      _tempSelectedTzId = _systemTzId;
+                      _tempSelectedTzOffset = _getOffsetStr(_systemTzId);
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToCurrentSelected(isAnimate: true);
+                    });
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),

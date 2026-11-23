@@ -13,6 +13,7 @@ import 'package:fullxpet/features/device/models/mqtt_attr_report_dto.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
 import 'package:fullxpet/features/device/models/feeder_live_info.dart';
 import 'package:fullxpet/locator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 typedef JsonMap = Map<String, dynamic>;
 typedef ProductCacheMap = Map<String, ProductDto>;
@@ -49,6 +50,10 @@ class DeviceRepository {
 
   Stream<({String deviceId, Set<String> dpids})> get onDpidUpdated => _dpidUpdateController.stream;
   StreamSubscription? _mqttSub;
+  final Set<String> _syncedDeviceIds = {};
+  int _mqttConnectedSyncSeq = 0;
+  static const String _kClientInstanceIdKey = 'client_instance_id';
+  Future<String>? _clientInstanceIdFuture;
   String? _cachedClientInstanceId;
   static final RegExp _clientInstanceIdRegex = RegExp(
     r'^([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$',
@@ -243,6 +248,7 @@ class DeviceRepository {
       _deviceBasicCache.remove(deviceId);
       _deviceDpidCache.remove(deviceId);
       _deviceHardwareCache.remove(deviceId);
+      _syncedDeviceIds.remove(deviceId);
       _notify('ALL');
       return true;
     } catch (e) {
@@ -306,7 +312,7 @@ class DeviceRepository {
   /// 获取设备视频直播参数
   Future<FeederLiveInfo> fetchLiveInfo(String deviceId, {int camera = 0, int resolution = 0}) async {
     final String platform = Platform.isIOS ? 'ios' : 'android';
-    final String clientInstanceId = _getValidClientInstanceId();
+    final String clientInstanceId = await getClientInstanceId();
     final JsonMap payload = {
       'clientInstanceId': clientInstanceId,
       'platform': platform,
@@ -337,22 +343,127 @@ class DeviceRepository {
     }
   }
 
+  /// 确保 MQTT 已按当前设备列表建立连接并完成订阅同步（含单机唯一 clientId 后缀与凭证自动刷新）
+  Future<bool> ensureMqttReadyForCurrentDevices() async {
+    final currentIds = _deviceBasicCache.keys.toSet();
+    if (currentIds.isEmpty) return false;
+
+    final int beforeSyncSeq = _mqttConnectedSyncSeq;
+    final bool connected = await _mqttManager.ensureConnected(
+      credentialFetcher: _fetchMqttCredentialsModel,
+      onConnected: _handleMqttConnected,
+    );
+    if (!connected) return false;
+
+    // 本次建连或凭证刷新重连已触发 _handleMqttConnected，不再重复同步
+    if (_mqttConnectedSyncSeq != beforeSyncSeq) return true;
+
+    if (_isSameDeviceSet(_syncedDeviceIds, currentIds)) return true;
+
+    final bool synced = await syncMqttSubscriptions();
+    if (synced) {
+      _syncedDeviceIds
+        ..clear()
+        ..addAll(currentIds);
+    }
+    return synced;
+  }
+
+  Future<void> _handleMqttConnected() async {
+    _mqttConnectedSyncSeq++;
+    final currentIds = _deviceBasicCache.keys.toSet();
+    if (currentIds.isEmpty) return;
+
+    final bool synced = await syncMqttSubscriptions();
+    if (synced) {
+      _syncedDeviceIds
+        ..clear()
+        ..addAll(currentIds);
+    }
+  }
+
+  Future<MqttCredentials?> _fetchMqttCredentialsModel() async {
+    final credMap = await fetchMqttCredentials();
+    final mqttRaw = credMap['mqtt'];
+    if (mqttRaw is! Map) return null;
+
+    final mqttData = JsonMap.from(mqttRaw);
+    final rawHint = mqttData['clientIdHint']?.toString().trim() ?? '';
+    final instanceId = await getClientInstanceId();
+    final cleanHex = instanceId.replaceAll(RegExp(r'[^0-9a-fA-F]'), '').toLowerCase();
+    final suffix = cleanHex.length >= 8 ? cleanHex.substring(0, 8) : cleanHex;
+    final effectiveClientId = (rawHint.isNotEmpty && suffix.isNotEmpty) ? '$rawHint-$suffix' : rawHint;
+
+    // 优先使用相对秒数 expiresInSeconds，避免本机时钟偏差；缺失时回退解析 expiresAt
+    final rawExpiresIn = mqttData['expiresInSeconds'] ?? credMap['expiresInSeconds'];
+    final int? expiresInSeconds = rawExpiresIn != null ? int.tryParse(rawExpiresIn.toString()) : null;
+    final rawExpiresAt = mqttData['expiresAt'] ?? credMap['expiresAt'];
+
+    Duration? expiresIn;
+    DateTime? expiresAt;
+    if (expiresInSeconds != null && expiresInSeconds > 0) {
+      expiresIn = Duration(seconds: expiresInSeconds);
+      expiresAt = DateTime.now().add(expiresIn);
+    } else if (rawExpiresAt != null && rawExpiresAt.toString().trim().isNotEmpty) {
+      final parsed = DateTime.tryParse(rawExpiresAt.toString().trim());
+      if (parsed != null) {
+        expiresAt = parsed.toLocal();
+        final diff = expiresAt.difference(DateTime.now());
+        if (diff > Duration.zero) {
+          expiresIn = diff;
+        }
+      }
+    }
+
+    debugPrint('🔑 [MQTT 凭证] clientId=$effectiveClientId | expiresIn=${expiresIn?.inSeconds}s | expiresAt=$expiresAt');
+
+    return MqttCredentials(
+      endpoint: mqttData['endpoint']?.toString().trim() ?? '',
+      port: int.tryParse(mqttData['port']?.toString() ?? '') ?? 8883,
+      username: mqttData['username']?.toString() ?? '',
+      password: mqttData['password']?.toString() ?? '',
+      clientId: effectiveClientId,
+      subscribeTopic: mqttData['subscribeTopic']?.toString().trim() ?? '',
+      useTls: mqttData['tls'] == true || mqttData['tls']?.toString().toLowerCase() == 'true',
+      expiresAt: expiresAt,
+      expiresIn: expiresIn,
+    );
+  }
+
+  bool _isSameDeviceSet(Set<String> a, Set<String> b) => a.length == b.length && a.containsAll(b);
+
   /// 清空四张底表（退出登录时调用）
   void clearPool() {
     _productCache.clear();
     _deviceBasicCache.clear();
     _deviceDpidCache.clear();
     _deviceHardwareCache.clear();
+    _syncedDeviceIds.clear();
+    _mqttManager.disconnect();
   }
 
   void _notify(String deviceId) {
     _deviceUpdateController.add(deviceId);
   }
 
-  String _getValidClientInstanceId() {
+  /// 获取或首次生成单机持久化客户端实例 ID（符合标准 UUID / 32 位 hex 正则）
+  Future<String> getClientInstanceId() {
     if (_cachedClientInstanceId != null && _clientInstanceIdRegex.hasMatch(_cachedClientInstanceId!)) {
-      return _cachedClientInstanceId!;
+      return Future.value(_cachedClientInstanceId!);
     }
+    return _clientInstanceIdFuture ??= _loadOrCreateClientInstanceId().whenComplete(() {
+      _clientInstanceIdFuture = null;
+    });
+  }
+
+  Future<String> _loadOrCreateClientInstanceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_kClientInstanceIdKey)?.trim();
+    if (saved != null && _clientInstanceIdRegex.hasMatch(saved)) {
+      _cachedClientInstanceId = saved;
+      return saved;
+    }
+
     String generatedId = UuidsTool.generateStandardUUID();
     if (!_clientInstanceIdRegex.hasMatch(generatedId)) {
       final cleanHex = generatedId.replaceAll(RegExp(r'[^0-9a-fA-F]'), '');
@@ -360,7 +471,11 @@ class DeviceRepository {
         generatedId = cleanHex;
       }
     }
-    _cachedClientInstanceId = generatedId;
+
+    if (_clientInstanceIdRegex.hasMatch(generatedId)) {
+      await prefs.setString(_kClientInstanceIdKey, generatedId);
+      _cachedClientInstanceId = generatedId;
+    }
     return generatedId;
   }
 
