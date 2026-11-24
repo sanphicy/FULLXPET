@@ -37,6 +37,16 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
+        leading: BackButton(
+          color: const Color(0xFF333333),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.tabDevice);
+            }
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Color(0xFF666666)),
@@ -194,7 +204,8 @@ class _DeviceAddSearchPageState extends State<DeviceAddSearchPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Dimens.radiusMax)),
             ),
             onPressed: () {
-              context.push(AppRoutes.deviceAddWifi, extra: {'device': device, 'provider': provider});
+              provider.selectTargetDevice(device);
+              context.push(AppRoutes.deviceAddWifiPath);
             },
             child: const Text("连接"),
           ),

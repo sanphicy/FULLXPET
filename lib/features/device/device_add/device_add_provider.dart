@@ -72,6 +72,7 @@ class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
   List<DiscoveredDevice> get discoveredDevices => _discoveredDevices;
 
   DiscoveredDevice? _activeTargetDevice;
+  DiscoveredDevice? get activeTargetDevice => _activeTargetDevice;
   String? _connectingDeviceId;
   String? get connectingDeviceId => _connectingDeviceId;
 
@@ -110,6 +111,10 @@ class DeviceAddProvider extends BaseProvider with WidgetsBindingObserver {
         }
       }
     }
+  }
+
+  void selectTargetDevice(DiscoveredDevice device) {
+    _activeTargetDevice = device;
   }
 
   void _handleUnexpectedBleDisconnect() {

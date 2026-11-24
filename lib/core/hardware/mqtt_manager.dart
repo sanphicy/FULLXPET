@@ -225,23 +225,28 @@ class MqttManager with WidgetsBindingObserver {
     client.subscribe(creds.subscribeTopic, MqttQos.atLeastOnce);
     debugPrint('📡 [MQTT] 已订阅主题: ${creds.subscribeTopic}');
 
-    _updatesSub = client.updates?.listen((List<MqttReceivedMessage<MqttMessage>> messages) {
-      for (final msg in messages) {
-        final payloadMsg = msg.payload;
-        if (payloadMsg is! MqttPublishMessage) continue;
-        final String payload = MqttPublishPayload.bytesToStringAsString(payloadMsg.payload.message);
-        try {
-          final decoded = jsonDecode(payload);
-          if (decoded is Map<String, dynamic>) {
-            _messageController.add(decoded);
-          } else if (decoded is Map) {
-            _messageController.add(Map<String, dynamic>.from(decoded));
+    _updatesSub = client.updates?.listen(
+      (List<MqttReceivedMessage<MqttMessage>> messages) {
+        for (final msg in messages) {
+          final payloadMsg = msg.payload;
+          if (payloadMsg is! MqttPublishMessage) continue;
+          final String payload = MqttPublishPayload.bytesToStringAsString(payloadMsg.payload.message);
+          try {
+            final decoded = jsonDecode(payload);
+            if (decoded is Map<String, dynamic>) {
+              _messageController.add(decoded);
+            } else if (decoded is Map) {
+              _messageController.add(Map<String, dynamic>.from(decoded));
+            }
+          } catch (e) {
+            debugPrint('⚠️ [MQTT 消息解析失败] $payload');
           }
-        } catch (e) {
-          debugPrint('⚠️ [MQTT 消息解析失败] $payload');
         }
-      }
-    });
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('⚠️ [MQTT 消息流异常] $error');
+      },
+    );
 
     _scheduleCredentialRefresh(creds, epoch);
 
@@ -279,7 +284,7 @@ class MqttManager with WidgetsBindingObserver {
   void _handleUnexpectedDisconnect(int epoch) {
     debugPrint('⚠️ [MQTT 回调] 连接意外断开');
     _cancelTimers();
-    _teardownClient();
+    _teardownClient(callDisconnect: false);
     if (!_shouldMaintainConnection || epoch != _sessionEpoch) return;
     _scheduleReconnect(epoch);
   }
@@ -310,7 +315,7 @@ class MqttManager with WidgetsBindingObserver {
 
     // 指数退避：2s -> 4s -> 8s -> 16s -> 30s 封顶
     final int exponent = math.min(_consecutiveFailures, 4);
-    final int delaySec = math.min(30, 2 * (1 << (exponent > 0 ? exponent - 1 : 0)));
+    final int delaySec = math.min(30, 2 * (1 << exponent));
     debugPrint('🔄 [MQTT] 将在 ${delaySec}s 后重连 (连续失败: $_consecutiveFailures, 强制换凭证: $_forceRefreshNextConnect)');
 
     _reconnectTimer = Timer(Duration(seconds: delaySec), () {
@@ -346,19 +351,20 @@ class MqttManager with WidgetsBindingObserver {
     }
   }
 
-  void _teardownClient() {
+  void _teardownClient({bool callDisconnect = true}) {
     _updatesSub?.cancel();
     _updatesSub = null;
     final oldClient = _client;
     _client = null;
     if (oldClient != null) {
-      _disposeClientQuietly(oldClient);
+      _disposeClientQuietly(oldClient, callDisconnect: callDisconnect);
     }
   }
 
-  void _disposeClientQuietly(MqttServerClient client) {
+  void _disposeClientQuietly(MqttServerClient client, {bool callDisconnect = true}) {
     client.onConnected = null;
     client.onDisconnected = null;
+    if (!callDisconnect) return;
     try {
       client.disconnect();
     } catch (_) {}

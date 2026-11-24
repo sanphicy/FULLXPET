@@ -30,7 +30,6 @@ import 'package:fullxpet/features/user/pages/user_page.dart';
 // Device
 import 'package:fullxpet/features/device/constants/product_constants.dart';
 import 'package:fullxpet/features/device/device_add/device_add_provider.dart';
-import 'package:fullxpet/features/device/device_add/models/discovered_device.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_search_page.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_success_page.dart';
 import 'package:fullxpet/features/device/device_add/pages/device_add_wifi_page.dart';
@@ -82,7 +81,8 @@ class AppRoutes {
 
   // Device - Add
   static const deviceAddSearch = '/device_add_search';
-  static const deviceAddWifi = '/device_add_wifi';
+  static const deviceAddWifi = 'wifi';
+  static const deviceAddWifiPath = '/device_add_search/wifi';
   static const deviceAddSuccess = '/device_add_success/:id';
 
   /// 外部入口（设备列表、配网成功页等）统一按 productId 映射外壳路径
@@ -251,26 +251,28 @@ class AppRouter {
       ),
     ),
 
-    // 4. 配网路由（第 15 项在第五批再统一修）
-    GoRoute(
-      path: AppRoutes.deviceAddSearch,
-      builder: (context, state) =>
-          ChangeNotifierProvider(create: (_) => DeviceAddProvider(), child: const DeviceAddSearchPage()),
-    ),
-    GoRoute(
-      path: AppRoutes.deviceAddWifi,
-      builder: (context, state) {
-        final args = state.extra as Map<String, dynamic>? ?? {};
-        final provider = args['provider'] as DeviceAddProvider?;
-        final device = args['device'] as DiscoveredDevice?;
-        if (provider == null || device == null) {
-          return const Scaffold(body: Center(child: Text('参数异常')));
-        }
-        return ChangeNotifierProvider.value(
-          value: provider,
-          child: DeviceAddWifiPage(targetDevice: device),
-        );
-      },
+    // 4. 配网独立会话外壳：搜索页 -> Wi-Fi 配网页共享同一个 DeviceAddProvider
+    ShellRoute(
+      builder: (context, state, child) =>
+          ChangeNotifierProvider<DeviceAddProvider>(create: (_) => DeviceAddProvider(), child: child),
+      routes: [
+        GoRoute(
+          path: AppRoutes.deviceAddSearch,
+          builder: (context, state) => const DeviceAddSearchPage(),
+          routes: [
+            GoRoute(
+              path: AppRoutes.deviceAddWifi,
+              builder: (context, state) {
+                final device = context.read<DeviceAddProvider>().activeTargetDevice;
+                if (device == null) {
+                  return const _ProvisionSessionInvalidPage();
+                }
+                return DeviceAddWifiPage(targetDevice: device);
+              },
+            ),
+          ],
+        ),
+      ],
     ),
     GoRoute(
       path: AppRoutes.deviceAddSuccess,
@@ -307,4 +309,74 @@ class AppRouter {
       },
     ),
   ];
+}
+
+class _ProvisionSessionInvalidPage extends StatelessWidget {
+  const _ProvisionSessionInvalidPage();
+
+  void _returnToSearch(BuildContext context) {
+    final router = GoRouter.of(context);
+    router.go(AppRoutes.tabDevice);
+    router.push(AppRoutes.deviceAddSearch);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryPurple = Color(0xFF917CEE);
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('网络配置', style: TextStyle(color: Color(0xFF333333))),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Color(0xFF333333)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => _returnToSearch(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(color: primaryPurple.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.bluetooth_disabled_rounded, size: 36, color: primaryPurple),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                '配网会话已失效',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '未检测到待配网的蓝牙设备，请返回重新搜索并连接设备。',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Color(0xFF666666), height: 1.5),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryPurple,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  ),
+                  onPressed: () => _returnToSearch(context),
+                  child: const Text('返回重新搜索', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

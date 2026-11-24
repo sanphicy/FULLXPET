@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/providers/base_provider.dart';
@@ -43,6 +44,9 @@ class DeviceProvider extends BaseProvider {
   String _selectedProductId = 'ALL';
   bool _isGridView = false;
   StreamSubscription? _repoSub;
+  static const int _maxPrefetchConcurrency = 3;
+  int _prefetchEpoch = 0;
+  bool _isDisposed = false;
 
   String get selectedCategoryKey => _selectedCategoryKey;
   String get selectedProductId => _selectedProductId;
@@ -63,6 +67,8 @@ class DeviceProvider extends BaseProvider {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _prefetchEpoch++;
     _repoSub?.cancel();
     super.dispose();
   }
@@ -241,6 +247,7 @@ class DeviceProvider extends BaseProvider {
   }
 
   CardBadgeList resolveDeviceBadges(DeviceItemDto item) {
+    if (!item.online) return const [];
     final DpidValueMap dpidMap = _deviceRepo.getDeviceDpidMap(item.deviceId);
     if (dpidMap.isEmpty) return const [];
 
@@ -315,25 +322,51 @@ class DeviceProvider extends BaseProvider {
   }
 
   Future<void> fetchDevices() async {
+    _prefetchEpoch++;
     setLoading(true);
     clearError();
     try {
       await _deviceRepo.getDeviceList();
+      if (_isDisposed) return;
       _ensureSelectionValid();
-      unawaited(_prefetchAllDeviceProperties());
+      unawaited(_prefetchDeviceProperties());
       unawaited(_deviceRepo.ensureMqttReadyForCurrentDevices());
       notifyListeners();
     } catch (e) {
-      setError(ApiException.from(e).message);
+      if (!_isDisposed) {
+        setError(ApiException.from(e).message);
+      }
     } finally {
-      if (isLoading) setLoading(false);
+      if (!_isDisposed && isLoading) setLoading(false);
     }
   }
 
-  Future<void> _prefetchAllDeviceProperties() async {
-    final list = devices;
-    if (list.isEmpty) return;
-    await Future.wait(list.map((d) => _deviceRepo.fetchDeviceProperties(d.deviceId)));
+  Future<void> _prefetchDeviceProperties() async {
+    final int epoch = ++_prefetchEpoch;
+    if (_isDisposed) return;
+
+    final all = devices;
+    if (all.isEmpty) return;
+
+    final List<String> queue = [
+      for (final d in all)
+        if (d.online) d.deviceId,
+    ];
+    if (queue.isEmpty) return;
+
+    final int workerCount = math.min(_maxPrefetchConcurrency, queue.length);
+    debugPrint('📦 [首页预拉取] epoch=$epoch | 待拉取=${queue.length}/${all.length} | 并发上限=$workerCount');
+
+    int nextIndex = 0;
+    Future<void> runWorker() async {
+      while (!_isDisposed && epoch == _prefetchEpoch) {
+        if (nextIndex >= queue.length) break;
+        final String deviceId = queue[nextIndex++];
+        await _deviceRepo.fetchDeviceProperties(deviceId);
+      }
+    }
+
+    await Future.wait(List.generate(workerCount, (_) => runWorker()));
   }
 
   Future<bool> renameDevice(String deviceId, String newName) async {

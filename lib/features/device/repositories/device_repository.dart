@@ -51,6 +51,8 @@ class DeviceRepository {
   Stream<({String deviceId, Set<String> dpids})> get onDpidUpdated => _dpidUpdateController.stream;
   StreamSubscription? _mqttSub;
   final Set<String> _syncedDeviceIds = {};
+  final Map<String, Future<DevicePropertiesDto?>> _inFlightPropertyRequests = {};
+  int _poolEpoch = 0;
   int _mqttConnectedSyncSeq = 0;
   static const String _kClientInstanceIdKey = 'client_instance_id';
   Future<String>? _clientInstanceIdFuture;
@@ -179,9 +181,25 @@ class DeviceRepository {
   }
 
   /// 拉取单台设备全量属性 -> 自动存入 _deviceDpidCache 与 _deviceHardwareCache
-  Future<DevicePropertiesDto?> fetchDeviceProperties(String deviceId) async {
+  Future<DevicePropertiesDto?> fetchDeviceProperties(String deviceId) {
+    final existing = _inFlightPropertyRequests[deviceId];
+    if (existing != null) return existing;
+
+    final int epoch = _poolEpoch;
+    late final Future<DevicePropertiesDto?> future;
+    future = _fetchDevicePropertiesInternal(deviceId, epoch).whenComplete(() {
+      if (identical(_inFlightPropertyRequests[deviceId], future)) {
+        _inFlightPropertyRequests.remove(deviceId);
+      }
+    });
+    _inFlightPropertyRequests[deviceId] = future;
+    return future;
+  }
+
+  Future<DevicePropertiesDto?> _fetchDevicePropertiesInternal(String deviceId, int epoch) async {
     try {
       final res = await _dio.get(ApiEndpoints.deviceProperties(deviceId));
+      if (epoch != _poolEpoch) return null;
       final data = res.data;
       if (data is Map) {
         final dto = DevicePropertiesDto.fromJson(data);
@@ -434,6 +452,8 @@ class DeviceRepository {
 
   /// 清空四张底表（退出登录时调用）
   void clearPool() {
+    _poolEpoch++;
+    _inFlightPropertyRequests.clear();
     _productCache.clear();
     _deviceBasicCache.clear();
     _deviceDpidCache.clear();

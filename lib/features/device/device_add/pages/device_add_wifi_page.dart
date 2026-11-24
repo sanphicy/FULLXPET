@@ -34,15 +34,19 @@ class _DeviceAddWifiPageState extends State<DeviceAddWifiPage> {
     _provider.addListener(_onProviderStateChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       await _provider.prepareAndFetchWifi(widget.targetDevice);
+      if (!mounted) return;
       try {
         final info = NetworkInfo();
         String? wifiName = await info.getWifiName();
+        if (!mounted) return;
         if (wifiName != null && wifiName.isNotEmpty && wifiName != '<unknown ssid>') {
           _ssidCtrl.text = wifiName.replaceAll('"', '');
         }
       } catch (_) {}
 
+      if (!mounted) return;
       if (_ssidCtrl.text.isEmpty && _provider.deviceWifiList.isNotEmpty) {
         _ssidCtrl.text = _provider.deviceWifiList.first['ssid'] ?? '';
       }
