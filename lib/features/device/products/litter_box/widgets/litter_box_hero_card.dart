@@ -12,6 +12,7 @@ class LitterBoxHeroCard extends StatelessWidget {
   static const Color _bgPage = Color(0xFFF9F9FC);
   static const Color _online = Color(0xFF8CC152);
   static const Color _offline = Color(0xFFF39191);
+  static const Color _danger = Color(0xFFF37474);
   static const Color _textMain = Color(0xFF333333);
   static const Color _textSub = Color(0xFF666666);
 
@@ -20,7 +21,9 @@ class LitterBoxHeroCard extends StatelessWidget {
     final s = S.of(context)!;
     final vm = context.watch<LitterBoxViewModel>();
     final isOnline = vm.isOnline;
-    final statusText = isOnline ? vm.currentAction.getLocalizedLabel(s) : s.offline;
+    final statusText = vm.resolveStatusLabel(s);
+    final bool? buckleFastened = vm.isBuckleFastened;
+    final bool isBuckleLoose = buckleFastened == false;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -212,23 +215,35 @@ class LitterBoxHeroCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(color: _bgPage, borderRadius: BorderRadius.circular(12)),
-                  child: const Row(
+                  decoration: BoxDecoration(
+                    color: isBuckleLoose ? const Color(0xFFFEF2F2) : _bgPage,
+                    borderRadius: BorderRadius.circular(12),
+                    border: isBuckleLoose ? Border.all(color: const Color(0xFFFECACA)) : null,
+                  ),
+                  child: Row(
                     children: [
-                      Icon(Icons.verified_user_outlined, size: 13, color: _primary),
-                      SizedBox(width: 5),
+                      Icon(
+                        isBuckleLoose ? Icons.warning_amber_rounded : Icons.lock_outline_rounded,
+                        size: 13,
+                        color: isBuckleLoose ? _danger : _primary,
+                      ),
+                      const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          '防夹红外/安全保护',
-                          style: TextStyle(fontSize: 11, color: _textSub),
+                          '卡扣状态',
+                          style: TextStyle(fontSize: 11, color: isBuckleLoose ? const Color(0xFFB91C1C) : _textSub),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
-                        '开启中',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _online),
+                        buckleFastened == null ? '--' : (buckleFastened ? '已扣紧' : '未扣紧'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: buckleFastened == null ? _textSub : (buckleFastened ? _online : _danger),
+                        ),
                       ),
                     ],
                   ),

@@ -47,25 +47,21 @@ class _FeederManagerView extends StatelessWidget {
       body: SafeArea(
         child: ResponsiveFormContainer(
           maxWidth: 600,
-          child: RefreshIndicator(
-            color: _primary,
-            onRefresh: () => vm.initDevice(vm.deviceId),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildMediaViewport(vm),
-                  const SizedBox(height: 14),
-                  _buildDoorStatusCard(vm),
-                  const SizedBox(height: 14),
-                  const FeederControlBoard(),
-                  const SizedBox(height: 14),
-                  _buildQuickToolsCard(context, vm),
-                  const SizedBox(height: 20),
-                ],
-              ),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildMediaViewport(vm),
+                const SizedBox(height: 14),
+                _buildDoorStatusCard(vm),
+                const SizedBox(height: 14),
+                const FeederControlBoard(),
+                const SizedBox(height: 14),
+                _buildQuickToolsCard(context, vm),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
         ),

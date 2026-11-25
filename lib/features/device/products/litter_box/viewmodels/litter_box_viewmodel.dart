@@ -8,14 +8,15 @@ import 'package:fullxpet/common/providers/base_provider.dart';
 import 'package:fullxpet/core/services/nav_service.dart';
 import 'package:fullxpet/core/utils/device_batch_helper.dart';
 import 'package:fullxpet/core/utils/time_utils.dart';
+import 'package:fullxpet/features/device/constants/product_constants.dart';
 import 'package:fullxpet/features/device/models/device_hardware_info.dart';
 import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:fullxpet/features/device/models/device_log.dart';
+import 'package:fullxpet/features/device/models/mqtt_attr_report_dto.dart';
 import 'package:fullxpet/features/device/models/product_dto.dart';
 import 'package:fullxpet/features/device/products/litter_box/models/device_thing_model.dart';
 import 'package:fullxpet/features/device/repositories/device_repository.dart';
 import 'package:fullxpet/locator.dart';
-import 'package:fullxpet/features/device/constants/product_constants.dart';
 
 typedef DeviceLogList = List<DeviceLog>;
 typedef StringList = List<String>;
@@ -32,6 +33,24 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   final DeviceLogList _logs = [];
   DeviceLogList get logs => List.unmodifiable(_logs);
 
+  static const int _logPageSize = 20;
+  static const int _maxEmptyPageAutoAdvance = 5;
+
+  bool _isDisposed = false;
+  bool _isLoadingLogs = false;
+  bool _isLoadingMoreLogs = false;
+  bool _hasMoreLogs = false;
+  String? _nextLogPageToken;
+  String? _logsWindowFromIso;
+  String? _logsWindowToIso;
+  int _logsRequestSeq = 0;
+  final Set<String> _seenPageTokens = {};
+  final Set<String> _seenLogKeys = {};
+
+  bool get isLoadingLogs => _isLoadingLogs;
+  bool get isLoadingMoreLogs => _isLoadingMoreLogs;
+  bool get hasMoreLogs => _hasMoreLogs;
+
   bool _hasNewFirmware = false;
   String _newFirmwareVersion = '';
   String _pendingOtaRecordId = '';
@@ -47,6 +66,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   bool get isOtaUpdating => _isOtaUpdating;
   int get savedCalibrationWeight => _savedCalibrationWeight;
   String get currentTimeZoneId => _currentTimeZoneId;
+
   String get currentTimeZoneOffset {
     final dpVal = _getDpid(DeviceThingModel.timeZone)?.toString().trim() ?? '';
     if (dpVal.isNotEmpty) {
@@ -69,9 +89,12 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   StreamSubscription? _repoSub;
   StreamSubscription? _dpidSub;
+  StreamSubscription<MqttAttrReportDto>? _mqttReportSub;
   Timer? _optimisticResetTimer;
+
   LitterBoxViewModel() {
     _dpidSub = _deviceRepo.onDpidUpdated.listen((event) {
+      if (_isDisposed) return;
       if (_deviceId.isNotEmpty && event.deviceId == _deviceId && _optimisticOverrides.isNotEmpty) {
         for (final dpid in event.dpids) {
           _optimisticOverrides.remove(dpid);
@@ -83,7 +106,9 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
         }
       }
     });
+    _mqttReportSub = _deviceRepo.onMqttAttrReport.listen(_handleMqttLogReport);
     _repoSub = _deviceRepo.onDeviceUpdated.listen((updatedId) {
+      if (_isDisposed) return;
       if (_deviceId.isNotEmpty && (updatedId == _deviceId || updatedId == 'ALL')) {
         notifyListeners();
       }
@@ -93,9 +118,12 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _logsRequestSeq++;
     _optimisticResetTimer?.cancel();
     stopOtaPolling();
     WidgetsBinding.instance.removeObserver(this);
+    _mqttReportSub?.cancel();
     _dpidSub?.cancel();
     _repoSub?.cancel();
     super.dispose();
@@ -181,12 +209,13 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   int get todayTimes => int.tryParse(_getDpid(DeviceThingModel.excretionTimesDay)?.toString() ?? '0') ?? 0;
   int get averageSeconds => int.tryParse(_getDpid(DeviceThingModel.excretionTimeDay)?.toString() ?? '0') ?? 0;
 
+  static const int litterRecommendedMinGrams = 2500;
+  static const int litterRecommendedMaxGrams = 3500;
+
   int get litterWeightGrams => int.tryParse(_getDpid(DeviceThingModel.litterWeight)?.toString() ?? '0') ?? 0;
-  double get litterPercent => (litterWeightGrams / 4500.0).clamp(0.0, 1.0);
+  double get litterPercent => (litterWeightGrams / litterRecommendedMaxGrams).clamp(0.0, 1.0);
 
   int get shitWeightGrams => int.tryParse(_getDpid(DeviceThingModel.shitWeight)?.toString() ?? '0') ?? 0;
-  double get shitPercent => (shitWeightGrams / 2000.0).clamp(0.0, 1.0);
-  bool get isShitBinNearlyFull => shitWeightGrams >= 1600;
 
   ExecuteAction get currentAction {
     if (!isOnline) return ExecuteAction.idle;
@@ -205,13 +234,37 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
-  bool get isPaused => isOnline && (_getDpid(DeviceThingModel.deviceStatus)?.toString() == '2');
+  String get deviceStatusCode => _getDpid(DeviceThingModel.deviceStatus)?.toString().trim() ?? '0';
+
+  bool get isPaused => isOnline && deviceStatusCode == '2';
 
   bool get isOperating {
     if (!isOnline) return false;
-    final status = _getDpid(DeviceThingModel.deviceStatus)?.toString() ?? '0';
-    final exec = _getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '0';
-    return status != '0' || exec != '0';
+    final exec = _getDpid(DeviceThingModel.deviceExecute)?.toString().trim() ?? '0';
+    return deviceStatusCode != '0' || exec != '0';
+  }
+
+  /// 顶部状态胶囊统一文案（与 isOperating 保持完全一致的判定口径）
+  String resolveStatusLabel(S s) {
+    if (!isOnline) return s.offline;
+    if (isPaused) return '已暂停';
+    if (currentAction != ExecuteAction.idle) {
+      return currentAction.getLocalizedLabel(s);
+    }
+    if (isOperating) return '运行中';
+    return s.actionIdle;
+  }
+
+  /// 卡扣状态 (DP 21)：true=已扣紧，false=未扣紧；离线或未上报返回 null
+  bool? get isBuckleFastened {
+    if (!isOnline) return null;
+    final val = _getDpid(DeviceThingModel.installLoose);
+    if (val == null) return null;
+    if (val is bool) return val;
+    final str = val.toString().trim().toLowerCase();
+    if (str == 'true' || str == '1') return true;
+    if (str == 'false' || str == '0') return false;
+    return null;
   }
 
   WorkMode get workMode {
@@ -317,10 +370,14 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   // ================= 3. 初始化加载与指令下发 =================
 
   Future<void> initDevice(String id) async {
+    final bool isSwitchingDevice = _deviceId.isNotEmpty && _deviceId != id;
     _deviceId = id;
     _optimisticResetTimer?.cancel();
     _optimisticOverrides.clear();
     clearError();
+    if (isSwitchingDevice) {
+      _resetLogsState();
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       _savedCalibrationWeight = prefs.getInt('calibration_weight_$id') ?? 5000;
@@ -330,13 +387,11 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
     if (_deviceRepo.getDeviceDpidMap(id).isNotEmpty) {
       notifyListeners();
-      unawaited(_refreshAll(id, showLoading: false));
+      await _refreshAll(id, showLoading: false);
       return;
     }
 
-    _optimisticOverrides.clear();
-    _logs.clear();
-    clearError();
+    _resetLogsState();
     await _refreshAll(id, showLoading: true);
   }
 
@@ -369,7 +424,6 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     }
   }
 
-  // ③ _executeOptimistic 末尾增加 6 秒超时定点释放 + 拉取兜底：
   Future<bool> _executeOptimistic({
     required DpidValueMap optimisticChanges,
     required CommandAttrList commandPayload,
@@ -394,7 +448,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     final pendingKeys = optimisticChanges.keys.toSet();
     _optimisticResetTimer?.cancel();
     _optimisticResetTimer = Timer(const Duration(seconds: 6), () {
-      if (_deviceId.isEmpty) return;
+      if (_isDisposed || _deviceId.isEmpty) return;
       bool removed = false;
       for (final key in pendingKeys) {
         if (_optimisticOverrides.remove(key) != null) removed = true;
@@ -622,6 +676,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
   Future<void> checkFirmwareUpdate() async {
     if (_deviceId.isEmpty) return;
     final otaData = await _deviceRepo.checkPendingFirmware(_deviceId);
+    if (_isDisposed) return;
     if (otaData != null && otaData['recordId'] != null) {
       _hasNewFirmware = true;
       _newFirmwareVersion = otaData['version']?.toString() ?? (_s?.latestVersion ?? '最新');
@@ -660,6 +715,10 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     final startTime = DateTime.now();
 
     _otaPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_isDisposed) {
+        stopOtaPolling();
+        return;
+      }
       if (DateTime.now().difference(startTime).inSeconds >= timeoutSeconds) {
         stopOtaPolling();
         setError(_s?.operationFailed ?? 'OTA 超时');
@@ -667,6 +726,7 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
         return;
       }
       await _deviceRepo.fetchDeviceProperties(id);
+      if (_isDisposed) return;
       if (firmwareVersion == targetVersion) {
         stopOtaPolling();
         notifyListeners();
@@ -697,55 +757,263 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
     return ok;
   }
 
+  // ================= 5. 今日日志分页与 MQTT 实时入列 =================
+
+  String get _logDpidFilter => [
+    DeviceThingModel.resetWlan.dpid,
+    DeviceThingModel.deviceExecute.dpid,
+    DeviceThingModel.catEntry.dpid,
+    DeviceThingModel.calibration.dpid,
+    DeviceThingModel.excretionTimeDay.dpid,
+  ].join(',');
+
+  String _formatIsoUtc(DateTime dt) => '${dt.toUtc().toIso8601String().split('.').first}Z';
+
+  bool _isTruthy(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final str = value?.toString().trim().toLowerCase() ?? '';
+    return str == 'true' || str == '1';
+  }
+
+  void _resetLogsState() {
+    _logsRequestSeq++;
+    _logs.clear();
+    _seenLogKeys.clear();
+    _seenPageTokens.clear();
+    _nextLogPageToken = null;
+    _logsWindowFromIso = null;
+    _logsWindowToIso = null;
+    _hasMoreLogs = false;
+    _isLoadingLogs = false;
+    _isLoadingMoreLogs = false;
+  }
+
+  ({DeviceLog log, String valKey})? _buildLogEntry(String dpid, dynamic rawVal, DateTime localTime) {
+    if (dpid == DeviceThingModel.deviceExecute.dpid) {
+      final act = ExecuteAction.fromValue(int.tryParse(rawVal?.toString() ?? '') ?? 0);
+      if (act == ExecuteAction.idle || act == ExecuteAction.resetting) return null;
+      return (
+        log: DeviceLog(time: localTime, type: DeviceLogType.executeAction, content: act.name),
+        valKey: '${act.value}',
+      );
+    }
+    if (dpid == DeviceThingModel.excretionTimeDay.dpid) {
+      final sec = int.tryParse(rawVal?.toString() ?? '') ?? 0;
+      if (sec <= 0) return null;
+      return (log: DeviceLog(time: localTime, type: DeviceLogType.catToilet, content: sec.toString()), valKey: '$sec');
+    }
+    if (dpid == DeviceThingModel.catEntry.dpid) {
+      if (!_isTruthy(rawVal)) return null;
+      return (log: DeviceLog(time: localTime, type: DeviceLogType.catEntry), valKey: 'true');
+    }
+    if (dpid == DeviceThingModel.calibration.dpid) {
+      if (!_isTruthy(rawVal)) return null;
+      return (log: DeviceLog(time: localTime, type: DeviceLogType.calibration), valKey: 'true');
+    }
+    if (dpid == DeviceThingModel.resetWlan.dpid) {
+      if (!_isTruthy(rawVal)) return null;
+      return (log: DeviceLog(time: localTime, type: DeviceLogType.resetWifi), valKey: 'true');
+    }
+    return null;
+  }
+
+  void _handleMqttLogReport(MqttAttrReportDto report) {
+    if (_isDisposed || _deviceId.isEmpty || report.deviceId != _deviceId) return;
+    final changes = report.changedAttributes.isNotEmpty ? report.changedAttributes : report.functionalAttributes;
+    if (changes.isEmpty) return;
+
+    final eventTimeUtc = (report.at != null && report.at! > 0)
+        ? DateTime.fromMillisecondsSinceEpoch(report.at!, isUtc: true)
+        : DateTime.now().toUtc();
+    final localTime = eventTimeUtc.toLocal();
+    final tsMs = eventTimeUtc.millisecondsSinceEpoch;
+
+    final DeviceLogList incoming = [];
+    changes.forEach((dpid, rawVal) {
+      final built = _buildLogEntry(dpid, rawVal, localTime);
+      if (built == null) return;
+      final key = '$tsMs|$dpid|${built.valKey}';
+      if (_seenLogKeys.contains(key)) return;
+      _seenLogKeys.add(key);
+      incoming.add(built.log);
+    });
+
+    if (incoming.isNotEmpty) {
+      _logs.insertAll(0, incoming);
+      notifyListeners();
+    }
+  }
+
+  List<DeviceLog> _parseLogItems(
+    List<DeviceLogRawItem> items, {
+    required Set<String> batchKeys,
+    Set<String>? existingKeys,
+  }) {
+    final DeviceLogList parsed = [];
+    for (final item in items) {
+      final parsedUtc = DateTime.tryParse(item.ts)?.toUtc();
+      if (parsedUtc == null || item.values.isEmpty) continue;
+      final localTime = parsedUtc.toLocal();
+      final tsMs = parsedUtc.millisecondsSinceEpoch;
+
+      for (final valObj in item.values) {
+        final built = _buildLogEntry(valObj.dpid, valObj.value, localTime);
+        if (built == null) continue;
+        final key = '$tsMs|${valObj.dpid}|${built.valKey}';
+        if (batchKeys.contains(key) || (existingKeys?.contains(key) ?? false)) continue;
+
+        batchKeys.add(key);
+        parsed.add(built.log);
+      }
+    }
+    return parsed;
+  }
+
+  /// 拉取今日日志第 1 页（锁定本次时间窗口；若整页均为过滤噪声则自动续拉，最多 5 页）
   Future<void> fetchTodayLogs() async {
-    if (_deviceId.isEmpty) return;
+    if (_isDisposed || _deviceId.isEmpty) return;
+
+    final int seq = ++_logsRequestSeq;
+    _isLoadingLogs = true;
+    _isLoadingMoreLogs = false;
+    notifyListeners();
+
     try {
       final now = DateTime.now();
-      final todayStartUtc = DateTime(now.year, now.month, now.day).toUtc();
-      final fromStr = "${todayStartUtc.toIso8601String().split('.').first}Z";
-      final toStr = "${now.toUtc().toIso8601String().split('.').first}Z";
-      final targetDpids = [DeviceThingModel.deviceExecute.dpid, DeviceThingModel.excretionTimeDay.dpid].join(',');
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final fromIso = _formatIsoUtc(todayStart);
+      final toIso = _formatIsoUtc(now);
 
-      final logData = await _deviceRepo.fetchDeviceLogsRaw(
-        _deviceId,
-        dpidFilter: targetDpids,
-        fromIsoUtc: fromStr,
-        toIsoUtc: toStr,
-      );
-
-      final List items = (logData['items'] is List) ? logData['items'] as List : [];
       final DeviceLogList loaded = [];
+      final Set<String> seenKeys = {};
+      final Set<String> seenTokens = {};
+      String? currentToken;
+      String? nextToken;
+      bool hasMore = false;
 
-      for (final item in items) {
-        if (item is! Map) continue;
-        final String tsStr = item['ts']?.toString() ?? '';
-        final List values = (item['values'] is List) ? item['values'] as List : [];
-        if (tsStr.isEmpty || values.isEmpty) continue;
-        final time = DateTime.parse(tsStr).toLocal();
+      for (int attempt = 0; attempt < _maxEmptyPageAutoAdvance; attempt++) {
+        final page = await _deviceRepo.fetchDeviceLogsPage(
+          _deviceId,
+          dpidFilter: _logDpidFilter,
+          fromIsoUtc: fromIso,
+          toIsoUtc: toIso,
+          pageSize: _logPageSize,
+          sort: 'desc',
+          pageToken: currentToken,
+        );
+        if (_isDisposed || seq != _logsRequestSeq) return;
 
-        for (final valObj in values) {
-          if (valObj is! Map) continue;
-          final dpid = valObj['dpid']?.toString();
-          final value = valObj['value'];
-          if (dpid == DeviceThingModel.deviceExecute.dpid) {
-            final act = ExecuteAction.fromValue(int.tryParse(value.toString()) ?? 0);
-            if (act != ExecuteAction.idle && act != ExecuteAction.resetting) {
-              loaded.add(DeviceLog(time: time, content: act.name, isAction: true));
-            }
-          } else if (dpid == DeviceThingModel.excretionTimeDay.dpid) {
-            final sec = int.tryParse(value.toString()) ?? 0;
-            if (sec > 0) {
-              loaded.add(DeviceLog(time: time, content: sec.toString(), isAction: false));
-            }
-          }
+        if (currentToken != null) {
+          seenTokens.add(currentToken);
         }
+
+        loaded.addAll(_parseLogItems(page.items, batchKeys: seenKeys));
+
+        nextToken = page.nextPageToken;
+        hasMore = page.hasMore && nextToken != null && nextToken.isNotEmpty && !seenTokens.contains(nextToken);
+
+        if (!hasMore || loaded.isNotEmpty) break;
+        currentToken = nextToken;
       }
+
+      _logsWindowFromIso = fromIso;
+      _logsWindowToIso = toIso;
+      _nextLogPageToken = hasMore ? nextToken : null;
+      _hasMoreLogs = hasMore;
+      _seenPageTokens
+        ..clear()
+        ..addAll(seenTokens);
+      _seenLogKeys
+        ..clear()
+        ..addAll(seenKeys);
       _logs
         ..clear()
         ..addAll(loaded);
-      notifyListeners();
     } catch (e) {
       debugPrint('获取猫砂盆今日日志异常: $e');
+    } finally {
+      if (!_isDisposed && seq == _logsRequestSeq) {
+        _isLoadingLogs = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// 上拉触底无感加载今日下一页日志
+  Future<void> loadMoreTodayLogs() async {
+    if (_isDisposed || _deviceId.isEmpty || _isLoadingLogs || _isLoadingMoreLogs || !_hasMoreLogs) {
+      return;
+    }
+
+    final fromIso = _logsWindowFromIso;
+    final toIso = _logsWindowToIso;
+    String? currentToken = _nextLogPageToken;
+    if (fromIso == null || toIso == null || currentToken == null || currentToken.isEmpty) {
+      _hasMoreLogs = false;
+      notifyListeners();
+      return;
+    }
+
+    final int seq = _logsRequestSeq;
+    _isLoadingMoreLogs = true;
+    notifyListeners();
+
+    try {
+      final DeviceLogList added = [];
+      final Set<String> batchKeys = {};
+      final Set<String> batchTokens = {};
+      String? nextToken = currentToken;
+      bool hasMore = true;
+
+      for (int attempt = 0; attempt < _maxEmptyPageAutoAdvance; attempt++) {
+        if (currentToken == null ||
+            currentToken.isEmpty ||
+            _seenPageTokens.contains(currentToken) ||
+            batchTokens.contains(currentToken)) {
+          hasMore = false;
+          nextToken = null;
+          break;
+        }
+
+        final page = await _deviceRepo.fetchDeviceLogsPage(
+          _deviceId,
+          dpidFilter: _logDpidFilter,
+          fromIsoUtc: fromIso,
+          toIsoUtc: toIso,
+          pageSize: _logPageSize,
+          sort: 'desc',
+          pageToken: currentToken,
+        );
+        if (_isDisposed || seq != _logsRequestSeq) return;
+
+        batchTokens.add(currentToken);
+        added.addAll(_parseLogItems(page.items, batchKeys: batchKeys, existingKeys: _seenLogKeys));
+
+        nextToken = page.nextPageToken;
+        hasMore =
+            page.hasMore &&
+            nextToken != null &&
+            nextToken.isNotEmpty &&
+            !_seenPageTokens.contains(nextToken) &&
+            !batchTokens.contains(nextToken);
+
+        if (!hasMore || added.isNotEmpty) break;
+        currentToken = nextToken;
+      }
+
+      _seenPageTokens.addAll(batchTokens);
+      _seenLogKeys.addAll(batchKeys);
+      _logs.addAll(added);
+      _nextLogPageToken = hasMore ? nextToken : null;
+      _hasMoreLogs = hasMore;
+    } catch (e) {
+      debugPrint('加载更多猫砂盆今日日志异常: $e');
+    } finally {
+      if (!_isDisposed && seq == _logsRequestSeq) {
+        _isLoadingMoreLogs = false;
+        notifyListeners();
+      }
     }
   }
 }

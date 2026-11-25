@@ -14,6 +14,7 @@ import 'package:fullxpet/features/device/models/product_dto.dart';
 import 'package:fullxpet/features/device/models/feeder_live_info.dart';
 import 'package:fullxpet/locator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fullxpet/features/device/models/device_log.dart';
 
 typedef JsonMap = Map<String, dynamic>;
 typedef ProductCacheMap = Map<String, ProductDto>;
@@ -47,7 +48,8 @@ class DeviceRepository {
   Stream<String> get onDeviceUpdated => _deviceUpdateController.stream;
   final StreamController<({String deviceId, Set<String> dpids})> _dpidUpdateController =
       StreamController<({String deviceId, Set<String> dpids})>.broadcast();
-
+  final StreamController<MqttAttrReportDto> _mqttAttrReportController = StreamController<MqttAttrReportDto>.broadcast();
+  Stream<MqttAttrReportDto> get onMqttAttrReport => _mqttAttrReportController.stream;
   Stream<({String deviceId, Set<String> dpids})> get onDpidUpdated => _dpidUpdateController.stream;
   StreamSubscription? _mqttSub;
   final Set<String> _syncedDeviceIds = {};
@@ -302,6 +304,28 @@ class DeviceRepository {
     return {};
   }
 
+  /// 分页拉取设备属性日志（强类型返回 items / nextPageToken / hasMore）
+  Future<DeviceLogPageDto> fetchDeviceLogsPage(
+    String deviceId, {
+    required String dpidFilter,
+    required String fromIsoUtc,
+    required String toIsoUtc,
+    int pageSize = 20,
+    String sort = 'desc',
+    String? pageToken,
+  }) async {
+    final raw = await fetchDeviceLogsRaw(
+      deviceId,
+      dpidFilter: dpidFilter,
+      fromIsoUtc: fromIsoUtc,
+      toIsoUtc: toIsoUtc,
+      pageSize: pageSize,
+      sort: sort,
+      pageToken: pageToken,
+    );
+    return DeviceLogPageDto.fromJson(raw);
+  }
+
   /// 检查设备是否有待升级固件
   Future<JsonMap?> checkPendingFirmware(String deviceId) async {
     try {
@@ -521,6 +545,7 @@ class DeviceRepository {
         });
 
         _dpidUpdateController.add((deviceId: report.deviceId, dpids: updatedKeys));
+        _mqttAttrReportController.add(report);
         _notify(report.deviceId);
       }
     });
@@ -528,6 +553,7 @@ class DeviceRepository {
 
   void dispose() {
     _mqttSub?.cancel();
+    _mqttAttrReportController.close();
     _dpidUpdateController.close();
     _deviceUpdateController.close();
   }

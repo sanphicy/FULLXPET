@@ -12,12 +12,8 @@ class LitterBoxControlPanel extends StatelessWidget {
 
   static const Color _primary = Color(0xFF917CEE);
   static const Color _primaryLight = Color(0xFFF3F0FF);
-  static const Color _bgPage = Color(0xFFF9F9FC);
   static const Color _pillGray = Color(0xFFF0EFF5);
-  static const Color _online = Color(0xFF8CC152);
-  static const Color _textMain = Color(0xFF333333);
   static const Color _textSub = Color(0xFF666666);
-  static const Color _textMuted = Color(0xFF999999);
 
   @override
   Widget build(BuildContext context) {
@@ -137,110 +133,6 @@ class LitterBoxControlPanel extends StatelessWidget {
                   isLocked: vm.isLoading,
                   onTap: vm.isLoading ? null : () => vm.toggleChildLock(),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: _bgPage, borderRadius: BorderRadius.circular(18)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      s.todayLogs,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _textMain),
-                    ),
-                    const Text('实时同步 MQTT', style: TextStyle(fontSize: 10, color: _textMuted)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (vm.logs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: Text(s.noLogs, style: const TextStyle(fontSize: 12, color: _textMuted)),
-                    ),
-                  )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    itemCount: vm.logs.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final log = vm.logs[index];
-                      final timeStr =
-                          "${log.time.hour.toString().padLeft(2, '0')}:${log.time.minute.toString().padLeft(2, '0')}";
-
-                      String parsedContent = '';
-                      if (log.isAction) {
-                        try {
-                          final action = ExecuteAction.values.byName(log.content);
-                          parsedContent = action.getLocalizedLabel(s);
-                        } catch (_) {
-                          parsedContent = log.content;
-                        }
-                      } else {
-                        final seconds = int.tryParse(log.content) ?? log.content;
-                        parsedContent = s.catToiletLog(seconds);
-                      }
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFF0EFF5)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: log.isAction ? const Color(0xFFECFDF5) : _primaryLight,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      log.isAction ? Icons.cleaning_services_rounded : Icons.pets_rounded,
-                                      size: 12,
-                                      color: log.isAction ? _online : _primary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      parsedContent,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textMain,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              timeStr,
-                              style: const TextStyle(fontSize: 11, color: _textMuted, fontFamily: 'monospace'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
               ],
             ),
           ),
