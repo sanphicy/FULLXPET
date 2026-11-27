@@ -219,19 +219,8 @@ class LitterBoxViewModel extends BaseProvider with WidgetsBindingObserver {
 
   ExecuteAction get currentAction {
     if (!isOnline) return ExecuteAction.idle;
-    final rawExec = _getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '0';
-    switch (rawExec) {
-      case '1':
-        return ExecuteAction.cleaning;
-      case '2':
-        return ExecuteAction.smoothing;
-      case '3':
-        return ExecuteAction.emptying;
-      case '5':
-        return ExecuteAction.resetting;
-      default:
-        return ExecuteAction.idle;
-    }
+    final rawExec = int.tryParse(_getDpid(DeviceThingModel.deviceExecute)?.toString() ?? '') ?? 0;
+    return ExecuteAction.fromValue(rawExec);
   }
 
   String get deviceStatusCode => _getDpid(DeviceThingModel.deviceStatus)?.toString().trim() ?? '0';

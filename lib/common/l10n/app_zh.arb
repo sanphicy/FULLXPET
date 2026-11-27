@@ -67,7 +67,7 @@
   "enterNewDeviceName": "请输入新的设备名称",
   "nameUpdated": "设备名称修改成功",
   "todayToilet": "今日如厕",
-  "averageDuration": "平均时长",
+  "averageDuration": "上次时长",
   "autoMode": "自动\n模式",
   "dndMode": "勿扰\n模式",
   "timerMode": "定时\n模式",

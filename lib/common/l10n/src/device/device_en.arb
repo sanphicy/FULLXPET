@@ -14,7 +14,7 @@
   "enterNewDeviceName": "Enter new device name",
   "nameUpdated": "Device name updated",
   "todayToilet": "Today Visits",
-  "averageDuration": "Avg Duration",
+  "averageDuration": "Last Duration",
   "autoMode": "Auto\nMode",
   "dndMode": "DND\nMode",
   "timerMode": "Timer\nMode",

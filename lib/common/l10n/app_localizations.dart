@@ -502,7 +502,7 @@ abstract class S {
   /// No description provided for @averageDuration.
   ///
   /// In zh, this message translates to:
-  /// **'平均时长'**
+  /// **'上次时长'**
   String get averageDuration;
 
   /// No description provided for @autoMode.

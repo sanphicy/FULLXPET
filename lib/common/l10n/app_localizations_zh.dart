@@ -212,7 +212,7 @@ class SZh extends S {
   String get todayToilet => '今日如厕';
 
   @override
-  String get averageDuration => '平均时长';
+  String get averageDuration => '上次时长';
 
   @override
   String get autoMode => '自动\n模式';

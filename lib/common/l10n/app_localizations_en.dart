@@ -213,7 +213,7 @@ class SEn extends S {
   String get todayToilet => 'Today Visits';
 
   @override
-  String get averageDuration => 'Avg Duration';
+  String get averageDuration => 'Last Duration';
 
   @override
   String get autoMode => 'Auto\nMode';
