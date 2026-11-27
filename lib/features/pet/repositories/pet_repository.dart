@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:fullxpet/common/providers/locale_provider.dart';
 import 'package:fullxpet/core/network/api_client.dart';
 import 'package:fullxpet/core/network/api_endpoints.dart';
 import 'package:fullxpet/core/network/api_exception.dart';
@@ -11,8 +12,13 @@ import '../models/pet_dto.dart';
 class PetRepository {
   final Dio _dio = locator<ApiClient>().dio;
   String? _cachedHomeId;
+  final Map<String, List<PetBreedDto>> _breedCache = {};
 
-  // 获取当前默认家庭 ID（与项目中设备模块逻辑保持一致）
+  String _resolveLocale(String? locale) {
+    if (locale != null && locale.isNotEmpty) return locale;
+    return locator<LocaleProvider>().apiLocale;
+  }
+
   Future<String> getDefaultHomeId() async {
     if (_cachedHomeId != null && _cachedHomeId!.isNotEmpty) {
       return _cachedHomeId!;
@@ -34,36 +40,55 @@ class PetRepository {
   }
 
   // 获取宠物列表
-  Future<List<PetDto>> getPetList({String locale = 'zh'}) async {
+  Future<List<PetDto>> getPetList({String? locale}) async {
     final homeId = await getDefaultHomeId();
     if (homeId.isEmpty) {
       throw const ApiException(message: '未找到有效的家庭信息');
     }
 
-    final res = await _dio.get(ApiEndpoints.pets(homeId), queryParameters: {'locale': locale});
+    final res = await _dio.get(ApiEndpoints.pets(homeId), queryParameters: {'locale': _resolveLocale(locale)});
 
     final data = res.data;
     final petsRaw = (data is Map<String, dynamic> ? data['pets'] : null) as List? ?? [];
-    return petsRaw.map((e) => PetDto.fromJson(e as Map<String, dynamic>)).toList();
+    return [
+      for (final e in petsRaw)
+        if (e is Map<String, dynamic>) PetDto.fromJson(e),
+    ];
   }
 
-  // 上传宠物头像
-  Future uploadPetAvatar(XFile image) async {
+  /// 获取品种字典（按类型与语言缓存在数据层，不污染全局 PetProvider 状态）
+  Future<List<PetBreedDto>> getBreeds({required String petType, String? locale, bool forceRefresh = false}) async {
+    final resolvedLocale = _resolveLocale(locale);
+    final cacheKey = '${petType}_$resolvedLocale';
+    if (!forceRefresh && _breedCache.containsKey(cacheKey)) {
+      return _breedCache[cacheKey]!;
+    }
+
+    final res = await _dio.get(ApiEndpoints.breeds, queryParameters: {'petType': petType, 'locale': resolvedLocale});
+    final data = res.data;
+    final breedsRaw = (data is Map<String, dynamic> ? data['breeds'] : null) as List? ?? [];
+    final list = [
+      for (final e in breedsRaw)
+        if (e is Map<String, dynamic>) PetBreedDto.fromJson(e),
+    ];
+    _breedCache[cacheKey] = list;
+    return list;
+  }
+
+  /// 上传宠物头像 / 照片
+  Future<PetAvatarDto> uploadPetAvatar(XFile image) async {
     final homeId = await getDefaultHomeId();
     if (homeId.isEmpty) {
       throw const ApiException(message: '未找到有效的家庭信息');
     }
 
     final formData = FormData.fromMap({'file': await MultipartFile.fromFile(image.path, filename: image.name)});
-
     final res = await _dio.post(ApiEndpoints.petAvatar(homeId), data: formData);
-    final data = res.data as Map<String, dynamic>? ?? {};
-    final avatar = data['avatar']?.toString() ?? '';
-    final avatarDisplay = data['avatarDisplay']?.toString() ?? avatar;
-    return {'avatar': avatar, 'avatarDisplay': avatarDisplay};
+    final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : const <String, dynamic>{};
+    return PetAvatarDto.fromJson(data);
   }
 
-  // 创建宠物
+  /// 创建宠物
   Future<PetDto> createPet(Map<String, dynamic> payload) async {
     final homeId = await getDefaultHomeId();
     if (homeId.isEmpty) {
@@ -74,7 +99,7 @@ class PetRepository {
     return PetDto.fromJson(res.data as Map<String, dynamic>);
   }
 
-  // 修改宠物资料
+  /// 修改宠物资料
   Future<PetDto> updatePet(String petId, Map<String, dynamic> payload) async {
     final homeId = await getDefaultHomeId();
     if (homeId.isEmpty) {
@@ -85,7 +110,7 @@ class PetRepository {
     return PetDto.fromJson(res.data as Map<String, dynamic>);
   }
 
-  // 删除宠物
+  /// 删除宠物
   Future<void> deletePet(String petId) async {
     final homeId = await getDefaultHomeId();
     if (homeId.isEmpty) {

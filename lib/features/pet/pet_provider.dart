@@ -20,7 +20,7 @@ class PetProvider extends BaseProvider {
   }
 
   /// 刷新宠物列表
-  Future<void> fetchPets({String locale = 'zh'}) async {
+  Future<void> fetchPets({String? locale}) async {
     setLoading(true);
     clearError();
     try {
@@ -39,8 +39,8 @@ class PetProvider extends BaseProvider {
     }
   }
 
-  /// 上传头像返回 path 与 完整 display url
-  Future? uploadAvatar(ImageSource source) async {
+  /// 上传头像 / 照片
+  Future<PetAvatarDto?> uploadAvatar(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 800);
@@ -74,13 +74,12 @@ class PetProvider extends BaseProvider {
     setLoading(true);
     clearError();
     try {
-      final List photosList = (photoKeys != null && photoKeys.isNotEmpty)
-          ? photoKeys.map((k) => {'key': k}).toList()
-          : (avatarPath.isNotEmpty
-                ? [
-                    {'key': avatarPath},
-                  ]
-                : []);
+      final keys = (photoKeys != null && photoKeys.isNotEmpty)
+          ? photoKeys
+          : (avatarPath.isNotEmpty ? [avatarPath] : const <String>[]);
+      final photosList = [
+        for (final k in keys) {'key': k},
+      ];
 
       final payload = {
         'petType': petType,
@@ -115,6 +114,7 @@ class PetProvider extends BaseProvider {
     required String petType,
     required String name,
     required String avatarPath,
+    required List<String> photoKeys,
     required int sex,
     required int activeness,
     required int? birth,
@@ -129,6 +129,9 @@ class PetProvider extends BaseProvider {
         'petType': petType,
         'name': name,
         'avatar': avatarPath,
+        'photos': [
+          for (final k in photoKeys) {'key': k},
+        ],
         'sex': sex,
         'activeness': activeness,
         if (birth != null) 'birth': birth,

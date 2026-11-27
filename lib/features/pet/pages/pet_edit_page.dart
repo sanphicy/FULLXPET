@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:fullxpet/features/device/device_provider.dart';
-import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:fullxpet/common/l10n/app_localizations.dart';
-import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:provider/provider.dart';
+import 'package:fullxpet/common/l10n/app_localizations.dart';
 import 'package:fullxpet/common/theme/app_theme.dart';
 import 'package:fullxpet/common/widgets/app_avatar.dart';
+import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
+import 'package:fullxpet/features/device/device_provider.dart';
+import 'package:fullxpet/features/device/models/device_item_dto.dart';
 import '../models/pet_dto.dart';
 import '../pet_provider.dart';
+import '../widgets/breed_picker_sheet.dart';
 
 class PetEditPage extends StatefulWidget {
   final PetDto? initialPet;
@@ -22,6 +23,7 @@ class PetEditPage extends StatefulWidget {
 
 class _PetEditPageState extends State<PetEditPage> {
   static const Color _primaryPurple = AppTheme.primaryPurple;
+
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _weightCtrl = TextEditingController();
   final TextEditingController _extInfoCtrl = TextEditingController();
@@ -32,23 +34,16 @@ class _PetEditPageState extends State<PetEditPage> {
   int? _birthTimestamp;
   String _avatarPath = '';
   String _avatarDisplay = '';
-  String _breedCode = 'british_shorthair';
-  String _breedName = '英国短毛猫';
+  String _breedCode = '';
+  String _breedName = '';
   bool _isSaving = false;
   String? _selectedDeviceId;
-
-  // 存储上传的宠物其他图片，结构为 {'key': 'smart/pet/...', 'url': 'https://...'}
-  final List<Map<String, String>> _photos = [];
 
   bool get _isEditMode => widget.initialPet != null;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DeviceProvider>().fetchDevices();
-    });
-
     final p = widget.initialPet;
     if (p != null) {
       _nameCtrl.text = p.name;
@@ -62,9 +57,11 @@ class _PetEditPageState extends State<PetEditPage> {
       _avatarDisplay = p.avatarDisplay;
       _breedCode = p.breedCode;
       _breedName = p.breedName;
-      if (p.linkedDevices.isNotEmpty) {
-        _selectedDeviceId = p.linkedDevices.first.deviceId;
-      }
+      _photos.addAll(p.photos);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<DeviceProvider>().fetchDevices();
+      });
     }
   }
 
@@ -76,7 +73,25 @@ class _PetEditPageState extends State<PetEditPage> {
     super.dispose();
   }
 
-  /// 通用图片选择弹窗：isAvatar 为 true 时上传头像，为 false 时上传 photos 列表图片
+  void _onPetTypeChanged(String newType) {
+    if (_petType == newType) return;
+    setState(() {
+      _petType = newType;
+      _breedCode = '';
+      _breedName = '';
+    });
+  }
+
+  Future<void> _openBreedPicker() async {
+    final selected = await BreedPickerSheet.show(context, petType: _petType, selectedBreedCode: _breedCode);
+    if (selected != null && mounted) {
+      setState(() {
+        _breedCode = selected.breedCode;
+        _breedName = selected.breedName;
+      });
+    }
+  }
+
   void _showImagePicker({bool isAvatar = true}) {
     final s = S.of(context)!;
     final provider = context.read<PetProvider>();
@@ -121,14 +136,17 @@ class _PetEditPageState extends State<PetEditPage> {
     );
   }
 
+  // 1. 状态字段声明
+  final List<PetPhotoDto> _photos = [];
+  // 2. _handleAvatarUpload
   Future<void> _handleAvatarUpload(PetProvider provider, ImageSource source, S s) async {
     final uploadRes = await provider.uploadAvatar(source);
     if (!mounted) return;
 
     if (uploadRes != null) {
       setState(() {
-        _avatarPath = uploadRes['avatar'] ?? '';
-        _avatarDisplay = uploadRes['avatarDisplay']?.isNotEmpty == true ? uploadRes['avatarDisplay']! : _avatarPath;
+        _avatarPath = uploadRes.avatar;
+        _avatarDisplay = uploadRes.avatarDisplay;
       });
       context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
     } else if (provider.errorMsg.isNotEmpty) {
@@ -136,23 +154,16 @@ class _PetEditPageState extends State<PetEditPage> {
     }
   }
 
-  /// 复用头像上传接口上传宠物其他图片
+  // 3. _handlePhotoUpload
   Future<void> _handlePhotoUpload(PetProvider provider, ImageSource source, S s) async {
     final uploadRes = await provider.uploadAvatar(source);
     if (!mounted) return;
 
-    if (uploadRes != null) {
-      final key = uploadRes['avatar']?.toString() ?? '';
-      final displayUrl = uploadRes['avatarDisplay']?.toString().isNotEmpty == true
-          ? uploadRes['avatarDisplay'].toString()
-          : key;
-
-      if (key.isNotEmpty) {
-        setState(() {
-          _photos.add({'key': key, 'url': displayUrl});
-        });
-        context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
-      }
+    if (uploadRes != null && uploadRes.avatar.isNotEmpty) {
+      setState(() {
+        _photos.add(PetPhotoDto(key: uploadRes.avatar, url: uploadRes.avatarDisplay));
+      });
+      context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
     } else if (provider.errorMsg.isNotEmpty) {
       context.showAppToast(message: provider.errorMsg, type: AppToastType.error);
     }
@@ -163,7 +174,6 @@ class _PetEditPageState extends State<PetEditPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      // 限制弹窗最大高度为屏幕高度的 60%，避免设备过多顶满全屏
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
@@ -171,7 +181,6 @@ class _PetEditPageState extends State<PetEditPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 顶部固定标题
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text(
@@ -180,11 +189,10 @@ class _PetEditPageState extends State<PetEditPage> {
                 ),
               ),
               const Divider(height: 1),
-              // 中间可滚动的设备列表区域
               Flexible(
                 child: ListView(
                   shrinkWrap: true,
-                  physics: const BouncingScrollPhysics(),
+                  physics: const ClampingScrollPhysics(),
                   children: [
                     ListTile(
                       leading: const Icon(Icons.link_off_rounded, color: Colors.grey),
@@ -252,22 +260,27 @@ class _PetEditPageState extends State<PetEditPage> {
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入宠物昵称')));
+      context.showAppToast(message: '请输入宠物昵称', type: AppToastType.warning);
       return;
     }
+    if (_breedCode.isEmpty) {
+      context.showAppToast(message: '请选择宠物品种', type: AppToastType.warning);
+      return;
+    }
+
     final weightKg = double.tryParse(_weightCtrl.text.trim()) ?? 0.0;
-    final weightGrams = (weightKg * 1000).toInt();
+    final weightGrams = (weightKg * 1000).round();
 
     setState(() => _isSaving = true);
     final provider = context.read<PetProvider>();
     bool ok;
-
     if (_isEditMode) {
       ok = await provider.updatePet(
         petId: widget.initialPet!.id,
         petType: _petType,
         name: name,
         avatarPath: _avatarPath,
+        photoKeys: _photos.map((e) => e.key).toList(),
         sex: _sex,
         activeness: _activeness,
         birth: _birthTimestamp,
@@ -280,7 +293,7 @@ class _PetEditPageState extends State<PetEditPage> {
         petType: _petType,
         name: name,
         avatarPath: _avatarPath,
-        photoKeys: _photos.map((e) => e['key']!).toList(), // 传入上传的宠物照片 key 列表
+        photoKeys: _photos.map((e) => e.key).toList(),
         sex: _sex,
         activeness: _activeness,
         birth: _birthTimestamp,
@@ -294,17 +307,21 @@ class _PetEditPageState extends State<PetEditPage> {
     if (mounted) {
       setState(() => _isSaving = false);
       if (ok) {
+        context.showAppToast(message: S.of(context)!.operationSuccess, type: AppToastType.success);
         context.pop();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(provider.errorMsg.isNotEmpty ? provider.errorMsg : '保存失败')));
+        context.showAppToast(
+          message: provider.errorMsg.isNotEmpty ? provider.errorMsg : '保存失败',
+          type: AppToastType.error,
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final linkedDevices = widget.initialPet?.linkedDevices ?? const <LinkedDeviceDto>[];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9FC),
       appBar: AppBar(
@@ -324,6 +341,7 @@ class _PetEditPageState extends State<PetEditPage> {
         child: ResponsiveFormContainer(
           maxWidth: 600,
           child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -348,26 +366,52 @@ class _PetEditPageState extends State<PetEditPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // 宠物类型选择
+
                 Row(
                   children: [
                     Expanded(
-                      child: _buildChoiceCard('猫咪', Icons.pets, _petType == 'cat', () {
-                        setState(() => _petType = 'cat');
-                      }),
+                      child: _buildChoiceCard('猫咪', Icons.pets, _petType == 'cat', () => _onPetTypeChanged('cat')),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: _buildChoiceCard('狗狗', Icons.cruelty_free, _petType == 'dog', () {
-                        setState(() => _petType = 'dog');
-                      }),
+                      child: _buildChoiceCard(
+                        '狗狗',
+                        Icons.cruelty_free,
+                        _petType == 'dog',
+                        () => _onPetTypeChanged('dog'),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
+
                 _buildCardGroup(
                   children: [
                     _buildTextFieldItem('名字', '请输入宠物名字', _nameCtrl),
+                    const Divider(height: 1, indent: 16, endIndent: 16, color: Color(0xFFF0EFF5)),
+                    ListTile(
+                      title: const Text('品种', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 180),
+                            child: Text(
+                              _breedName.isNotEmpty ? _breedName : (_breedCode.isNotEmpty ? _breedCode : '请选择品种'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _breedCode.isNotEmpty ? const Color(0xFF333333) : Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
+                        ],
+                      ),
+                      onTap: _openBreedPicker,
+                    ),
                     const Divider(height: 1, indent: 16, endIndent: 16, color: Color(0xFFF0EFF5)),
                     _buildTextFieldItem(
                       '体重 (kg)',
@@ -437,7 +481,89 @@ class _PetEditPageState extends State<PetEditPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // 新增宠物时展示「宠物其他图片 (photos)」上传卡片
+                // 编辑模式：只读回显已绑定设备（PATCH 接口不支持修改设备绑定）
+                if (_isEditMode) ...[
+                  // 宠物照片卡片（新增与编辑模式共用）
+                  _buildCardGroup(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                        child: Text(
+                          '宠物照片',
+                          style: TextStyle(fontSize: 14, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            ..._photos.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final url = entry.value.url;
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      url,
+                                      width: 76,
+                                      height: 76,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        width: 76,
+                                        height: 76,
+                                        color: const Color(0xFFF0EFF5),
+                                        child: const Icon(Icons.pets, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: -6,
+                                    right: -6,
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _photos.removeAt(index)),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                            GestureDetector(
+                              onTap: () => _showImagePicker(isAvatar: false),
+                              child: Container(
+                                width: 76,
+                                height: 76,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9F9FC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFE5E5E5), width: 1.5),
+                                ),
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add_photo_alternate_outlined, color: _primaryPurple, size: 26),
+                                    SizedBox(height: 4),
+                                    Text('上传照片', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 新增模式：宠物照片上传卡片
                 if (!_isEditMode) ...[
                   _buildCardGroup(
                     children: [
@@ -456,7 +582,7 @@ class _PetEditPageState extends State<PetEditPage> {
                           children: [
                             ..._photos.asMap().entries.map((entry) {
                               final index = entry.key;
-                              final url = entry.value['url'] ?? '';
+                              final url = entry.value.url;
                               return Stack(
                                 clipBehavior: Clip.none,
                                 children: [
@@ -577,7 +703,37 @@ class _PetEditPageState extends State<PetEditPage> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+
+                _buildCardGroup(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                      child: Text(
+                        '备注信息',
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: TextField(
+                        controller: _extInfoCtrl,
+                        minLines: 2,
+                        maxLines: 4,
+                        maxLength: 200,
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF333333)),
+                        decoration: const InputDecoration(
+                          hintText: '选填，如饮食习惯、过敏史等',
+                          hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                          border: InputBorder.none,
+                          counterStyle: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 32),
+
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(

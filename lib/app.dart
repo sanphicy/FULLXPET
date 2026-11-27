@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:fullxpet/common/providers/locale_provider.dart';
 import 'package:fullxpet/features/pet/pet_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: locator<LocaleProvider>()),
         ChangeNotifierProvider.value(value: locator<UserProvider>()),
         ChangeNotifierProvider.value(value: locator<DeviceProvider>()),
         ChangeNotifierProvider.value(value: locator<PetProvider>()),
@@ -42,13 +44,19 @@ class MyApp extends StatelessWidget {
         splitScreenMode: true,
         fontSizeResolver: _resolveFontSize,
         builder: (context, child) {
-          return MaterialApp.router(
-            title: locator<AppConfig>().appName,
-            debugShowCheckedModeBanner: false,
-            routerConfig: AppRouter.router,
-            supportedLocales: S.supportedLocales,
-            localizationsDelegates: _localizationsDelegates,
-            theme: AppTheme.lightTheme,
+          return Consumer<LocaleProvider>(
+            builder: (context, localeProvider, _) {
+              return MaterialApp.router(
+                title: locator<AppConfig>().appName,
+                debugShowCheckedModeBanner: false,
+                routerConfig: AppRouter.router,
+                locale: localeProvider.overrideLocale,
+                supportedLocales: S.supportedLocales,
+                localizationsDelegates: _localizationsDelegates,
+                localeResolutionCallback: localeProvider.resolveAppLocale,
+                theme: AppTheme.lightTheme,
+              );
+            },
           );
         },
       ),

@@ -8,6 +8,7 @@ import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/routes/app_router.dart';
 import '../models/pet_dto.dart';
 import '../pet_provider.dart';
+import 'package:fullxpet/common/widgets/app_dialogs.dart';
 
 class PetListPage extends StatefulWidget {
   const PetListPage({super.key});
@@ -47,9 +48,13 @@ class _PetListPageState extends State<PetListPage> {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              final success = await context.read<PetProvider>().deletePet(pet.id);
+              final provider = context.read<PetProvider>();
+              final success = await provider.deletePet(pet.id);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '已删除宠物' : '删除失败')));
+                context.showAppToast(
+                  message: success ? '已删除宠物' : (provider.errorMsg.isNotEmpty ? provider.errorMsg : '删除失败'),
+                  type: success ? AppToastType.success : AppToastType.error,
+                );
               }
             },
             child: const Text(

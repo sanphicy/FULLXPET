@@ -12,6 +12,7 @@ import 'package:fullxpet/features/auth/repositories/auth_repository.dart';
 import 'package:fullxpet/common/config/app_config.dart';
 import 'package:fullxpet/core/storage/token_manager.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
+import 'package:fullxpet/common/providers/locale_provider.dart';
 
 import 'package:fullxpet/features/pet/pet_provider.dart';
 import 'package:fullxpet/features/pet/repositories/pet_repository.dart';
@@ -42,6 +43,8 @@ void setupLocator({AppConfig? config}) {
   // 请求信息
   locator.registerLazySingleton<RegionService>(() => RegionService());
 
+  //语言
+  locator.registerLazySingleton<LocaleProvider>(() => LocaleProvider());
   // 宠物
   locator.registerLazySingleton<PetRepository>(() => PetRepository());
   locator.registerLazySingleton<PetProvider>(() => PetProvider());

@@ -1,4 +1,57 @@
-import 'dart:convert';
+/// 宠物照片 DTO（对应接口返回的 photos 元素）
+class PetPhotoDto {
+  final String key;
+  final String url;
+
+  const PetPhotoDto({required this.key, required this.url});
+
+  factory PetPhotoDto.fromJson(Map<String, dynamic> json) {
+    final key = json['key']?.toString() ?? '';
+    final url = json['url']?.toString() ?? '';
+    return PetPhotoDto(key: key, url: url.isNotEmpty ? url : key);
+  }
+}
+
+// 宠物图片上传结果 DTO（对应 POST /pets/avatar）
+class PetAvatarDto {
+  final String avatar;
+  final String avatarDisplay;
+
+  const PetAvatarDto({required this.avatar, required this.avatarDisplay});
+
+  factory PetAvatarDto.fromJson(Map<String, dynamic> json) {
+    final avatar = json['avatar']?.toString() ?? '';
+    final display = json['avatarDisplay']?.toString() ?? '';
+    return PetAvatarDto(avatar: avatar, avatarDisplay: display.isNotEmpty ? display : avatar);
+  }
+}
+
+/// 宠物品种 DTO
+class PetBreedDto {
+  final String id;
+  final String breedCode;
+  final String breedName;
+  final String letterIndex;
+  final String petType;
+
+  const PetBreedDto({
+    this.id = '',
+    required this.breedCode,
+    required this.breedName,
+    this.letterIndex = '',
+    this.petType = '',
+  });
+
+  factory PetBreedDto.fromJson(Map<String, dynamic> json) {
+    return PetBreedDto(
+      id: json['id']?.toString() ?? '',
+      breedCode: json['breedCode']?.toString() ?? '',
+      breedName: json['breedName']?.toString() ?? '',
+      letterIndex: json['letterIndex']?.toString() ?? '',
+      petType: json['petType']?.toString() ?? '',
+    );
+  }
+}
 
 /// 宠物性别枚举
 enum PetSex {
@@ -75,6 +128,7 @@ class PetDto {
   final String name;
   final String avatar;
   final String avatarDisplay;
+  final List<PetPhotoDto> photos;
   final int sex;
   final int activeness;
   final int? birth; // UTC 毫秒时间戳
@@ -83,6 +137,7 @@ class PetDto {
   final String breedName;
   final String extInfo;
   final bool bindFood;
+  final bool bindLitter;
   final List<LinkedDeviceDto> linkedDevices;
 
   PetDto({
@@ -92,6 +147,7 @@ class PetDto {
     this.name = '',
     this.avatar = '',
     this.avatarDisplay = '',
+    List<PetPhotoDto>? photos,
     this.sex = 1,
     this.activeness = 1,
     this.birth,
@@ -100,16 +156,16 @@ class PetDto {
     this.breedName = '',
     this.extInfo = '',
     this.bindFood = false,
+    this.bindLitter = false,
     List<LinkedDeviceDto>? linkedDevices,
-  }) : linkedDevices = linkedDevices ?? [];
+  }) : photos = photos ?? [],
+       linkedDevices = linkedDevices ?? [];
 
   PetSex get petSex => PetSex.fromValue(sex);
   PetActiveness get petActiveness => PetActiveness.fromValue(activeness);
 
-  /// 体重格式化（kg）
   String get weightKgStr => (weight / 1000.0).toStringAsFixed(1);
 
-  /// 根据生日时间戳推算年龄展示
   String get ageStr {
     if (birth == null || birth! <= 0) return '未知';
     final birthDate = DateTime.fromMillisecondsSinceEpoch(birth!, isUtc: true).toLocal();
@@ -128,7 +184,8 @@ class PetDto {
   }
 
   factory PetDto.fromJson(Map<String, dynamic> json) {
-    final list = json['linkedDevices'] as List?;
+    final photoList = json['photos'] as List?;
+    final linkedList = json['linkedDevices'] as List?;
     return PetDto(
       id: json['id']?.toString() ?? '',
       ownerId: json['ownerId']?.toString() ?? '',
@@ -136,6 +193,11 @@ class PetDto {
       name: json['name']?.toString() ?? '',
       avatar: json['avatar']?.toString() ?? '',
       avatarDisplay: json['avatarDisplay']?.toString() ?? '',
+      photos: [
+        if (photoList != null)
+          for (final e in photoList)
+            if (e is Map<String, dynamic>) PetPhotoDto.fromJson(e),
+      ],
       sex: int.tryParse(json['sex']?.toString() ?? '') ?? 1,
       activeness: int.tryParse(json['activeness']?.toString() ?? '') ?? 1,
       birth: json['birth'] != null ? int.tryParse(json['birth'].toString()) : null,
@@ -144,7 +206,12 @@ class PetDto {
       breedName: json['breedName']?.toString() ?? '',
       extInfo: json['extInfo']?.toString() ?? '',
       bindFood: json['bindFood'] == true,
-      linkedDevices: list != null ? list.map((e) => LinkedDeviceDto.fromJson(e as Map<String, dynamic>)).toList() : [],
+      bindLitter: json['bindLitter'] == true,
+      linkedDevices: [
+        if (linkedList != null)
+          for (final e in linkedList)
+            if (e is Map<String, dynamic>) LinkedDeviceDto.fromJson(e),
+      ],
     );
   }
 
@@ -155,6 +222,7 @@ class PetDto {
     String? name,
     String? avatar,
     String? avatarDisplay,
+    List<PetPhotoDto>? photos,
     int? sex,
     int? activeness,
     int? birth,
@@ -163,6 +231,7 @@ class PetDto {
     String? breedName,
     String? extInfo,
     bool? bindFood,
+    bool? bindLitter,
     List<LinkedDeviceDto>? linkedDevices,
   }) {
     return PetDto(
@@ -172,6 +241,7 @@ class PetDto {
       name: name ?? this.name,
       avatar: avatar ?? this.avatar,
       avatarDisplay: avatarDisplay ?? this.avatarDisplay,
+      photos: photos ?? this.photos,
       sex: sex ?? this.sex,
       activeness: activeness ?? this.activeness,
       birth: birth ?? this.birth,
@@ -180,6 +250,7 @@ class PetDto {
       breedName: breedName ?? this.breedName,
       extInfo: extInfo ?? this.extInfo,
       bindFood: bindFood ?? this.bindFood,
+      bindLitter: bindLitter ?? this.bindLitter,
       linkedDevices: linkedDevices ?? this.linkedDevices,
     );
   }
