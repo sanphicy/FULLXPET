@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,13 +11,14 @@ import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/app_dialogs.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
+import 'package:fullxpet/features/user/widgets/delete_account_dialog.dart';
+import 'package:fullxpet/features/user/widgets/edit_nickname_dialog.dart';
 
 class PersonalInfoPage extends StatelessWidget {
   const PersonalInfoPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // 按需创建局部 ViewModel，离开页面自动销毁[cite: 1]
     return ChangeNotifierProvider(create: (_) => UserViewModel(), child: const _PersonalInfoView());
   }
 }
@@ -26,48 +26,21 @@ class PersonalInfoPage extends StatelessWidget {
 class _PersonalInfoView extends StatelessWidget {
   const _PersonalInfoView();
 
-  void _showEditNicknameDialog(BuildContext context, UserViewModel vm, String currentNickname, S s) {
-    final TextEditingController controller = TextEditingController(text: currentNickname);
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: Text(s.editNickname, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: s.enterNewNickname,
-              focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryPurple)),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(s.cancel, style: const TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () async {
-                FocusManager.instance.primaryFocus?.unfocus();
-                final newName = controller.text.trim();
-                Navigator.pop(ctx);
-                if (newName.isNotEmpty && newName != currentNickname) {
-                  final success = await vm.updateNickname(newName);
-                  if (success && context.mounted) {
-                    context.showAppToast(message: s.nicknameUpdated, type: AppToastType.success);
-                  }
-                }
-              },
-              child: Text(
-                s.confirm,
-                style: const TextStyle(color: AppTheme.primaryPurple, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _handleEditNickname(BuildContext context, UserViewModel vm, String currentNickname, S s) async {
+    final newName = await EditNicknameDialog.show(context, initialNickname: currentNickname);
+    if (!context.mounted || newName == null || newName.isEmpty || newName == currentNickname) return;
+
+    final success = await vm.updateNickname(newName);
+    if (success && context.mounted) {
+      context.showAppToast(message: s.nicknameUpdated, type: AppToastType.success);
+    }
+  }
+
+  Future<void> _handleUploadAvatar(BuildContext context, UserViewModel vm, ImageSource source, S s) async {
+    final success = await vm.uploadAvatar(source);
+    if (success && context.mounted) {
+      context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
+    }
   }
 
   void _showImagePicker(BuildContext context, UserViewModel vm, S s) {
@@ -83,23 +56,17 @@ class _PersonalInfoView extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: Text(s.chooseFromGallery),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(ctx);
-                  final success = await vm.uploadAvatar(ImageSource.gallery);
-                  if (success && context.mounted) {
-                    context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
-                  }
+                  _handleUploadAvatar(context, vm, ImageSource.gallery, s);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera),
                 title: Text(s.takePhoto),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(ctx);
-                  final success = await vm.uploadAvatar(ImageSource.camera);
-                  if (success && context.mounted) {
-                    context.showAppToast(message: s.operationSuccess, type: AppToastType.success);
-                  }
+                  _handleUploadAvatar(context, vm, ImageSource.camera, s);
                 },
               ),
             ],
@@ -109,140 +76,18 @@ class _PersonalInfoView extends StatelessWidget {
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context, UserViewModel vm, String account, S s) {
-    final TextEditingController codeController = TextEditingController();
-    int countdown = 0;
-    Timer? timer;
-    bool isSending = false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            void startCountdown(int seconds) {
-              setState(() => countdown = seconds);
-              timer?.cancel();
-              timer = Timer.periodic(const Duration(seconds: 1), (t) {
-                if (countdown > 0) {
-                  setState(() => countdown--);
-                } else {
-                  t.cancel();
-                }
-              });
-            }
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFF37474), size: 24),
-                  const SizedBox(width: 8),
-                  Text(s.deleteAccount, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '注销后账号数据将永久删除且无法恢复。我们将向 $account 发送验证码以确认操作。',
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF666666), height: 1.4),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: codeController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              hintText: s.enterCode,
-                              hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: (countdown > 0 || isSending)
-                              ? null
-                              : () async {
-                                  setState(() => isSending = true);
-                                  final cd = await vm.sendDeleteAccountCode();
-                                  setState(() => isSending = false);
-                                  if (cd > 0) {
-                                    startCountdown(cd);
-                                  }
-                                },
-                          child: isSending
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryPurple),
-                                )
-                              : Text(
-                                  countdown > 0 ? '${countdown}s' : s.sendCode,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: countdown > 0 ? Colors.grey : AppTheme.primaryPurple,
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    timer?.cancel();
-                    Navigator.pop(ctx);
-                  },
-                  child: Text(s.cancel, style: const TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF37474),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: () async {
-                    final code = codeController.text.trim();
-                    if (code.isEmpty) {
-                      context.showAppToast(message: s.enterCode, type: AppToastType.warning);
-                      return;
-                    }
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    timer?.cancel();
-                    Navigator.pop(ctx);
-                    await vm.deleteAccount(code);
-                  },
-                  child: const Text(
-                    "确认注销",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+  void _handleDeleteAccount(BuildContext context, UserViewModel vm, String account) {
+    if (account.isEmpty) {
+      context.showAppToast(message: '未获取到当前账号', type: AppToastType.warning);
+      return;
+    }
+    DeleteAccountDialog.show(context, vm: vm, account: account);
   }
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    // 监听局部 ViewModel 状态（loading / 错误信息）[cite: 1]
     final vm = context.watch<UserViewModel>();
-    // 精准监听全局 UserDto 实体[cite: 1, 2]
     final user = context.select<UserProvider, UserDto>((p) => p.user);
 
     const Color textColor = Color(0xFF333333);
@@ -299,7 +144,7 @@ class _PersonalInfoView extends StatelessWidget {
                       trailingText: user.nickname,
                       valueColor: valueColor,
                       showArrow: true,
-                      onTap: () => _showEditNicknameDialog(context, vm, user.nickname, s),
+                      onTap: () => _handleEditNickname(context, vm, user.nickname, s),
                     ),
                     const Divider(height: 1, color: dividerColor),
 
@@ -325,7 +170,7 @@ class _PersonalInfoView extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           elevation: 0,
                         ),
-                        onPressed: () => _showDeleteAccountDialog(context, vm, user.account, s),
+                        onPressed: () => _handleDeleteAccount(context, vm, user.account),
                         child: Text(
                           s.deleteAccount,
                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
@@ -351,7 +196,7 @@ class _PersonalInfoView extends StatelessWidget {
                             confirmText: s.confirm,
                             cancelText: s.cancel,
                           );
-                          if (confirm == true) {
+                          if (confirm == true && context.mounted) {
                             await context.read<UserProvider>().logout();
                           }
                         },
@@ -366,7 +211,6 @@ class _PersonalInfoView extends StatelessWidget {
                 ),
               ),
 
-              // 遮罩 Loading（直接绑定 vm.isLoading）
               if (vm.isLoading)
                 Container(
                   color: Colors.black.withValues(alpha: 0.2),

@@ -48,7 +48,6 @@ import 'package:fullxpet/features/device/products/feeder/pages/feeder_setting_pa
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
 import 'package:fullxpet/features/user/pages/feedback_page.dart';
 import 'package:fullxpet/features/user/pages/personal_info_page.dart';
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 
 class AppRoutes {
   // Splash & Auth
@@ -173,13 +172,7 @@ class AppRouter {
         ],
       ),
       StatefulShellBranch(
-        routes: [
-          GoRoute(
-            path: AppRoutes.tabUser,
-            builder: (context, state) =>
-                ChangeNotifierProvider(create: (_) => UserViewModel(), child: const UserPage()),
-          ),
-        ],
+        routes: [GoRoute(path: AppRoutes.tabUser, builder: (context, state) => const UserPage())],
       ),
     ],
   );

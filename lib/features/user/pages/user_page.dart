@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:fullxpet/common/config/app_constants.dart';
 import 'package:fullxpet/common/l10n/app_localizations.dart';
@@ -8,7 +9,6 @@ import 'package:fullxpet/common/widgets/app_avatar.dart';
 import 'package:fullxpet/common/widgets/responsive_layout.dart';
 import 'package:fullxpet/common/providers/user_provider.dart';
 import 'package:fullxpet/features/pet/pet_provider.dart';
-import 'package:fullxpet/features/user/viewmodels/user_view_model.dart';
 import 'package:fullxpet/routes/app_router.dart';
 
 class UserPage extends StatefulWidget {
@@ -19,13 +19,26 @@ class UserPage extends StatefulWidget {
 }
 
 class _UserPageState extends State<UserPage> {
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
+    _loadAppVersion();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 进入个人中心时静默预加载宠物列表
-      context.read<PetProvider>().fetchPets();
+      if (mounted) {
+        context.read<PetProvider>().fetchPets();
+      }
     });
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _appVersion = info.version);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -181,17 +194,11 @@ class _UserPageState extends State<UserPage> {
                         },
                       ),
                       _buildDivider(),
-                      Selector<UserViewModel, String>(
-                        selector: (_, vm) => vm.appVersion,
-                        builder: (context, version, _) {
-                          return _buildListTile(
-                            Icons.info_outline,
-                            const Color(0xFF5C7CEE),
-                            s.appVersion,
-                            trailingText: version,
-                            onTap: () {},
-                          );
-                        },
+                      _buildListTile(
+                        Icons.info_outline,
+                        const Color(0xFF5C7CEE),
+                        s.appVersion,
+                        trailingText: _appVersion,
                       ),
                     ],
                   ),
@@ -259,8 +266,10 @@ class _UserPageState extends State<UserPage> {
             const Spacer(),
             if (trailingText != null && trailingText.isNotEmpty)
               Text(trailingText, style: const TextStyle(fontSize: 13, color: Color(0xFF999999))),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
+            ],
           ],
         ),
       ),
