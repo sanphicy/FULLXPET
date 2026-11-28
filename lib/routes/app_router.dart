@@ -48,6 +48,8 @@ import 'package:fullxpet/features/device/products/feeder/pages/feeder_setting_pa
 import 'package:fullxpet/features/user/pages/about_us_page.dart';
 import 'package:fullxpet/features/user/pages/feedback_page.dart';
 import 'package:fullxpet/features/user/pages/personal_info_page.dart';
+import 'package:fullxpet/features/user/pages/feedback_detail_page.dart';
+import 'package:fullxpet/features/user/pages/feedback_list_page.dart';
 
 class AppRoutes {
   // Splash & Auth
@@ -114,7 +116,9 @@ class AppRoutes {
   static const aboutUs = '/about_us';
   static const feedback = '/feedback';
   static const webView = '/web_view';
-
+  static const feedbackList = '/feedback_list';
+  static const feedbackDetail = '/feedback_detail/:id';
+  static String feedbackDetailPath(String id) => '/feedback_detail/$id';
   // Pet
   static const petList = '/pet_list';
   static const petEdit = '/pet_edit';
@@ -288,6 +292,11 @@ class AppRouter {
         final pet = state.extra as PetDto?;
         return PetEditPage(initialPet: pet);
       },
+    ),
+    GoRoute(path: AppRoutes.feedbackList, builder: (context, state) => const FeedbackListPage()),
+    GoRoute(
+      path: AppRoutes.feedbackDetail,
+      builder: (context, state) => FeedbackDetailPage(feedbackId: state.pathParameters['id'] ?? ''),
     ),
   ];
 

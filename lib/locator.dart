@@ -16,6 +16,7 @@ import 'package:fullxpet/common/providers/locale_provider.dart';
 
 import 'package:fullxpet/features/pet/pet_provider.dart';
 import 'package:fullxpet/features/pet/repositories/pet_repository.dart';
+import 'package:fullxpet/features/user/repositories/feedback_repository.dart';
 
 final locator = GetIt.instance;
 
@@ -36,6 +37,7 @@ void setupLocator({AppConfig? config}) {
   locator.registerLazySingleton<AuthRepository>(() => AuthRepository());
   locator.registerLazySingleton<DeviceRepository>(() => DeviceRepository());
   locator.registerLazySingleton<UserRepository>(() => UserRepository());
+  locator.registerLazySingleton<FeedbackRepository>(() => FeedbackRepository());
   // 全局状态
   locator.registerLazySingleton<UserProvider>(() => UserProvider());
   locator.registerLazySingleton<DeviceProvider>(() => DeviceProvider());
